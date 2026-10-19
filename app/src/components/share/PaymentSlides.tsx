@@ -1,0 +1,140 @@
+import { ArrowRight, Check, ChevronLeft, ChevronRight, Copy, Landmark } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import type { PaymentSlide } from '../../domain/paymentSlides'
+import { formatMoney } from '../../lib/money'
+import { copyTextToClipboard } from '../../services/snapshotService'
+import IconButton from '../ui/IconButton'
+import QrCode from '../ui/QrCode'
+
+interface Props {
+  slides: ReadonlyArray<PaymentSlide>
+}
+
+/** Một dòng thông tin kèm nút sao chép (số tài khoản, nội dung). */
+function CopyRow({ label, value, copyValue }: { label: string; value: string; copyValue: string }) {
+  const [done, setDone] = useState(false)
+  useEffect(() => {
+    if (!done) return
+    const timer = window.setTimeout(() => setDone(false), 1500)
+    return () => window.clearTimeout(timer)
+  }, [done])
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <dt className="shrink-0 text-xs text-usd-green-700">{label}</dt>
+      <dd className="flex min-w-0 items-center gap-1">
+        <span className="money min-w-0 break-words text-xs font-semibold">{value}</span>
+        <IconButton
+          icon={done ? Check : Copy}
+          label={`Sao chép ${label.toLowerCase()}`}
+          className="!h-7 !w-7 shrink-0"
+          onClick={() => void copyTextToClipboard(copyValue).then(() => setDone(true), () => undefined)}
+        />
+      </dd>
+    </div>
+  )
+}
+
+/** Nút sao chép số tiền, đặt cạnh số tiền lớn. */
+function AmountCopy({ amount }: { amount: number }) {
+  const [done, setDone] = useState(false)
+  useEffect(() => {
+    if (!done) return
+    const timer = window.setTimeout(() => setDone(false), 1500)
+    return () => window.clearTimeout(timer)
+  }, [done])
+  return (
+    <IconButton
+      icon={done ? Check : Copy}
+      label="Sao chép số tiền"
+      className="!h-7 !w-7"
+      onClick={() => void copyTextToClipboard(String(amount)).then(() => setDone(true), () => undefined)}
+    />
+  )
+}
+
+/**
+ * Các khoản chuyển tiền dạng slide vuốt ngang: mỗi slide chỉ gồm mã QR chuyển tiền và thông tin chuyển tiền.
+ * Người nhận chưa có tài khoản thì slide vẫn hiện số tiền và nội dung kèm lời nhắc.
+ */
+export default function PaymentSlides({ slides }: Props) {
+  // Cha đặt `key` theo bộ lọc nên đổi bộ lọc sẽ dựng lại và quay về slide đầu.
+  const track = useRef<HTMLUListElement>(null)
+  const [index, setIndex] = useState(0)
+
+  function go(to: number) {
+    const el = track.current
+    if (!el) return
+    const next = Math.max(0, Math.min(slides.length - 1, to))
+    if (typeof el.scrollTo === 'function') el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' })
+    else el.scrollLeft = next * el.clientWidth
+    setIndex(next)
+  }
+
+  if (slides.length === 0) return <p className="text-sm text-usd-green-700">Không có khoản chuyển tiền nào.</p>
+
+  return (
+    <div className="space-y-1">
+      <ul
+        ref={track}
+        aria-label="Các khoản chuyển tiền"
+        tabIndex={0}
+        onScroll={(e) => {
+          const el = e.currentTarget
+          if (el.clientWidth > 0) setIndex(Math.round(el.scrollLeft / el.clientWidth))
+        }}
+        className="flex snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {slides.map((s) => (
+          <li
+            key={s.key}
+            aria-label={`Thanh toán ${s.fromName} cho ${s.toName}`}
+            className="w-full shrink-0 snap-center px-1"
+          >
+            <div className="space-y-1.5 rounded-xl border border-usd-paper-200 bg-white/70 p-2 text-sm">
+              <p className="flex flex-wrap items-center justify-center gap-x-1.5 text-center text-xs">
+                <strong className="break-words">{s.fromName}</strong>
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-usd-green-700" aria-label="chuyển cho" />
+                <strong className="break-words">{s.toName}</strong>
+              </p>
+              <div className="flex items-center justify-center gap-1">
+                <p className="money text-xl font-bold text-usd-green-900">{formatMoney(s.amount)}</p>
+                <AmountCopy amount={s.amount} />
+              </div>
+
+              {s.qrPayload && s.bank ? (
+                <QrCode value={s.qrPayload} label={`Mã QR chuyển ${formatMoney(s.amount)} tới ${s.bank.accountName}`} className="mx-auto w-[min(52vw,27dvh)]" />
+              ) : (
+                <p role="note" className="flex items-start gap-2 rounded-lg border border-amber-600 bg-amber-50 p-2 text-xs text-amber-900">
+                  <Landmark className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  {s.toName} chưa có thông tin ngân hàng nên chưa tạo được mã QR.
+                </p>
+              )}
+
+              <dl className="space-y-0.5">
+                {s.bank && (
+                  <>
+                    <p className="truncate text-center text-xs text-usd-green-700">
+                      <span>{s.bank.bankName}</span> · <span className="font-semibold text-usd-green-950">{s.bank.accountName}</span>
+                    </p>
+                    <CopyRow label="Số tài khoản" value={s.bank.accountNumber} copyValue={s.bank.accountNumber} />
+                  </>
+                )}
+                <CopyRow label="Nội dung" value={s.content} copyValue={s.content} />
+              </dl>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {slides.length > 1 && (
+        <div className="flex items-center justify-between">
+          <IconButton icon={ChevronLeft} label="Khoản trước" tone="outline" disabled={index === 0} onClick={() => go(index - 1)} />
+          <span role="status" className="text-xs text-usd-green-700">
+            {index + 1}/{slides.length}
+          </span>
+          <IconButton icon={ChevronRight} label="Khoản sau" tone="outline" disabled={index >= slides.length - 1} onClick={() => go(index + 1)} />
+        </div>
+      )}
+    </div>
+  )
+}

@@ -1,0 +1,140 @@
+import { Pencil, Plus, Trash2, UsersRound } from 'lucide-react'
+import { countUnassignedItems } from '../../domain/invoiceRules'
+import type { InvoiceRow } from '../../hooks/useMealSessions'
+import { formatMoney } from '../../lib/money'
+import {
+  addInvoiceItem,
+  deleteInvoiceItem,
+  setAllItemsConsumers,
+  setInvoicePayer,
+  setInvoiceSplitType,
+} from '../../services/invoiceService'
+import { PeopleError } from '../../services/peopleErrors'
+import type { Member, SessionKeo } from '../../types'
+import IconButton from '../ui/IconButton'
+import PeoplePicker from '../ui/PeoplePicker'
+import Switch from '../ui/Switch'
+import EqualSplitPicker from './EqualSplitPicker'
+import InvoiceItemRow from './InvoiceItemRow'
+
+interface Props {
+  row: InvoiceRow
+  /** Số thứ tự của hoá đơn trong kèo (hiển thị #n). */
+  index: number
+  session: SessionKeo
+  /** Người đang tham gia kèo — nguồn của người ứng, người chia đều và người ăn. */
+  sessionMembers: Member[]
+  readOnly: boolean
+  onEditInvoice: () => void
+  onDeleteInvoice: () => void
+  onError: (message: string) => void
+}
+
+const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : 'Có lỗi không xác định.')
+
+/**
+ * Thẻ một hoá đơn trong kèo (Tầng 2 + Tầng 3), dạng gọn: tên + tổng + icon; người ứng là chuỗi bấm để đổi;
+ * công tắc chia từng món / chia đều; món hiện 3 dòng (tên, SL × giá = tiền, người tham gia).
+ */
+export default function InvoiceCard({ row, index, session, sessionMembers, readOnly, onEditInvoice, onDeleteInvoice, onError }: Props) {
+  const { invoice, items } = row
+  const unassigned = countUnassignedItems(invoice.splitType, items)
+  const locked = invoice.inputMode === 'TOTAL_ONLY'
+  const n = index + 1
+
+  async function run(action: () => Promise<unknown>) {
+    try {
+      await action()
+    } catch (err) {
+      onError(errorText(err))
+    }
+  }
+
+  const title = invoice.vendorName ?? 'Không rõ tên quán'
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-start gap-1">
+        <p className="min-w-0 flex-1 break-words font-medium">
+          #{n} {title}
+        </p>
+        <span className="money shrink-0 py-2 text-sm font-semibold sm:py-1.5">{formatMoney(invoice.totalAmount)}</span>
+        {!readOnly && (
+          <>
+            <IconButton icon={Pencil} label={`Sửa hoá đơn #${n}`} onClick={onEditInvoice} />
+            <IconButton icon={Trash2} label={`Xoá hoá đơn #${n}`} tone="danger" onClick={onDeleteInvoice} />
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span>
+          <span className="text-usd-green-700">Ứng: </span>
+          <PeoplePicker
+            mode="single"
+            label={`Người ứng tiền hoá đơn #${n}`}
+            options={sessionMembers}
+            value={invoice.payerMemberId}
+            readOnly={readOnly}
+            onChange={(id) => void run(() => setInvoicePayer(invoice.id, id))}
+          />
+        </span>
+        {!locked && (
+          <Switch
+            label="Chia từng món"
+            checked={invoice.splitType === 'BY_ITEM'}
+            disabled={readOnly}
+            onChange={(on) => void run(() => setInvoiceSplitType(invoice.id, on ? 'BY_ITEM' : 'EQUAL_TOTAL'))}
+          />
+        )}
+      </div>
+
+      {unassigned > 0 && (
+        <div role="status" className="flex items-center justify-between gap-2 rounded bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
+          <span>Còn {unassigned} món chưa chọn người ăn</span>
+          {!readOnly && (
+            <IconButton
+              icon={UsersRound}
+              label="Gán cả kèo cho các món trống"
+              onClick={() => void run(() => setAllItemsConsumers(invoice.id, session.participantIds, 'UNASSIGNED_ONLY'))}
+            />
+          )}
+        </div>
+      )}
+
+      {(invoice.splitType === 'EQUAL_TOTAL' || locked) && (
+        <EqualSplitPicker invoice={invoice} sessionMembers={sessionMembers} readOnly={readOnly} onError={onError} />
+      )}
+
+      {!locked && (
+        <section aria-label={`Món của hoá đơn #${n}`} className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <h5 className="text-xs font-semibold uppercase tracking-wide text-usd-green-700">Món ({items.length})</h5>
+            {!readOnly && (
+              <IconButton
+                icon={Plus}
+                label={`Thêm món vào hoá đơn #${n}`}
+                tone="outline"
+                onClick={() => void run(() => addInvoiceItem(invoice.id, { name: 'Món mới', quantity: 1, unitPrice: 0 }))}
+              />
+            )}
+          </div>
+          <ul className="space-y-1.5">
+            {items.map((item) => (
+              <InvoiceItemRow
+                key={item.id}
+                item={item}
+                splitType={invoice.splitType}
+                sessionMembers={sessionMembers}
+                readOnly={readOnly}
+                canDelete={items.length > 1}
+                onDelete={() => void run(() => deleteInvoiceItem(item.id))}
+                onError={onError}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  )
+}
