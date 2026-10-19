@@ -1,3 +1,4 @@
+import LZString from 'lz-string'
 import { describe, expect, it } from 'vitest'
 import { PeopleError } from '../services/peopleErrors'
 import type { Invoice, InvoiceItem, Meal, Member, PaymentEntitySettlement, SessionKeo, SettlementTransfer } from '../types'
@@ -13,6 +14,7 @@ import {
   hydrateSnapshotForSettlement,
   encodeCompactSnapshot,
   buildItemShares,
+  type ItemSharesInput,
 } from './shareSnapshot'
 
 const NOW = '2026-10-19T10:00:00.000Z'
@@ -199,7 +201,16 @@ describe('định dạng tin nhắn chia sẻ (BR-8.5, R-3, R-4)', () => {
 
 })
 
-describe('link gọn (v2)', () => {
+/** Dựng link theo định dạng cũ (JSON mảng + lz-string) để so sánh và kiểm tra tương thích ngược. */
+function toLegacy(title: string, names: string[], pays: Array<{ fromName: string; toName: string; amount: number; content: string }>, shares: ItemSharesInput[]): string {
+  const rows = pays.map((p) => [names.indexOf(p.fromName), names.indexOf(p.toName), p.amount, -1, p.content])
+  const keos = shares.map((k) => [k.name, k.lines.map((l) => [l.name, l.amount, 0])])
+  const tuple: unknown[] = [title, names, [], rows]
+  if (keos.length > 0) tuple.push(keos)
+  return LZString.compressToEncodedURIComponent(JSON.stringify(tuple)).replace(/\+/g, '.').replace(/\$/g, '_')
+}
+
+describe('link gọn', () => {
   const bank = { bankBin: '970436', bankName: 'Vietcombank', accountName: 'NGUYEN VAN AN', accountNumber: '0123456789' }
   const payments = [
     { key: 'b->a', fromId: 'b', fromName: 'Bình', toId: 'a', toName: 'An', amount: 45_000, content: 'Binh thanh toan Lau', bank },
@@ -223,13 +234,44 @@ describe('link gọn (v2)', () => {
   it('ngắn hơn nhiều so với payload đầy đủ và không có ký tự cần escape', () => {
     const compact = encodeCompactSnapshot('Lau', payments)
     const full = encodeSnapshotPayload(buildSnapshotPayload({ ...fixture(), exportedAt: NOW, payments }))
-    expect(compact).toMatch(/^[A-Za-z0-9._-]+$/)
+    expect(compact).toMatch(/^~[A-Za-z0-9_-]+$/)
     expect(compact.length).toBeLessThan(full.length / 2)
   })
 
   it('link bị cắt vẫn báo INVALID_SNAPSHOT', () => {
     const encoded = encodeCompactSnapshot('Lau', payments)
     expect(codeOf(() => decodeSnapshotPayload(encoded.slice(0, 20)))).toBe('INVALID_SNAPSHOT')
+    expect(codeOf(() => decodeSnapshotPayload(encoded.slice(0, -3)))).toBe('INVALID_SNAPSHOT')
+    expect(codeOf(() => decodeSnapshotPayload(`${encoded}!!`))).toBe('INVALID_SNAPSHOT')
+    expect(codeOf(() => decodeSnapshotPayload('~'))).toBe('INVALID_SNAPSHOT')
+  })
+
+  it('ngắn hơn định dạng JSON + lz-string của link cũ', () => {
+    const shares = [{ name: 'Kèo 1 - Lẩu', lines: ['Lẩu thái hải sản', 'Bia Tiger', 'Nước suối', 'Rau thêm'].map((name, i) => ({ name, amount: 12_345 * (i + 1), ownerId: 'b', ownerName: 'Bình' })) }]
+    const names = ['Bình', 'An', 'Cường', 'Dung']
+    const legacy = toLegacy('Lau', names, payments, shares)
+    expect(encodeCompactSnapshot('Lau', payments, shares).length).toBeLessThan(legacy.length * 0.85)
+  })
+
+  it('số không nguyên thì rơi về JSON lz-string và vẫn giải mã được', () => {
+    const odd = [{ ...payments[0], amount: 45_000.5 }]
+    const encoded = encodeCompactSnapshot('Lau', odd)
+    expect(encoded.startsWith('~')).toBe(false)
+    expect(decodeSnapshotPayload(encoded).payments![0].amount).toBe(45_000.5)
+  })
+
+  it('vẫn đọc được link JSON + lz-string cũ', () => {
+    const legacy = toLegacy('Lau', ['Bình', 'An'], [payments[0]], [])
+    const decoded = decodeSnapshotPayload(legacy)
+    expect(decoded.payments![0]).toMatchObject({ fromName: 'Bình', toName: 'An', amount: 45_000 })
+  })
+
+  it('chuỗi có ký tự NUL, emoji và tên dài vẫn khứ hồi đúng', () => {
+    const title = 'Tiệc 🍻 ' + 'x'.repeat(300)
+    const decoded = decodeSnapshotPayload(encodeCompactSnapshot(title, [{ ...payments[2], fromName: 'Dũng\0', content: 'nội dung 🍜' }]))
+    expect(decoded.meal.title).toBe(title)
+    expect(decoded.payments![0].fromName).toBe('Dũng ')
+    expect(decoded.payments![0].content).toBe('nội dung 🍜')
   })
 
   it('kèm các món: chỉ món có người nhận tham gia, với số tiền phần của họ', () => {

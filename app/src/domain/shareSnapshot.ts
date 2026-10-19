@@ -2,6 +2,7 @@ import LZString from 'lz-string'
 import { formatMoney } from '../lib/money'
 import { findBankByBin } from './banks'
 import { buildTransferContent } from './vietQr'
+import { BINARY_PREFIX, decodeBinaryTuple, encodeBinaryTuple, type CompactTuple } from './snapshotCodec'
 import { PeopleError } from '../services/peopleErrors'
 import type {
   AdjustmentMode,
@@ -200,11 +201,12 @@ export function encodeSnapshotPayload(payload: MealSnapshotPayload): string {
 }
 
 /**
- * Định dạng gọn (v2) chỉ chứa các khoản chuyển tiền — đủ dựng slide + QR, bỏ hoá đơn/món/thành viên.
- * JSON dạng mảng, không có tên trường: `[tiêu đề, [tên...], [[bin, số TK, tên TK, tên NH?]...], [[từ, đến, số tiền, tk, nội dung?]...]]`.
+ * Định dạng gọn chỉ chứa các khoản chuyển tiền — đủ dựng slide + QR, bỏ hoá đơn/món/thành viên.
+ * Dữ liệu là mảng, không có tên trường: `[tiêu đề, [tên...], [[bin, số TK, tên TK, tên NH?]...], [[từ, đến, số tiền, tk, nội dung?]...]]`.
  * Nội dung chuyển khoản mặc định và tên ngân hàng (tra theo BIN) được suy ra lại khi giải mã nên không lưu.
- */
-/**
+ * Mảng này được mã hoá nhị phân + deflate (`snapshotCodec`, link bắt đầu bằng `~`); nếu có số không nguyên/âm thì
+ * rơi về JSON nén lz-string như link cũ (v2), vẫn đọc được.
+ *
  * Tuỳ chọn `shares` thêm phần tử thứ 5: `[[tên kèo, [[tên món, số tiền phần của người chuyển, người chuyển]...]]...]`
  * (người chuyển là chỉ số trong bảng tên, trùng với `fromId` của khoản chuyển tiền).
  */
@@ -239,7 +241,12 @@ export function encodeCompactSnapshot(title: string, payments: ReadonlyArray<Sna
   const tuple: unknown[] = [title, names, accounts, rows]
   const keos = (shares ?? []).filter((k) => k.lines.length > 0)
   if (keos.length > 0) tuple.push(keos.map((k) => [k.name, k.lines.map((l) => [l.name, l.amount, person(l.ownerId, l.ownerName)])]))
-  return toUrlSafe(LZString.compressToEncodedURIComponent(JSON.stringify(tuple)))
+  try {
+    return encodeBinaryTuple(tuple as CompactTuple)
+  } catch (e) {
+    if (!(e instanceof RangeError)) throw e
+    return toUrlSafe(LZString.compressToEncodedURIComponent(JSON.stringify(tuple)))
+  }
 }
 
 export interface ItemSharesInput {
@@ -370,6 +377,13 @@ function parseConsumers(raw: unknown): ItemShare[] {
  */
 export function decodeSnapshotPayload(encoded: string): MealSnapshotPayload {
   if (!encoded || encoded.trim() === '') throw invalidSnapshot()
+  if (encoded.trim().startsWith(BINARY_PREFIX)) {
+    try {
+      return decodeCompactSnapshot(decodeBinaryTuple(encoded.trim()))
+    } catch (e) {
+      throw e instanceof PeopleError ? e : invalidSnapshot()
+    }
+  }
   let json: string | null
   try {
     json = LZString.decompressFromEncodedURIComponent(fromUrlSafe(encoded.trim()))
