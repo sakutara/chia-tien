@@ -1,5 +1,6 @@
 import { db } from '../db/db'
 import { compressImage } from '../lib/imageCompress'
+import { scanReceiptImage } from '../lib/imageScan'
 import { findTextDuplicates } from '../domain/imageDuplicates'
 import type { CompressionPreset, InvoiceFileRecord } from '../types'
 import { addFile, deleteFile, deleteFilesByInvoice, listFilesByInvoice } from './fileStorageService'
@@ -53,15 +54,27 @@ export async function addInvoiceImage(input: AddInvoiceImageInput): Promise<Invo
     throw new PeopleError('TOO_MANY_FILES', `Mỗi hoá đơn tối đa ${MAX_IMAGES_PER_INVOICE} ảnh.`)
   }
 
-  // Nén lỗi thì vẫn lưu ảnh gốc: không bao giờ làm mất ảnh vừa chụp.
+  // Ảnh được xử lý như máy quét: cắt theo 4 góc hoá đơn, trắng đen nền trắng, chữ dày (giúp OCR). Không xử lý được
+  // (ảnh quá tối, lỗi Canvas...) thì rơi về nén ảnh như cũ; nén lỗi thì vẫn lưu ảnh gốc: không bao giờ làm mất ảnh vừa chụp.
   let stored = file
   let compression: CompressionPreset | undefined
   try {
-    const compressed = await compressImage(file, IMAGE_COMPRESSION)
-    stored = compressed.file
-    compression = IMAGE_COMPRESSION
+    const scanned = await scanReceiptImage(file)
+    if (scanned) {
+      stored = scanned.file
+      compression = 'ORIGINAL'
+    }
   } catch {
-    stored = file
+    // Chuyển sang nén bên dưới.
+  }
+  if (stored === file) {
+    try {
+      const compressed = await compressImage(file, IMAGE_COMPRESSION)
+      stored = compressed.file
+      compression = IMAGE_COMPRESSION
+    } catch {
+      stored = file
+    }
   }
 
   const record = await addFile({

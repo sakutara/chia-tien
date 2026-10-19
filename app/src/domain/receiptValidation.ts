@@ -70,6 +70,10 @@ export function rowCandidates(item: ParsedItem): RowCandidate[] {
   if (u > 0 && a % u === 0 && isPositiveInt(a / u) && a / u <= 999) {
     add({ quantity: a / u, unitPrice: u, rawAmount: a, cost: 1, change: `số lượng ${q} → ${a / u}` })
   }
+  // Hầu hết món có SL 1; OCR hay đọc "1" thành 4/7/l: thử SL = 1, đơn giá = thành tiền.
+  if (q !== 1 && a > 0) {
+    add({ quantity: 1, unitPrice: a, rawAmount: a, cost: 1, change: `số lượng ${q} → 1, đơn giá ${formatMoney(u)} → ${formatMoney(a)}` })
+  }
   if (isPositiveInt(q) && a % q === 0 && a / q > 0) {
     add({ quantity: q, unitPrice: a / q, rawAmount: a, cost: 1, change: `đơn giá ${formatMoney(u)} → ${formatMoney(a / q)}` })
   }
@@ -261,19 +265,24 @@ function findScenario(parsed: ParsedReceipt, useSubtotal: boolean, billTotal: nu
   const suspects = suspectRows(parsed.items, billTotal, rawSubtotal)
   // Tổng đoán từ dòng cuối mà trùng số tiền của một món thì dòng đó chính là món bị đọc nhầm: bắt buộc bỏ nó khỏi danh sách,
   // nếu không thì món nào cũng "khớp" tổng một cách vô nghĩa.
-  const removals: Array<number | undefined> = mustRemoveTotalRow
-    ? suspects.filter((i) => parsed.items[i].rawAmount === billTotal)
-    : [undefined, ...suspects]
+  // Dòng nghi là dòng tổng bỏ trước (chi phí 2); cuối cùng thử bỏ bất kỳ một dòng nào khác (chi phí 3) để loại dòng rác
+  // OCR lọt qua bộ lọc. Chỉ nhận khi tổng khớp chính xác, nên không có nguy cơ bỏ nhầm dòng thật.
+  const removals: Array<{ index: number | undefined; cost: number }> = mustRemoveTotalRow
+    ? suspects.filter((i) => parsed.items[i].rawAmount === billTotal).map((index) => ({ index, cost: 2 }))
+    : [
+        { index: undefined, cost: 0 },
+        ...suspects.map((index) => ({ index, cost: 2 })),
+        ...parsed.items.map((_, index) => index).filter((index) => !suspects.includes(index) && parsed.items.length > 2).map((index) => ({ index, cost: 3 })),
+      ]
   const discountOptions = adjustmentOptions('discount', parsed.discount)
   const serviceOptions = adjustmentOptions('service', parsed.service)
   const vatOptions = adjustmentOptions('vat', parsed.vat)
 
-  for (const removed of removals) {
+  for (const { index: removed, cost: removalCost } of removals) {
     const kept = parsed.items.filter((_, i) => i !== removed)
     if (kept.length === 0) continue
     const rowOptions = kept.map(rowCandidates)
     const reachable = reachableSubtotals(rowOptions)
-    const removalCost = removed === undefined ? 0 : 2
 
     for (const [subtotal, state] of reachable) {
       if (billSubtotal !== undefined && subtotal !== billSubtotal) continue
@@ -316,7 +325,7 @@ function applyScenario(parsed: ParsedReceipt, scenario: Scenario): { receipt: Pa
   const notes: string[] = []
   if (scenario.removed !== undefined) {
     const row = parsed.items[scenario.removed]
-    notes.push(`Bỏ dòng "${row.name}" (${formatMoney(row.rawAmount)}) vì giống dòng tổng của bill, không phải một món.`)
+    notes.push(`Bỏ dòng "${row.name}" (${formatMoney(row.rawAmount)}) vì không phải một món (giống dòng tổng của bill hoặc là rác OCR) và bỏ nó thì tổng mới khớp.`)
   }
 
   const items = scenario.kept.map((item, i) => {

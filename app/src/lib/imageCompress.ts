@@ -70,7 +70,7 @@ export async function readHeaderSize(file: Blob): Promise<ImageDimensions | null
 }
 
 /** Giải mã ảnh, thu nhỏ ngay khi giải mã nếu ảnh quá lớn. */
-async function decodeBounded(file: Blob): Promise<ImageBitmap> {
+export async function decodeBounded(file: Blob): Promise<ImageBitmap> {
   const size = await readHeaderSize(file)
   const longEdge = size ? Math.max(size.width, size.height) : 0
   if (size && longEdge > DECODE_MAX_LONG_EDGE) {

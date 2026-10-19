@@ -186,3 +186,60 @@ Tổng cộng 150.000
     expect(check.notes[0]).toContain('999.000')
   })
 })
+
+describe('ảnh chụp thật (Cafe Lúa, nền tối, sau khi quét)', () => {
+  // Văn bản Tesseract đọc từ ảnh đã cắt 4 góc + trắng đen: lẫn số tiền đọc sai (85000 ↔ 55,000, 48,000 ↔ 49,000), SL 4 thay 1.
+  const text = `¥ \\
+#                                 4
+CAFE LUA pha Nhuận
+ĐC: 140B Nguyễn Văn TH) 224
+Hotline: 0906-72“
+TẠM TÍNH
+oor        Giờ ir
+Giờ vào: 17/10/2026 10:09””“- 13;42
+Nhân Viên: BÚI LE ANH
+KHOA             |
+Tên hàng      D.Gid SL Thành tiền
+Trà Các Đác Thơm                          .
+Pha ngot         59,000 x 1    _ 59,000
+' Matcha Yên Mach   85000 x 1 55,000
+AMERICANO     49,000 x 1 48,000
+BO NE        55,000 x 1 55,000
+Wee THAP.CAM 5 900 x 1-- > 75,000
+HỦ TIỂU CÁ LÓC   85.000 x 1    65,000
+_ NUI XÀO BO .   55,000 x 1   55,000
+PHU THU ĐÔ AN 2
+Sup sườn thêm    30,000 x 1    30,000
+ÉP CÓC     — 48/000 x 4    49,000
+LE LS TT ae aS SD TEE SISA IEA ASANO ENED
+Tổng tiền hang:                             492,000
+Chiết khau:                        0
+| Tổng Cộng: ,          492,000
+       N |  »-          {
+ar P
+`
+
+  it('đọc đủ 9 món, tự sửa số sai theo tổng bill và báo rõ đã sửa gì', () => {
+    const check = validateReceipt(parseReceipt(text), text)
+    expect(check.status).toBe('CORRECTED')
+    expect(check.receipt.items.map((i) => i.rawAmount)).toEqual([59_000, 55_000, 49_000, 55_000, 75_000, 65_000, 55_000, 30_000, 49_000])
+    expect(check.receipt.items.every((i) => i.quantity === 1 && i.quantity * i.unitPrice === i.rawAmount)).toBe(true)
+    expect(check.receipt.items.reduce((s, i) => s + i.rawAmount, 0)).toBe(492_000)
+    expect(check.receipt.billTotal).toBe(492_000)
+    expect(check.receipt.items.some((i) => i.name.includes('140B'))).toBe(false)
+  })
+})
+
+describe('validateReceipt — dòng rác lọt qua bộ lọc', () => {
+  it('bỏ một dòng bất kỳ nếu chỉ khi đó tổng mới khớp bill', () => {
+    const parsed: ParsedReceipt = {
+      items: [item('Cơm', 2, 45_000, 90_000), item('Trà', 1, 15_000), item('Rác', 1, 12_345)],
+      billSubtotal: 105_000,
+      billTotal: 105_000,
+    }
+    const check = validateReceipt(parsed)
+    expect(check.status).toBe('CORRECTED')
+    expect(check.receipt.items.map((i) => i.name)).toEqual(['Cơm', 'Trà'])
+    expect(check.notes.join(' ')).toContain('Rác')
+  })
+})
