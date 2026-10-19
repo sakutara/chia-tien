@@ -1,34 +1,24 @@
 #!/bin/sh
-# Build app và đẩy bản build lên nhánh gh-pages (GitHub Pages chỉ phục vụ file tĩnh).
-# Build lỗi thì push bị chặn. Bỏ qua bằng: SKIP_PAGES_BUILD=1 git push
+# Build app vào docs/ (GitHub Pages phục vụ từ main + /docs).
+# Build lỗi thì push bị chặn. Nếu bản build thay đổi, hook tự commit docs/
+# rồi dừng push để commit đó nằm trong lần push kế tiếp: chạy lại git push.
+# Bỏ qua bằng: SKIP_PAGES_BUILD=1 git push
 set -e
 
 [ -n "$SKIP_PAGES_BUILD" ] && exit 0
 
-remote_name="$1"
-remote_url="$2"
 root="$(git rev-parse --show-toplevel)"
 
-# Không build lại khi chính hook này đang push gh-pages
-while read -r _ _ remote_ref _; do
-  [ "$remote_ref" = "refs/heads/gh-pages" ] && exit 0
-done
+echo "[pre-push] Build app vào docs/ (base=/chia-tien/)..."
+(cd "$root/app" && npm run build -- --base=/chia-tien/ --outDir ../docs --emptyOutDir)
+touch "$root/docs/.nojekyll"
 
-echo "[pre-push] Build app (base=/chia-tien/)..."
-(cd "$root/app" && npm run build -- --base=/chia-tien/)
+git -C "$root" add -A docs
+if git -C "$root" diff --cached --quiet -- docs; then
+  echo "[pre-push] docs/ không đổi, tiếp tục push."
+  exit 0
+fi
 
-echo "[pre-push] Đẩy app/dist lên nhánh gh-pages của $remote_name..."
-tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
-cp -R "$root/app/dist/." "$tmp/"
-touch "$tmp/.nojekyll"
-(
-  cd "$tmp"
-  git init -q
-  git checkout -q -b gh-pages
-  git add -A
-  git -c user.name="$(git -C "$root" config user.name)" \
-      -c user.email="$(git -C "$root" config user.email)" \
-      commit -q -m "Build $(git -C "$root" rev-parse --short HEAD)"
-  git push -q --force "$remote_url" gh-pages:gh-pages
-)
+git -C "$root" commit -q -m "Build docs ($(git -C "$root" rev-parse --short HEAD))" -- docs
+echo "[pre-push] Đã commit bản build mới trong docs/. Chạy lại 'git push' để đẩy kèm commit này."
+exit 1
