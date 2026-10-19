@@ -62,7 +62,7 @@
 
 ## 4. Danh mục Tài liệu Thiết kế (Documentation Index)
 
-Toàn bộ tài liệu thiết kế hệ thống được chia thành 4 phần chi tiết trong thư mục `docs/`:
+Toàn bộ tài liệu thiết kế hệ thống được chia thành 4 phần chi tiết trong thư mục `documentation/`:
 
 1. [**01. Kiến trúc Hệ thống & Mô hình Dữ liệu (`01-architecture-and-data-model.md`)**](./01-architecture-and-data-model.md)
    - Sơ đồ kiến trúc Client-side, thiết kế Schema IndexedDB, cấu trúc Snapshot Payload, cơ chế lưu trữ File hoá đơn (OPFS/Blob) và luồng dữ liệu.
@@ -72,7 +72,7 @@ Toàn bộ tài liệu thiết kế hệ thống được chia thành 4 phần c
    - Bảng màu USD, Typography, bố cục 3 chế độ xem Bữa, luồng tương tác Quick Filter chọn người, chụp/OCR hoá đơn, bảng thanh toán, Modal Chia sẻ và giao diện Xem Snapshot (Read-only).
 4. [**04. Phân rã Epics & Lộ trình Triển khai (`04-epics-and-roadmap.md`)**](./04-epics-and-roadmap.md)
    - Chia nhỏ toàn bộ tính năng thành 8 Epics độc lập kèm User Stories, Acceptance Criteria và thứ tự ưu tiên phát triển.
-5. **Tài liệu theo Epic** (`docs/epic-<n>/`, mỗi Epic gồm 2 file — xem quy tắc bắt buộc ở mục 5 bên dưới):
+5. **Tài liệu theo Epic** (`documentation/epic-<n>/`, mỗi Epic gồm 2 file — xem quy tắc bắt buộc ở mục 5 bên dưới):
    - Epic 1: [**BR — Yêu cầu nghiệp vụ**](./epic-1/BR.md) · [**SA — Phân tích hệ thống**](./epic-1/SA.md)
    - Epic 2: [**BR — Yêu cầu nghiệp vụ**](./epic-2/BR.md) · [**SA — Phân tích hệ thống**](./epic-2/SA.md) *(đã triển khai, còn kiểm thủ công trước khi đóng)*
    - Epic 3: [**BR — Yêu cầu nghiệp vụ**](./epic-3/BR.md) · [**SA — Phân tích hệ thống**](./epic-3/SA.md) *(đã triển khai, còn kiểm thủ công trước khi đóng)*
@@ -90,7 +90,7 @@ Mỗi Epic **phải** có đủ 2 tài liệu trước khi bắt đầu code và
 
 ### 5.1. Vị trí & đặt tên
 ```text
-docs/epic-<n>/
+documentation/epic-<n>/
 ├─ BR.md   # Business Requirements — "làm gì & vì sao"
 └─ SA.md   # System Analysis — "làm thế nào"
 ```
@@ -139,7 +139,7 @@ docs/epic-<n>/
 - Không lặp lại nội dung đã có ở 01/02/03; chỉ dẫn link tới mục tương ứng.
 
 ### 5.6. Điều kiện đóng Epic (Definition of Done)
-- [ ] `docs/epic-<n>/BR.md` và `SA.md` tồn tại, đủ các mục theo 5.3 và 5.4.
+- [ ] `documentation/epic-<n>/BR.md` và `SA.md` tồn tại, đủ các mục theo 5.3 và 5.4.
 - [ ] Mọi User Story của Epic được truy vết trong BR (A.3) và SA (B.9).
 - [ ] Mọi tiêu chí nghiệm thu trong file 04 có `AC-<k>` tương ứng và trạng thái thật.
 - [ ] Code, test và build đạt; kết quả được ghi vào B.9; việc còn lại (B.10) rỗng hoặc đã chuyển sang Epic khác có ghi chú.
