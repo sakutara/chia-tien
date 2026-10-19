@@ -92,7 +92,6 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
   )
   const options = useMemo(() => personFilterOptions(allSlides), [allSlides])
   const slides = useMemo(() => filterSlides(allSlides, selected), [allSlides, selected])
-  const toggle = (id: string) => setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
 
   return (
     <div className="space-y-2 pb-16">
@@ -209,10 +208,11 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
         {step === 'settle' && (
           <section className="space-y-2" aria-label="Chia tiền">
             {options.length > 1 && (
-              <div role="group" aria-label="Lọc theo người" className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div role="radiogroup" aria-label="Lọc theo người" className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <button
                   type="button"
-                  aria-pressed={selected.length === 0}
+                  role="radio"
+                  aria-checked={selected.length === 0}
                   onClick={() => setSelected([])}
                   className={`min-h-8 shrink-0 whitespace-nowrap rounded-full border px-3 text-xs ${selected.length === 0 ? 'border-usd-green-700 bg-usd-green-100 font-semibold' : 'border-usd-paper-200 bg-white'}`}
                 >
@@ -222,8 +222,9 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
                   <button
                     key={o.id}
                     type="button"
-                    aria-pressed={selected.includes(o.id)}
-                    onClick={() => toggle(o.id)}
+                    role="radio"
+                    aria-checked={selected.includes(o.id)}
+                    onClick={() => setSelected([o.id])}
                     className={`min-h-8 shrink-0 whitespace-nowrap rounded-full border px-3 text-xs ${selected.includes(o.id) ? 'border-usd-green-700 bg-usd-green-100 font-semibold' : 'border-usd-paper-200 bg-white'}`}
                   >
                     {o.label}

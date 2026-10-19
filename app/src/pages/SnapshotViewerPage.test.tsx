@@ -89,11 +89,11 @@ describe('SnapshotViewerPage (Epic 8: BR-8.2, BR-8.3, BR-8.4, AC-6)', () => {
   it('lọc theo tên người và tự lọc sẵn theo focusIds', async () => {
     render(<SnapshotViewerPage encoded={encodedSnapshot({ extraDebtor: true })} onExit={() => {}} />)
     expect(await screen.findAllByRole('listitem', { name: /^Thanh toán/ })).toHaveLength(2)
-    await userEvent.click(screen.getByRole('button', { name: 'Cường' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'Cường' }))
     const rest = screen.getAllByRole('listitem', { name: /^Thanh toán/ })
     expect(rest).toHaveLength(1)
     expect(rest[0].getAttribute('aria-label')).toBe('Thanh toán Cường cho An')
-    await userEvent.click(screen.getByRole('button', { name: 'Tất cả' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'Tất cả' }))
     expect(screen.getAllByRole('listitem', { name: /^Thanh toán/ })).toHaveLength(2)
   })
 
