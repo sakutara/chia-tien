@@ -107,10 +107,11 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
         {debtors.length > 1 && (
           <fieldset className="space-y-1.5">
             <legend className="mb-1 text-xs text-usd-green-700">Gửi cho (link chỉ chứa thanh toán của người được chọn)</legend>
-            <div className="flex flex-wrap gap-1.5">
+            <div role="radiogroup" aria-label="Gửi cho" className="flex flex-wrap gap-1.5">
               <button
                 type="button"
-                aria-pressed={subset === null}
+                role="radio"
+                aria-checked={subset === null}
                 onClick={() => setRecipients(null)}
                 className={`min-h-9 rounded-full border px-3 ${subset === null ? 'border-usd-green-700 bg-usd-green-100 font-semibold' : 'border-usd-paper-200 bg-white'}`}
               >
@@ -122,8 +123,9 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
                   <button
                     key={e.entityId}
                     type="button"
-                    aria-pressed={on}
-                    onClick={() => setRecipients(on ? (subset ?? []).filter((id) => id !== e.entityId) : [...(subset ?? []), e.entityId])}
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setRecipients([e.entityId])}
                     className={`min-h-9 rounded-full border px-3 ${on ? 'border-usd-green-700 bg-usd-green-100 font-semibold' : 'border-usd-paper-200 bg-white'}`}
                   >
                     {formatEntityShareLabel(e)}
