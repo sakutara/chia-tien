@@ -325,6 +325,16 @@ export interface MealSnapshotPayload {
    * các khoản này và không chứa dữ liệu quyết toán của người khác. Thiếu (link cũ) thì tính lại từ hoá đơn.
    */
   payments?: SnapshotPayment[];
+  /**
+   * Link gọn: các món của từng kèo mà người nhận link phải trả, kèm đúng số tiền phần của họ (không phải cả món).
+   * `ownerId` trỏ tới `fromId` của khoản chuyển tiền.
+   */
+  itemShares?: SnapshotKeoShares[];
+}
+
+export interface SnapshotKeoShares {
+  name: string;
+  lines: Array<{ name: string; amount: number; ownerId: string }>;
 }
 
 /** Một khoản chuyển tiền trong Snapshot: đủ để hiển thị slide và dựng QR, không kèm số dư của ai khác. */

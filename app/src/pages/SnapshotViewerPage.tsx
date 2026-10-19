@@ -33,8 +33,8 @@ export default function SnapshotViewerPage({ encoded, onExit }: Props) {
   const loaded = useMemo<Loaded>(() => {
     try {
       const payload = decodeSnapshotPayload(encoded)
-      // Link gọn chỉ có khoản chuyển tiền, không có hoá đơn để tính lại.
-      const settlement = payload.payments && payload.sessions.length === 0
+      // Snapshot mang sẵn khoản chuyển tiền thì không cần tính lại từ hoá đơn.
+      const settlement = payload.payments
         ? EMPTY_SETTLEMENT
         : computeMealSettlement(hydrateSnapshotForSettlement(payload))
       return { ok: true, payload, settlement }
@@ -76,7 +76,7 @@ const STEPS: ReadonlyArray<Step<StepKey>> = [
 
 /** Xem chỉ đọc: hoá đơn và chia tiền (mặc định mở ô chia tiền để thanh toán ngay). */
 function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPayload; settlement: MealSettlementResult; onExit: () => void }) {
-  const paymentsOnly = !!payload.payments && payload.sessions.length === 0
+  const paymentsOnly = !!payload.payments && payload.sessions.length === 0 && !payload.itemShares
   const [step, setStep] = useState<StepKey>('settle')
   const [selected, setSelected] = useState<string[]>([])
   useSwipeSteps(() => setStep(STEPS[0].key), () => setStep(STEPS[STEPS.length - 1].key))
@@ -101,7 +101,35 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
       {!paymentsOnly && <StepTabs steps={STEPS} active={step} onChange={setStep} label="Các bước của bữa" idBase="snap" />}
 
       <div role="tabpanel" id="snap-panel" aria-labelledby={`snap-tab-${step}`}>
-        {step === 'bills' && (
+        {step === 'bills' && payload.itemShares && (
+          <section className="space-y-3" aria-label="Các món phải trả">
+            {payload.itemShares.map((keo, k) => {
+              const owners = new Set(keo.lines.map((l) => l.ownerId))
+              const total = keo.lines.reduce((sum, l) => sum + l.amount, 0)
+              return (
+                <details key={k} className="card" open>
+                  <summary className="flex min-h-10 cursor-pointer flex-wrap items-center justify-between gap-2 font-semibold">
+                    <span className="break-words">{keo.name}</span>
+                    <span className="money">{formatMoney(total)}</span>
+                  </summary>
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {keo.lines.map((l, i) => (
+                      <li key={i} className="flex flex-wrap justify-between gap-2 rounded border border-usd-paper-200 px-2 py-1">
+                        <span className="break-words">
+                          {l.name}
+                          {owners.size > 1 && <span className="text-xs text-usd-green-700"> · {allSlides.find((x) => x.fromEntityId === l.ownerId)?.fromName ?? ''}</span>}
+                        </span>
+                        <span className="money">{formatMoney(l.amount)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )
+            })}
+          </section>
+        )}
+
+        {step === 'bills' && !payload.itemShares && (
           <section className="space-y-3" aria-label="Kèo và hoá đơn">
             {payload.sessions.length === 0 && <p className="card text-sm text-usd-green-700">Bữa này chưa có kèo nào.</p>}
             <ul className="grid gap-3 xl:grid-cols-2">

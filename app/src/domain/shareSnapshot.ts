@@ -21,6 +21,7 @@ import type {
   SessionKeo,
   SettlementMode,
   SettlementTransfer,
+  SnapshotKeoShares,
   SnapshotPayment,
   VatMode,
 } from '../types'
@@ -146,6 +147,53 @@ export function buildSnapshotPayload(
 const toUrlSafe = (s: string) => s.replace(/\+/g, '.').replace(/\$/g, '_')
 const fromUrlSafe = (s: string) => s.replace(/\./g, '+').replace(/_/g, '$')
 
+/**
+ * Các món mà từng thực thể trong `payers` phải trả, theo từng kèo, kèm số tiền phần của họ (cộng các thành viên của nhóm).
+ * Cùng quy tắc chia như bộ quyết toán (chỉ người tham gia kèo, chia theo `shares`; hoá đơn chia đều theo tổng thì mỗi hoá đơn
+ * là một dòng). Số tiền từng dòng làm tròn riêng nên tổng có thể lệch vài đồng so với khoản chuyển.
+ */
+export function buildItemShares(
+  input: Pick<SettlementEngineInput, 'sessions' | 'invoices' | 'items'>,
+  payers: ReadonlyArray<{ entityId: string; entityName: string; memberIds: ReadonlyArray<string> }>,
+): ItemSharesInput[] {
+  const itemsByInvoice = new Map<string, InvoiceItem[]>()
+  for (const it of input.items) {
+    const list = itemsByInvoice.get(it.invoiceId)
+    if (list) list.push(it)
+    else itemsByInvoice.set(it.invoiceId, [it])
+  }
+  return [...input.sessions]
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .map((session) => {
+      const inSession = new Set(session.participantIds)
+      const lines: ItemSharesInput['lines'] = []
+      const invoices = input.invoices.filter((i) => i.sessionId === session.id).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      invoices.forEach((inv, n) => {
+        const push = (name: string, amount: number, payer: (typeof payers)[number]) => {
+          if (amount > 0) lines.push({ name, amount: Math.round(amount), ownerId: payer.entityId, ownerName: payer.entityName })
+        }
+        if (inv.splitType === 'EQUAL_TOTAL') {
+          const equal = [...new Set(inv.equalSplitParticipantIds)].filter((id) => inSession.has(id))
+          for (const payer of payers) {
+            const mine = payer.memberIds.filter((id) => equal.includes(id)).length
+            if (mine > 0 && equal.length > 0) push(inv.vendorName?.trim() || `Hoá đơn ${n + 1}`, (inv.totalAmount * mine) / equal.length, payer)
+          }
+          return
+        }
+        for (const item of [...(itemsByInvoice.get(inv.id) ?? [])].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))) {
+          const consumers = item.consumers.filter((c) => inSession.has(c.memberId) && c.shares > 0)
+          const totalShares = consumers.reduce((sum, c) => sum + c.shares, 0)
+          if (totalShares === 0) continue
+          for (const payer of payers) {
+            const mine = consumers.filter((c) => payer.memberIds.includes(c.memberId)).reduce((sum, c) => sum + c.shares, 0)
+            if (mine > 0) push(item.name, (item.finalAmount * mine) / totalShares, payer)
+          }
+        }
+      })
+      return { name: session.name, lines }
+    })
+}
+
 /** R-2: nén JSON bằng lz-string theo bảng ký tự an toàn cho URL. */
 export function encodeSnapshotPayload(payload: MealSnapshotPayload): string {
   return toUrlSafe(LZString.compressToEncodedURIComponent(JSON.stringify(payload)))
@@ -156,7 +204,11 @@ export function encodeSnapshotPayload(payload: MealSnapshotPayload): string {
  * JSON dạng mảng, không có tên trường: `[tiêu đề, [tên...], [[bin, số TK, tên TK, tên NH?]...], [[từ, đến, số tiền, tk, nội dung?]...]]`.
  * Nội dung chuyển khoản mặc định và tên ngân hàng (tra theo BIN) được suy ra lại khi giải mã nên không lưu.
  */
-export function encodeCompactSnapshot(title: string, payments: ReadonlyArray<SnapshotPayment>): string {
+/**
+ * Tuỳ chọn `shares` thêm phần tử thứ 5: `[[tên kèo, [[tên món, số tiền phần của người chuyển, người chuyển]...]]...]`
+ * (người chuyển là chỉ số trong bảng tên, trùng với `fromId` của khoản chuyển tiền).
+ */
+export function encodeCompactSnapshot(title: string, payments: ReadonlyArray<SnapshotPayment>, shares?: ReadonlyArray<ItemSharesInput>): string {
   const names: string[] = []
   const nameIdx = new Map<string, number>()
   const person = (id: string, name: string) => {
@@ -184,11 +236,33 @@ export function encodeCompactSnapshot(title: string, payments: ReadonlyArray<Sna
     if (p.content !== buildTransferContent(p.fromName, title)) row.push(p.content)
     return row
   })
-  return toUrlSafe(LZString.compressToEncodedURIComponent(JSON.stringify([title, names, accounts, rows])))
+  const tuple: unknown[] = [title, names, accounts, rows]
+  const keos = (shares ?? []).filter((k) => k.lines.length > 0)
+  if (keos.length > 0) tuple.push(keos.map((k) => [k.name, k.lines.map((l) => [l.name, l.amount, person(l.ownerId, l.ownerName)])]))
+  return toUrlSafe(LZString.compressToEncodedURIComponent(JSON.stringify(tuple)))
+}
+
+export interface ItemSharesInput {
+  name: string
+  lines: Array<{ name: string; amount: number; ownerId: string; ownerName: string }>
+}
+
+function decodeItemShares(raw: unknown, nameAt: (i: unknown) => string): SnapshotKeoShares[] {
+  return asArray(raw).map((k) => {
+    const [name, lines] = asArray(k)
+    return {
+      name: asString(name),
+      lines: asArray(lines).map((l) => {
+        const [itemName, amount, owner] = asArray(l)
+        nameAt(owner)
+        return { name: asString(itemName), amount: asNumber(amount), ownerId: `p${asNumber(owner)}` }
+      }),
+    }
+  })
 }
 
 function decodeCompactSnapshot(raw: unknown[]): MealSnapshotPayload {
-  const [title, names, accounts, rows] = raw
+  const [title, names, accounts, rows, keos] = raw
   const title_ = asString(title)
   const nameList = asArray(names).map(asString)
   const bankList = asArray(accounts).map((a) => {
@@ -227,6 +301,7 @@ function decodeCompactSnapshot(raw: unknown[]): MealSnapshotPayload {
     sessions: [],
     settlementStatuses: {},
     payments,
+    ...(keos === undefined ? {} : { itemShares: decodeItemShares(keos, nameAt) }),
   }
 }
 

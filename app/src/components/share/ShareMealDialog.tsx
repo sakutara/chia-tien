@@ -21,6 +21,7 @@ const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : 
 export default function ShareMealDialog({ mealId, onClose }: Props) {
   const [loaded, setLoaded] = useState<LoadedMealSnapshot | null>(null)
   const [onlyUnpaid, setOnlyUnpaid] = useState(false)
+  const [withInvoices, setWithInvoices] = useState(true)
   // null = gửi cho tất cả; mảng = chỉ những thực thể được chọn.
   const [recipients, setRecipients] = useState<string[] | null>(null)
   const [copied, setCopied] = useState<'ALL' | 'LINK' | null>(null)
@@ -60,7 +61,7 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
   const debtors = debtorIds.map((id) => settlement.entities.find((e) => e.entityId === id)).filter((e) => e !== undefined)
   const subset = recipients !== null && recipients.length > 0 && recipients.length < debtors.length ? recipients : null
   // Snapshot chỉ chứa khoản chuyển của những người được chọn; người nhận link không xem được phần của người khác.
-  const { payload, snapshotUrl } = scopeSnapshot(loaded.data, subset)
+  const { payload, snapshotUrl } = scopeSnapshot(loaded.data, subset, withInvoices)
   const nameById = new Map(payload.members.map((m) => [m.id, m.name] as const))
   const message = formatShareMessage({
     mealTitle: payload.meal.title,
@@ -101,6 +102,7 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
     <Modal open title="Chia sẻ thông báo thanh toán" onClose={onClose}>
       <div className="space-y-4 text-sm">
         <Switch label="Chỉ khoản chưa trả" checked={onlyUnpaid} onChange={setOnlyUnpaid} />
+        <Switch label="Kèm các món của người nhận (link dài hơn)" checked={withInvoices} onChange={setWithInvoices} />
 
         {debtors.length > 1 && (
           <fieldset className="space-y-1.5">

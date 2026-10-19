@@ -1,6 +1,6 @@
 import { db } from '../db/db';
 import { buildPaymentSlides, toSnapshotPayments } from '../domain/paymentSlides';
-import { buildSnapshotPayload, buildSnapshotUrl, encodeCompactSnapshot } from '../domain/shareSnapshot';
+import { buildItemShares, buildSnapshotPayload, buildSnapshotUrl, encodeCompactSnapshot } from '../domain/shareSnapshot';
 import { computeMealSettlement, type SettlementEngineInput } from '../domain/settlementEngine';
 import type { MealSettlementResult, MealSnapshotPayload } from '../types';
 import { PeopleError } from './peopleErrors';
@@ -28,9 +28,14 @@ export interface ScopedSnapshot {
 
 /**
  * Dựng snapshot chỉ chứa các khoản chuyển tiền do những thực thể `payerEntityIds` phải chuyển (rỗng/null → tất cả).
+ * `withInvoices` kèm các món (theo kèo) mà người chuyển phải trả và số tiền phần của họ — không có phần của người khác.
  * Người nhận link không có đủ dữ liệu để xem khoản chuyển, số dư hay tài khoản của người khác.
  */
-export function scopeSnapshot(data: SnapshotSource, payerEntityIds: ReadonlyArray<string> | null = null): ScopedSnapshot {
+export function scopeSnapshot(
+  data: SnapshotSource,
+  payerEntityIds: ReadonlyArray<string> | null = null,
+  withInvoices = false,
+): ScopedSnapshot {
   const { input, settlement, exportedAt } = data;
   const slides = buildPaymentSlides({
     settlement,
@@ -41,7 +46,11 @@ export function scopeSnapshot(data: SnapshotSource, payerEntityIds: ReadonlyArra
   const payments = toSnapshotPayments(chosen);
   const payload = buildSnapshotPayload({ ...input, exportedAt, payments });
   // Link chỉ mang các khoản chuyển tiền (định dạng gọn) để đủ ngắn cho một tin nhắn.
-  const encoded = encodeCompactSnapshot(input.meal.title, payments);
+  const payers = [...new Set(chosen.map((s) => s.fromEntityId))]
+    .map((id) => settlement.entities.find((e) => e.entityId === id))
+    .filter((e) => e !== undefined);
+  const shares = withInvoices ? buildItemShares(input, payers) : undefined;
+  const encoded = encodeCompactSnapshot(input.meal.title, payments, shares);
   return { payload, encoded, snapshotUrl: buildSnapshotUrl(encoded) };
 }
 

@@ -4,7 +4,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { db } from '../db/db'
 import { ensureDefaultData } from '../db/seed'
-import { buildSnapshotPayload, encodeSnapshotPayload } from '../domain/shareSnapshot'
+import { buildSnapshotPayload, encodeCompactSnapshot, encodeSnapshotPayload } from '../domain/shareSnapshot'
 import type { Invoice, InvoiceItem, Meal, Member, SessionKeo } from '../types'
 import SnapshotViewerPage from './SnapshotViewerPage'
 
@@ -95,6 +95,26 @@ describe('SnapshotViewerPage (Epic 8: BR-8.2, BR-8.3, BR-8.4, AC-6)', () => {
     expect(rest[0].getAttribute('aria-label')).toBe('Thanh toán Cường cho An')
     await userEvent.click(screen.getByRole('button', { name: 'Tất cả' }))
     expect(screen.getAllByRole('listitem', { name: /^Thanh toán/ })).toHaveLength(2)
+  })
+
+  it('link gọn kèm món: có tab Hoá đơn hiện món và số tiền phần của người chuyển', async () => {
+    const payments = [{ key: 'b->a', fromId: 'b', fromName: 'Bình', toId: 'a', toName: 'An', amount: 45_000, content: 'Binh thanh toan Lau' }]
+    const shares = [{ name: 'Kèo 1 - Lẩu', lines: [{ name: 'Lẩu bò', amount: 30_000, ownerId: 'b', ownerName: 'Bình' }, { name: 'Bia', amount: 15_000, ownerId: 'b', ownerName: 'Bình' }] }]
+    render(<SnapshotViewerPage encoded={encodeCompactSnapshot('Lau', payments, shares)} onExit={() => {}} />)
+
+    expect(await screen.findByRole('tab', { name: /Hoá đơn/ })).toBeTruthy()
+    await userEvent.click(screen.getByRole('tab', { name: /Hoá đơn/ }))
+    expect(screen.getByText('Kèo 1 - Lẩu')).toBeTruthy()
+    expect(screen.getByText('Lẩu bò')).toBeTruthy()
+    expect(screen.getByText('30.000 ₫')).toBeTruthy()
+    expect(screen.getAllByText('45.000 ₫').length).toBeGreaterThan(0) // tổng phần của Bình ở kèo
+  })
+
+  it('link gọn không kèm món thì không có tab Hoá đơn', async () => {
+    const payments = [{ key: 'b->a', fromId: 'b', fromName: 'Bình', toId: 'a', toName: 'An', amount: 45_000, content: 'x' }]
+    render(<SnapshotViewerPage encoded={encodeCompactSnapshot('Lau', payments)} onExit={() => {}} />)
+    await screen.findByRole('heading', { name: 'Lau' })
+    expect(screen.queryByRole('tab')).toBeNull()
   })
 
   it('snapshot có sẵn payments chỉ hiện đúng khoản của người được chọn', async () => {

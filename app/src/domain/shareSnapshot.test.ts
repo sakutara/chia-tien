@@ -12,6 +12,7 @@ import {
   hostRecipientLabels,
   hydrateSnapshotForSettlement,
   encodeCompactSnapshot,
+  buildItemShares,
 } from './shareSnapshot'
 
 const NOW = '2026-10-19T10:00:00.000Z'
@@ -229,5 +230,31 @@ describe('link gọn (v2)', () => {
   it('link bị cắt vẫn báo INVALID_SNAPSHOT', () => {
     const encoded = encodeCompactSnapshot('Lau', payments)
     expect(codeOf(() => decodeSnapshotPayload(encoded.slice(0, 20)))).toBe('INVALID_SNAPSHOT')
+  })
+
+  it('kèm các món: chỉ món có người nhận tham gia, với số tiền phần của họ', () => {
+    const f = fixture()
+    const shares = buildItemShares(f, [{ entityId: 'binh', entityName: 'Bình', memberIds: ['binh'] }])
+    expect(shares).toHaveLength(1)
+    expect(shares[0].name).toBe('Kèo 1 - Lẩu')
+    const sum = shares[0].lines.reduce((t, l) => t + l.amount, 0)
+    expect(sum).toBeGreaterThan(0)
+    expect(sum).toBeLessThan(129_600)
+    expect(shares[0].lines.every((l) => l.ownerId === 'binh')).toBe(true)
+
+    const decoded = decodeSnapshotPayload(encodeCompactSnapshot('Lau', payments, shares))
+    expect(decoded.itemShares?.[0].name).toBe('Kèo 1 - Lẩu')
+    expect(decoded.itemShares?.[0].lines.map((l) => [l.name, l.amount])).toEqual(shares[0].lines.map((l) => [l.name, l.amount]))
+    expect(decoded.payments).toHaveLength(3)
+  })
+
+  it('nhóm cộng phần của các thành viên; người không tham gia món thì không có dòng', () => {
+    const f = fixture()
+    const group = buildItemShares(f, [{ entityId: 'g1', entityName: 'Cường - Dung', memberIds: ['cuong', 'dung'] }])
+    const cuong = buildItemShares(f, [{ entityId: 'cuong', entityName: 'Cường', memberIds: ['cuong'] }])
+    const dung = buildItemShares(f, [{ entityId: 'dung', entityName: 'Dung', memberIds: ['dung'] }])
+    const total = (k: typeof group) => k[0].lines.reduce((t, l) => t + l.amount, 0)
+    expect(Math.abs(total(group) - (total(cuong) + total(dung)))).toBeLessThanOrEqual(group[0].lines.length)
+    expect(buildItemShares(f, [{ entityId: 'x', entityName: 'X', memberIds: ['x'] }])[0].lines).toEqual([])
   })
 })
