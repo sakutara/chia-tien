@@ -48,7 +48,7 @@ describe('ShareMealDialog (Epic 8: BR-8.5, BR-8.6, R-4, R-5)', () => {
     const lines = preview.textContent!.split('\n')
     expect(lines[0]).toBe('Lẩu cuối tuần')
     expect(lines[1]).toBe('- Bình: chuyển cho Tôi 45.000 ₫')
-    expect(lines.at(-1)).toMatch(/\?snapshot=/)
+    expect(lines.at(-1)).toMatch(/\?s=/)
   })
 
   it('bật "Chỉ liệt kê khoản chưa thanh toán" thì người đã tick biến khỏi tin nhắn', async () => {
@@ -69,7 +69,7 @@ describe('ShareMealDialog (Epic 8: BR-8.5, BR-8.6, R-4, R-5)', () => {
     await screen.findByLabelText('Nội dung tin nhắn')
     await userEvent.click(screen.getByRole('button', { name: 'Chỉ sao chép Link Snapshot' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
-    expect(writeText.mock.calls[0][0]).toMatch(/^http.*\?snapshot=/)
+    expect(writeText.mock.calls[0][0]).toMatch(/^http.*\?s=/)
     expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Đã sao chép')
   })
 
@@ -81,7 +81,7 @@ describe('ShareMealDialog (Epic 8: BR-8.5, BR-8.6, R-4, R-5)', () => {
     await screen.findByLabelText('Nội dung tin nhắn')
     await userEvent.click(screen.getByRole('button', { name: 'Chia sẻ qua ứng dụng khác' }))
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1))
-    expect(share.mock.calls[0][0]).toMatchObject({ title: 'Lẩu cuối tuần', text: expect.stringContaining('?snapshot=') })
+    expect(share.mock.calls[0][0]).toMatchObject({ title: 'Lẩu cuối tuần', text: expect.stringContaining('?s=') })
     expect(screen.queryByRole('alert')).toBeNull()
   })
 

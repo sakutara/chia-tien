@@ -1,6 +1,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 
-export const SNAPSHOT_QUERY_KEY = 'snapshot';
+export const SNAPSHOT_QUERY_KEY = 's';
+const LEGACY_SNAPSHOT_QUERY_KEY = 'snapshot';
 
 export type Route =
   | { name: 'home' }
@@ -14,8 +15,9 @@ const SNAPSHOT_HASH_PATTERN = /^#\/snapshot\/([^/]*)$/;
 /** Tham số `?snapshot=`. `URLSearchParams` đổi dấu `+` thành khoảng trắng nên phải khôi phục lại. */
 function snapshotFromSearch(search: string): string | null {
   const params = new URLSearchParams(search);
-  if (!params.has(SNAPSHOT_QUERY_KEY)) return null;
-  return (params.get(SNAPSHOT_QUERY_KEY) ?? '').replace(/ /g, '+');
+  const key = [SNAPSHOT_QUERY_KEY, LEGACY_SNAPSHOT_QUERY_KEY].find((k) => params.has(k));
+  if (!key) return null;
+  return (params.get(key) ?? '').replace(/ /g, '+');
 }
 
 /** R-17: `#/` hoặc rỗng → danh sách; `#/meal/<id>` → chi tiết; snapshot ưu tiên trên mọi route khác (R-6). */

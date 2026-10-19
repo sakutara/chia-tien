@@ -19,6 +19,8 @@ interface Props {
   onExit: () => void
 }
 
+const EMPTY_SETTLEMENT = { entities: [], transfers: [] } as unknown as MealSettlementResult
+
 type Loaded =
   | { ok: true; payload: MealSnapshotPayload; settlement: MealSettlementResult }
   | { ok: false; message: string }
@@ -31,7 +33,10 @@ export default function SnapshotViewerPage({ encoded, onExit }: Props) {
   const loaded = useMemo<Loaded>(() => {
     try {
       const payload = decodeSnapshotPayload(encoded)
-      const settlement = computeMealSettlement(hydrateSnapshotForSettlement(payload))
+      // Link gọn chỉ có khoản chuyển tiền, không có hoá đơn để tính lại.
+      const settlement = payload.payments && payload.sessions.length === 0
+        ? EMPTY_SETTLEMENT
+        : computeMealSettlement(hydrateSnapshotForSettlement(payload))
       return { ok: true, payload, settlement }
     } catch (err) {
       const message = err instanceof PeopleError ? err.message : 'Link Snapshot không hợp lệ.'
@@ -71,6 +76,7 @@ const STEPS: ReadonlyArray<Step<StepKey>> = [
 
 /** Xem chỉ đọc: hoá đơn và chia tiền (mặc định mở ô chia tiền để thanh toán ngay). */
 function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPayload; settlement: MealSettlementResult; onExit: () => void }) {
+  const paymentsOnly = !!payload.payments && payload.sessions.length === 0
   const [step, setStep] = useState<StepKey>('settle')
   const [selected, setSelected] = useState<string[]>([])
   useSwipeSteps(() => setStep(STEPS[0].key), () => setStep(STEPS[STEPS.length - 1].key))
@@ -92,7 +98,7 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
     <div className="space-y-2 pb-16">
       <SnapshotBanner title={payload.meal.title} onExit={onExit} />
 
-      <StepTabs steps={STEPS} active={step} onChange={setStep} label="Các bước của bữa" idBase="snap" />
+      {!paymentsOnly && <StepTabs steps={STEPS} active={step} onChange={setStep} label="Các bước của bữa" idBase="snap" />}
 
       <div role="tabpanel" id="snap-panel" aria-labelledby={`snap-tab-${step}`}>
         {step === 'bills' && (

@@ -11,6 +11,7 @@ import {
   formatShareMessage,
   hostRecipientLabels,
   hydrateSnapshotForSettlement,
+  encodeCompactSnapshot,
 } from './shareSnapshot'
 
 const NOW = '2026-10-19T10:00:00.000Z'
@@ -129,12 +130,13 @@ describe('buildSnapshotPayload / encode / decode (BR-8.1, R-1, R-2, BR-8.4)', ()
     expect(codeOf(() => decodeSnapshotPayload(encodeSnapshotPayload(wrongVersion as never)))).toBe('INVALID_SNAPSHOT')
   })
 
-  it('buildSnapshotUrl đặt payload nén vào ?snapshot= và đọc lại được', () => {
+  it('buildSnapshotUrl đặt payload nén vào ?s= và đọc lại được', () => {
     const payload = buildSnapshotPayload({ ...fixture(), exportedAt: NOW })
     const encoded = encodeSnapshotPayload(payload)
     const url = new URL(buildSnapshotUrl(payload, { origin: 'https://chia.tien', pathname: '/app/' }))
     expect(url.origin + url.pathname).toBe('https://chia.tien/app/')
-    expect(url.searchParams.get('snapshot')).toBe(encoded)
+    expect(url.searchParams.get('s')).toBe(encoded)
+    expect(url.search).not.toMatch(/%/) // không phải escape nên không phình dài
   })
 })
 
@@ -194,4 +196,38 @@ describe('định dạng tin nhắn chia sẻ (BR-8.5, R-3, R-4)', () => {
     expect(text.split('\n')[1]).toBe('- Bình: chuyển cho An 50.000 ₫')
   })
 
+})
+
+describe('link gọn (v2)', () => {
+  const bank = { bankBin: '970436', bankName: 'Vietcombank', accountName: 'NGUYEN VAN AN', accountNumber: '0123456789' }
+  const payments = [
+    { key: 'b->a', fromId: 'b', fromName: 'Bình', toId: 'a', toName: 'An', amount: 45_000, content: 'Binh thanh toan Lau', bank },
+    { key: 'c->a', fromId: 'c', fromName: 'Cường', toId: 'a', toName: 'An', amount: 52_500, content: 'Binh thanh toan Lau', bank: { ...bank, bankBin: '123456', bankName: 'NH lạ' } },
+    { key: 'd->a', fromId: 'd', fromName: 'Dung', toId: 'a', toName: 'An', amount: 10_000, content: 'Dung thanh toan Lau' },
+  ]
+
+  it('giải mã lại đủ khoản chuyển, tài khoản (kể cả ngân hàng lạ) và nội dung tuỳ chỉnh', () => {
+    const decoded = decodeSnapshotPayload(encodeCompactSnapshot('Lau', payments))
+    expect(decoded.meal.title).toBe('Lau')
+    expect(decoded.payments!.map((p) => [p.fromName, p.toName, p.amount, p.content])).toEqual([
+      ['Bình', 'An', 45_000, 'Binh thanh toan Lau'],
+      ['Cường', 'An', 52_500, 'Binh thanh toan Lau'],
+      ['Dung', 'An', 10_000, 'Dung thanh toan Lau'],
+    ])
+    expect(decoded.payments![0].bank).toEqual(bank)
+    expect(decoded.payments![1].bank?.bankName).toBe('NH lạ')
+    expect(decoded.payments![2].bank).toBeUndefined()
+  })
+
+  it('ngắn hơn nhiều so với payload đầy đủ và không có ký tự cần escape', () => {
+    const compact = encodeCompactSnapshot('Lau', payments)
+    const full = encodeSnapshotPayload(buildSnapshotPayload({ ...fixture(), exportedAt: NOW, payments }))
+    expect(compact).toMatch(/^[A-Za-z0-9._-]+$/)
+    expect(compact.length).toBeLessThan(full.length / 2)
+  })
+
+  it('link bị cắt vẫn báo INVALID_SNAPSHOT', () => {
+    const encoded = encodeCompactSnapshot('Lau', payments)
+    expect(codeOf(() => decodeSnapshotPayload(encoded.slice(0, 20)))).toBe('INVALID_SNAPSHOT')
+  })
 })

@@ -1,5 +1,7 @@
 import LZString from 'lz-string'
 import { formatMoney } from '../lib/money'
+import { findBankByBin } from './banks'
+import { buildTransferContent } from './vietQr'
 import { PeopleError } from '../services/peopleErrors'
 import type {
   AdjustmentMode,
@@ -28,7 +30,9 @@ import type { SettlementEngineInput } from './settlementEngine'
  * Custom URL Snapshot và tin nhắn thông báo thanh toán (Epic 8). Hàm thuần: không đọc DB, không chạm DOM.
  */
 
-export const SNAPSHOT_PARAM = 'snapshot'
+export const SNAPSHOT_PARAM = 's'
+/** Tên tham số của link cũ (`?snapshot=`), vẫn đọc được. */
+export const LEGACY_SNAPSHOT_PARAM = 'snapshot'
 const SNAPSHOT_MEAL_ID = 'snapshot'
 const DEFAULT_AVATAR = '#2D6A4F'
 
@@ -134,9 +138,96 @@ export function buildSnapshotPayload(
   }
 }
 
+/*
+ * Bảng ký tự của lz-string có `+` và `$`, hai ký tự bị `encodeURIComponent` đổi thành `%2B`/`%24` (dài gấp 3).
+ * Đổi sang `.` và `_` (đều là ký tự không dành riêng của URL) để link không phải escape. Link cũ không chứa `.`/`_`
+ * nên chiều ngược lại vẫn đọc được cả link cũ.
+ */
+const toUrlSafe = (s: string) => s.replace(/\+/g, '.').replace(/\$/g, '_')
+const fromUrlSafe = (s: string) => s.replace(/\./g, '+').replace(/_/g, '$')
+
 /** R-2: nén JSON bằng lz-string theo bảng ký tự an toàn cho URL. */
 export function encodeSnapshotPayload(payload: MealSnapshotPayload): string {
-  return LZString.compressToEncodedURIComponent(JSON.stringify(payload))
+  return toUrlSafe(LZString.compressToEncodedURIComponent(JSON.stringify(payload)))
+}
+
+/**
+ * Định dạng gọn (v2) chỉ chứa các khoản chuyển tiền — đủ dựng slide + QR, bỏ hoá đơn/món/thành viên.
+ * JSON dạng mảng, không có tên trường: `[tiêu đề, [tên...], [[bin, số TK, tên TK, tên NH?]...], [[từ, đến, số tiền, tk, nội dung?]...]]`.
+ * Nội dung chuyển khoản mặc định và tên ngân hàng (tra theo BIN) được suy ra lại khi giải mã nên không lưu.
+ */
+export function encodeCompactSnapshot(title: string, payments: ReadonlyArray<SnapshotPayment>): string {
+  const names: string[] = []
+  const nameIdx = new Map<string, number>()
+  const person = (id: string, name: string) => {
+    let i = nameIdx.get(id)
+    if (i === undefined) {
+      i = names.push(name) - 1
+      nameIdx.set(id, i)
+    }
+    return i
+  }
+  const accounts: string[][] = []
+  const accountIdx = new Map<string, number>()
+  const account = (b: BankAccount) => {
+    const k = `${b.bankBin}|${b.accountNumber}|${b.accountName}`
+    let i = accountIdx.get(k)
+    if (i === undefined) {
+      const known = findBankByBin(b.bankBin)?.name === b.bankName
+      i = accounts.push(known ? [b.bankBin, b.accountNumber, b.accountName] : [b.bankBin, b.accountNumber, b.accountName, b.bankName]) - 1
+      accountIdx.set(k, i)
+    }
+    return i
+  }
+  const rows = payments.map((p) => {
+    const row: Array<number | string> = [person(p.fromId, p.fromName), person(p.toId, p.toName), p.amount, p.bank ? account(p.bank) : -1]
+    if (p.content !== buildTransferContent(p.fromName, title)) row.push(p.content)
+    return row
+  })
+  return toUrlSafe(LZString.compressToEncodedURIComponent(JSON.stringify([title, names, accounts, rows])))
+}
+
+function decodeCompactSnapshot(raw: unknown[]): MealSnapshotPayload {
+  const [title, names, accounts, rows] = raw
+  const title_ = asString(title)
+  const nameList = asArray(names).map(asString)
+  const bankList = asArray(accounts).map((a) => {
+    const t = asArray(a)
+    const bankBin = asString(t[0])
+    const bank = parseBank({ bankBin, bankName: t[3] ?? findBankByBin(bankBin)?.name ?? bankBin, accountNumber: t[1], accountName: t[2] })
+    if (!bank) throw invalidSnapshot()
+    return bank
+  })
+  const nameAt = (i: unknown) => {
+    const n = nameList[asNumber(i)]
+    if (n === undefined) throw invalidSnapshot()
+    return n
+  }
+  const payments = asArray(rows).map<SnapshotPayment>((r) => {
+    const t = asArray(r)
+    const bank = bankList[asNumber(t[3])]
+    const fromName = nameAt(t[0])
+    return {
+      key: `${asNumber(t[0])}->${asNumber(t[1])}`,
+      fromId: `p${asNumber(t[0])}`,
+      fromName,
+      toId: `p${asNumber(t[1])}`,
+      toName: nameAt(t[1]),
+      amount: asNumber(t[2]),
+      content: isString(t[4]) ? t[4] : buildTransferContent(fromName, title_),
+      ...(bank ? { bank } : {}),
+    }
+  })
+  return {
+    v: 1,
+    exportedAt: '',
+    meal: { title: title_, date: '', status: 'ACTIVE', settlementMode: 'SELF_SETTLEMENT', hostMemberId: '' },
+    members: [],
+    paymentGroups: [],
+    sessions: [],
+    settlementStatuses: {},
+    payments,
+  }
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -206,7 +297,7 @@ export function decodeSnapshotPayload(encoded: string): MealSnapshotPayload {
   if (!encoded || encoded.trim() === '') throw invalidSnapshot()
   let json: string | null
   try {
-    json = LZString.decompressFromEncodedURIComponent(encoded.trim())
+    json = LZString.decompressFromEncodedURIComponent(fromUrlSafe(encoded.trim()))
   } catch {
     throw invalidSnapshot()
   }
@@ -218,6 +309,7 @@ export function decodeSnapshotPayload(encoded: string): MealSnapshotPayload {
   } catch {
     throw invalidSnapshot()
   }
+  if (Array.isArray(raw)) return decodeCompactSnapshot(raw)
   if (!isRecord(raw) || raw.v !== 1) throw invalidSnapshot()
 
   const meal = raw.meal
@@ -327,12 +419,13 @@ export function decodeSnapshotPayload(encoded: string): MealSnapshotPayload {
   }
 }
 
-/** Đường dẫn Custom URL đầy đủ có `?snapshot=<encoded>`; giữ nguyên đường dẫn gốc (R-2). */
+/** Đường dẫn Custom URL đầy đủ có `?s=<encoded>`; chuỗi đã URL-safe nên không cần escape thêm (R-2). */
 export function buildSnapshotUrl(
-  payload: MealSnapshotPayload,
+  payload: MealSnapshotPayload | string,
   baseLocation: Pick<Location, 'origin' | 'pathname'> = window.location,
 ): string {
-  return `${baseLocation.origin}${baseLocation.pathname}?${SNAPSHOT_PARAM}=${encodeURIComponent(encodeSnapshotPayload(payload))}`
+  const encoded = typeof payload === 'string' ? payload : encodeSnapshotPayload(payload)
+  return `${baseLocation.origin}${baseLocation.pathname}?${SNAPSHOT_PARAM}=${encoded}`
 }
 
 /** Dựng dữ liệu trong bộ nhớ từ payload để chạy lại `computeMealSettlement` (Epic 6) mà không chạm IndexedDB. */

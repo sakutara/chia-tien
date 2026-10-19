@@ -1,6 +1,6 @@
 import { db } from '../db/db';
 import { buildPaymentSlides, toSnapshotPayments } from '../domain/paymentSlides';
-import { buildSnapshotPayload, buildSnapshotUrl, encodeSnapshotPayload } from '../domain/shareSnapshot';
+import { buildSnapshotPayload, buildSnapshotUrl, encodeCompactSnapshot } from '../domain/shareSnapshot';
 import { computeMealSettlement, type SettlementEngineInput } from '../domain/settlementEngine';
 import type { MealSettlementResult, MealSnapshotPayload } from '../types';
 import { PeopleError } from './peopleErrors';
@@ -38,8 +38,11 @@ export function scopeSnapshot(data: SnapshotSource, payerEntityIds: ReadonlyArra
     people: input.members.map((m) => ({ id: m.id, name: m.name, bank: m.bank })),
   });
   const chosen = payerEntityIds && payerEntityIds.length > 0 ? slides.filter((s) => payerEntityIds.includes(s.fromEntityId)) : slides;
-  const payload = buildSnapshotPayload({ ...input, exportedAt, payments: toSnapshotPayments(chosen) });
-  return { payload, encoded: encodeSnapshotPayload(payload), snapshotUrl: buildSnapshotUrl(payload) };
+  const payments = toSnapshotPayments(chosen);
+  const payload = buildSnapshotPayload({ ...input, exportedAt, payments });
+  // Link chỉ mang các khoản chuyển tiền (định dạng gọn) để đủ ngắn cho một tin nhắn.
+  const encoded = encodeCompactSnapshot(input.meal.title, payments);
+  return { payload, encoded, snapshotUrl: buildSnapshotUrl(encoded) };
 }
 
 /** Đọc bữa từ IndexedDB rồi dựng snapshot (mặc định cho tất cả người phải chuyển) và kết quả quyết toán (US-8.1). */
