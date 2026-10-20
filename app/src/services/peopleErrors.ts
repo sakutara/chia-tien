@@ -22,6 +22,8 @@ export type PeopleErrorCode =
   | 'INVOICE_NOT_FOUND'
   | 'INVOICE_EXISTS'
   | 'FILE_TYPE_NOT_ALLOWED'
+  | 'PDF_INVALID'
+  | 'PDF_ENCRYPTED'
   | 'FILE_TOO_LARGE'
   | 'TOO_MANY_FILES'
   | 'OCR_FAILED'

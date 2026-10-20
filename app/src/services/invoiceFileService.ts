@@ -1,6 +1,7 @@
 import { db } from '../db/db'
 import { compressImage } from '../lib/imageCompress'
 import { scanReceiptImage } from '../lib/imageScan'
+import { importPdf, isPdfFile } from '../lib/pdfImport'
 import { findTextDuplicates } from '../domain/imageDuplicates'
 import type { CompressionPreset, InvoiceFileRecord } from '../types'
 import { addFile, deleteFile, deleteFilesByInvoice, listFilesByInvoice } from './fileStorageService'
@@ -45,7 +46,7 @@ export async function addInvoiceImage(input: AddInvoiceImageInput): Promise<Invo
     if (inferred) file = new File([file], file.name, { type: inferred, lastModified: file.lastModified })
   }
   if (!(INVOICE_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-    throw new PeopleError('FILE_TYPE_NOT_ALLOWED', t('Chỉ nhận ảnh JPEG, PNG hoặc WebP (ảnh này là "{v}"). Nếu máy chụp HEIC, hãy đổi sang JPEG trong cài đặt camera.', { v: file.type || t('không rõ') }), { type: file.type })
+    throw new PeopleError('FILE_TYPE_NOT_ALLOWED', t('Chỉ nhận ảnh JPEG, PNG, WebP hoặc PDF (tệp này là "{v}"). Nếu máy chụp HEIC, hãy đổi sang JPEG trong cài đặt camera.', { v: file.type || t('không rõ') }), { type: file.type })
   }
   if (file.size > MAX_IMAGE_BYTES) {
     throw new PeopleError('FILE_TOO_LARGE', t('Ảnh tối đa 40 MB.'), { size: file.size })
@@ -88,6 +89,52 @@ export async function addInvoiceImage(input: AddInvoiceImageInput): Promise<Invo
   })
   await syncInvoiceFileIds(invoiceId)
   return record
+}
+
+export interface AddInvoicePdfResult {
+  records: InvoiceFileRecord[]
+  /** Số trang của PDF. */
+  totalPages: number
+  /** PDF nhiều trang hơn số ảnh còn nhận được: các trang cuối bị bỏ. */
+  truncated: boolean
+}
+
+/**
+ * Thêm một PDF làm hoá đơn: mỗi trang thành một ảnh, kèm văn bản lấy thẳng từ lớp chữ của PDF khi có (không cần OCR).
+ * Chỉ nhận số trang đầu còn chỗ trong giới hạn ảnh của hoá đơn.
+ */
+export async function addInvoicePdf(input: AddInvoiceImageInput): Promise<AddInvoicePdfResult> {
+  const { mealId, sessionId, invoiceId, file } = input
+  await loadActiveMeal(mealId)
+  if (!isPdfFile(file)) {
+    throw new PeopleError('FILE_TYPE_NOT_ALLOWED', t('Tệp này không phải PDF.'), { type: file.type })
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw new PeopleError('FILE_TOO_LARGE', t('Ảnh tối đa 40 MB.'), { size: file.size })
+  }
+  const existing = await listFilesByInvoice(invoiceId)
+  const room = MAX_IMAGES_PER_INVOICE - existing.length
+  if (room <= 0) {
+    throw new PeopleError('TOO_MANY_FILES', t('Mỗi hoá đơn tối đa {MAX_IMAGES_PER_INVOICE} ảnh.', { MAX_IMAGES_PER_INVOICE }))
+  }
+
+  const { pages, totalPages } = await importPdf(file, room)
+  const records: InvoiceFileRecord[] = []
+  for (const page of pages) {
+    records.push(
+      await addFile({
+        mealId,
+        sessionId,
+        invoiceId,
+        file: page.file,
+        ocrRawText: page.text,
+        originalSizeBytes: records.length === 0 ? file.size : undefined,
+        compression: 'ORIGINAL',
+      }),
+    )
+  }
+  await syncInvoiceFileIds(invoiceId)
+  return { records, totalPages, truncated: totalPages > pages.length }
 }
 
 /** Xoá một ảnh (BR-4.6). Hoá đơn đã lưu được đồng bộ lại danh sách ảnh. */

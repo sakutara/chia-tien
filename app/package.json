@@ -17,6 +17,7 @@
     "fflate": "^0.8.3",
     "lucide-react": "^1.59.0",
     "lz-string": "^1.5.0",
+    "pdfjs-dist": "^4.10.38",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

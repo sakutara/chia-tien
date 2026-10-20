@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import { planCompression } from '../../domain/imageQuality'
 import { formatBytes } from '../../lib/bytes'
 import { probeImage } from '../../lib/imageCompress'
+import { isPdfFile } from '../../lib/pdfImport'
 import { downloadFile, getFileBlob, listFilesByInvoice } from '../../services/fileStorageService'
 import {
   addInvoiceImage,
+  addInvoicePdf,
   IMAGE_COMPRESSION,
   MAX_IMAGES_PER_INVOICE,
   removeInvoiceImage,
@@ -32,7 +34,7 @@ interface Props {
   actions?: React.ReactNode
 }
 
-const ACCEPT = 'image/jpeg,image/png,image/webp'
+const ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf'
 
 /** Dung lượng: "4,2 MB → 0,8 MB" khi đã nén, hoặc chỉ dung lượng khi không nén. */
 function sizeLabel(file: InvoiceFileRecord): string {
@@ -73,6 +75,7 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
   const files = useLiveQuery(() => listFilesByInvoice(invoiceId), [invoiceId])
   const [sample, setSample] = useState<{ width: number; height: number; bytes: number } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [busyText, setBusyText] = useState('')
   // Lỗi thêm ảnh hiện ngay tại đây (không đẩy xuống cuối form nơi người dùng không thấy).
   const [problems, setProblems] = useState<string[]>([])
   const [cameraOpen, setCameraOpen] = useState(false)
@@ -103,8 +106,9 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
     const added: string[] = []
     const failed: string[] = []
     try {
-      const first = picked[0]
+      const first = picked.find((f) => !isPdfFile(f)) ?? picked[0]
       try {
+        if (isPdfFile(first)) throw new Error('pdf')
         const dims = await probeImage(first)
         setSample({ ...dims, bytes: first.size })
       } catch {
@@ -113,8 +117,18 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
       // Một ảnh lỗi không làm mất các ảnh còn lại.
       for (const file of picked) {
         try {
-          const record = await addInvoiceImage({ mealId, sessionId, invoiceId, file })
-          added.push(record.id)
+          if (isPdfFile(file)) {
+            setBusyText(t('Đang đọc PDF…'))
+            const result = await addInvoicePdf({ mealId, sessionId, invoiceId, file })
+            added.push(...result.records.map((r) => r.id))
+            if (result.truncated) {
+              failed.push(t('{v}: PDF có {total} trang, chỉ nhận {n} trang đầu (mỗi hoá đơn tối đa {max} ảnh).', { v: file.name, total: result.totalPages, n: result.records.length, max: MAX_IMAGES_PER_INVOICE }))
+            }
+          } else {
+            setBusyText(t('Đang nén và lưu ảnh…'))
+            const record = await addInvoiceImage({ mealId, sessionId, invoiceId, file })
+            added.push(record.id)
+          }
         } catch (err) {
           const reason = err instanceof PeopleError ? err.message : t('Không lưu được ảnh (bộ nhớ đầy hoặc trình duyệt chặn lưu).')
           failed.push(t('{v}: {reason}', { v: file.name || t('Ảnh vừa chụp'), reason }))
@@ -133,10 +147,10 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
     <section aria-label={t('Ảnh hoá đơn')} className="space-y-2 rounded-xl border border-dashed border-usd-green-600/60 bg-usd-green-100/30 p-2.5">
       <div className="flex items-center gap-2">
         <IconButton icon={Camera} label={t('Chụp ảnh')} tone="primary" disabled={locked || full} onClick={openCamera} />
-        <IconButton icon={ImagePlus} label={t('Tải ảnh lên')} tone="outline" disabled={locked || full} onClick={() => galleryInput.current?.click()} />
+        <IconButton icon={ImagePlus} label={t('Tải ảnh hoặc PDF lên')} tone="outline" disabled={locked || full} onClick={() => galleryInput.current?.click()} />
         {actions}
         <span className="ml-auto text-xs text-usd-green-700" title={t('Ảnh được nén ở mức Cân bằng (cạnh dài tối đa 2000 px) và tự quét nội dung sau khi lưu')}>
-          {count === 0 ? t('Chụp hoặc tải ảnh bill') : t('{count}/{MAX_IMAGES_PER_INVOICE} ảnh', { count, MAX_IMAGES_PER_INVOICE })}
+          {count === 0 ? t('Chụp hoặc tải ảnh/PDF bill') : t('{count}/{MAX_IMAGES_PER_INVOICE} ảnh', { count, MAX_IMAGES_PER_INVOICE })}
         </span>
       </div>
 
@@ -146,7 +160,7 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
         accept={ACCEPT}
         multiple
         className="hidden"
-        aria-label={t('Tải ảnh lên')}
+        aria-label={t('Tải ảnh hoặc PDF lên')}
         onChange={(e) => handleFiles(e.target.files)}
       />
       <input
@@ -165,7 +179,7 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
         </p>
       ))}
 
-      {busy && <p className="text-sm text-usd-green-700">{t('Đang nén và lưu ảnh…')}</p>}
+      {busy && <p className="text-sm text-usd-green-700">{busyText || t('Đang nén và lưu ảnh…')}</p>}
       {problems.map((p) => (
         <p key={p} role="alert" className="rounded-lg border border-red-300 bg-red-50 p-2 text-sm text-red-800">
           {t('Không thêm được ảnh — {p}', { p })}

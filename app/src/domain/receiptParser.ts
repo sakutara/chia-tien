@@ -381,7 +381,8 @@ function parseItems(lines: string[], vendorName: string | undefined): ParsedItem
 
   const push = (rawName: string, quantity: number, unitPrice: number, rawAmount: number, uncertain: boolean): void => {
     const { name: strippedName, hints } = stripBigNumbers(rawName)
-    const cleaned = cleanItemName(strippedName)
+    // Bảng có cột STT nhưng không có đường kẻ: "1 Canh chua" → STT dính vào tên.
+    const cleaned = cleanItemName(unitColumn ? strippedName.replace(/^\d{1,2}\s+(?=\p{L})/u, '') : strippedName)
     const own = cleaned && unitColumn ? dropTrailingUnit(cleaned) : cleaned
     if (!own || looksLikeJunk(own)) return
     let flagged = uncertain
