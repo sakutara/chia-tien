@@ -543,12 +543,51 @@ export function blackFraction(bin: GrayImage): number {
 // Quy trình đầy đủ
 // ---------------------------------------------------------------------------
 
+/** Cạnh ô (pixel) khi đo độ sáng nền của `isCleanDocument`. */
+const CLEAN_BLOCK = 64
+/** Phân vị 5% và 50% của độ sáng nền theo ô tối thiểu để coi là tài liệu điện tử (nền gần như trắng tuyệt đối, đều). */
+const CLEAN_BACKGROUND_P5 = 245
+const CLEAN_BACKGROUND_P50 = 250
+
+/**
+ * Tài liệu điện tử (ảnh chụp màn hình PDF, hoá đơn điện tử): nền trắng đều mọi ô, không đổ bóng. Với loại này nhị phân hoá
+ * chỉ có hại (làm nét mảnh dính hoặc đứt, rơi mất dòng, vd. đo trên hoá đơn điện tử 6 món: 5/6 món so với 6/6 khi giữ xám),
+ * nên giữ ảnh xám đã cắt. Ảnh chụp giấy thật luôn có bóng/nền xám nên không qua được ngưỡng này.
+ */
+export function isCleanDocument(gray: GrayImage): boolean {
+  const bw = Math.floor(gray.width / CLEAN_BLOCK)
+  const bh = Math.floor(gray.height / CLEAN_BLOCK)
+  if (bw < 4 || bh < 4) return false
+  const levels: number[] = []
+  const hist = new Array<number>(256)
+  for (let by = 0; by < bh; by++) {
+    for (let bx = 0; bx < bw; bx++) {
+      hist.fill(0)
+      for (let y = by * CLEAN_BLOCK; y < (by + 1) * CLEAN_BLOCK; y++) {
+        const row = y * gray.width
+        for (let x = bx * CLEAN_BLOCK; x < (bx + 1) * CLEAN_BLOCK; x++) hist[gray.data[row + x]]++
+      }
+      let acc = 0
+      let v = 0
+      for (; v < 255; v++) {
+        acc += hist[v]
+        if (acc >= CLEAN_BLOCK * CLEAN_BLOCK * 0.9) break
+      }
+      levels.push(v)
+    }
+  }
+  levels.sort((a, b) => a - b)
+  return levels[Math.floor(levels.length * 0.05)] >= CLEAN_BACKGROUND_P5 && levels[Math.floor(levels.length / 2)] >= CLEAN_BACKGROUND_P50
+}
+
 export interface ScanResult {
   image: GrayImage
   /** Có cắt theo 4 góc tờ hoá đơn không (không tìm được thì chỉ nhị phân hoá cả ảnh). */
   cropped: boolean
   quad: Quad | null
   thickened: boolean
+  /** false: giữ ảnh xám (tài liệu điện tử sạch), chỉ cắt và kéo giãn tương phản. */
+  binarized: boolean
 }
 
 /** Cỡ ảnh đầu ra: phóng nhỏ/lớn để cạnh dài về `targetLongEdge` (phóng tối đa `maxUpscale`). */
@@ -564,6 +603,8 @@ export interface ScanOptions {
   thickness?: 'auto' | 'none' | { passes: number; shape: 'cross' | 'square' }
   /** Ngưỡng nhị phân hoá (xem `BinarizeOptions.contrast`): nhỏ hơn thì nét đậm hơn. */
   contrast?: number
+  /** `auto` (mặc định): tài liệu điện tử sạch thì giữ xám; `never`: luôn nhị phân hoá; `always`: luôn giữ xám. */
+  keepGray?: 'auto' | 'never' | 'always'
 }
 
 /**
@@ -585,6 +626,11 @@ export function scanDocument(gray: GrayImage, options: ScanOptions = {}): ScanRe
     rect = size.width === gray.width && size.height === gray.height ? gray : warpToRect(gray, [{ x: 0, y: 0 }, { x: gray.width, y: 0 }, { x: gray.width, y: gray.height }, { x: 0, y: gray.height }], size.width, size.height)
   }
 
+  const keepGray = options.keepGray ?? 'auto'
+  if (keepGray === 'always' || (keepGray === 'auto' && isCleanDocument(rect))) {
+    return { image: { ...rect, data: normalizeGray(rect.data) }, cropped: quad !== null, quad, thickened: false, binarized: false }
+  }
+
   let bin = binarize(rect, { contrast: options.contrast })
   if (blackFraction(bin) > 0.4) return null
   const thickness = options.thickness ?? 'auto'
@@ -596,5 +642,5 @@ export function scanDocument(gray: GrayImage, options: ScanOptions = {}): ScanRe
     for (let i = 0; i < thickness.passes; i++) bin = thicken(bin, thickness.shape)
     thickened = thickness.passes > 0
   }
-  return { image: bin, cropped: quad !== null, quad, thickened }
+  return { image: bin, cropped: quad !== null, quad, thickened, binarized: true }
 }

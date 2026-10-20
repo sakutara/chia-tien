@@ -354,3 +354,14 @@ Bộ **bill mẫu làm test**: 5 văn bản OCR thô trong `src/domain/__fixture
 | D-2 | Chỉ tự đổi tên kèo khi tên còn là `Kèo <n>`; kèo anh đã đặt tên riêng thì giữ nguyên (BR-4.10) | Tránh ghi đè tên anh tự đặt; nếu anh muốn **luôn** đổi theo quán mới nhất thì sửa điều kiện này |
 | D-3 | Ảnh lưu là bản **đã nén**, không giữ bản gốc; OCR đọc bản đã lưu (R-18, B.8-12) | Đúng mục đích tiết kiệm dung lượng; nén không hoàn tác được. Mức Cân bằng giữ cạnh dài 2000 px nên OCR vẫn đạt |
 | D-4 | Giảm giá/phí phục vụ chỉ ở mức **cả bill**, không theo từng món (BR A.6) | Đủ cho phần lớn bill; theo món làm sau nếu cần |
+
+---
+
+### B.11. Bổ sung: hoá đơn điện tử dạng bảng (ảnh chụp màn hình PDF)
+
+Ca thật: ảnh chụp màn hình hoá đơn điện tử (nền trắng, bảng kẻ ô, cột STT / đơn vị tính, chữ ký số). Máy quét nhị phân hoá làm rơi dòng "Cơm trắng" và dính nét (đọc được 5/6 món, thiếu tổng); giữ ảnh xám thì OCR đọc đủ 6/6 món và dòng tổng. Đã sửa ở hai tầng:
+
+- **Ảnh** (`lib/documentScan.ts`): `isCleanDocument` nhận ra tài liệu điện tử (độ sáng nền theo ô 64 px: phân vị 5% ≥ 245 và trung vị ≥ 250). Loại này chỉ cắt khung và kéo giãn tương phản, **không nhị phân hoá** (`ScanResult.binarized = false`; ép bằng `keepGray`). Ảnh chụp giấy thật luôn có bóng/nền xám nên vẫn đi đường nhị phân hoá như cũ.
+- **Phân tích** (`domain/receiptParser.ts`): bỏ dòng tiêu đề cột và dòng đánh số cột (`(6=4x5)`), bỏ STT đầu dòng và từ đơn vị tính cuối tên (chỉ khi có cột "Đơn vị tính"); dừng đọc món sau dòng "Cộng tiền hàng hoá… (Total amount)" (số phải trả, đã trừ khoản giảm bên dưới) để chữ ký số không thành món; "Đã giảm 12.374,00 tương ứng 20%…" là **giảm giá bằng số tiền** (đọc cả "12.37400" mất dấu phẩy), không phải VAT; mã số thuế / cơ quan thuế không còn bị hiểu là VAT; tên quán lấy từ dòng "Đơn vị bán hàng"; ngày "Ngày (date) 13 tháng (month) 10 năm (year) 2026" chịu được ngoặc và chữ số bị đọc lẫn.
+- Kết quả trên ảnh mẫu: 6/6 món đúng số lượng, đơn giá, thành tiền; giảm 12.374 ₫; tổng 2.050.000 ₫ khớp (`validateReceipt` = OK). Test: fixture "hoá đơn điện tử dạng bảng" ở `__fixtures__/receipts.ts`, `isCleanDocument` ở `documentScan.test.ts`.
+- Hạn chế: tên món vẫn có thể sai dấu (OCR), ngày có thể sai một chữ số khi OCR rớt chữ số (người dùng sửa được); thời gian quét ảnh 2800 px khoảng 10 giây.

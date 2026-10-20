@@ -136,3 +136,27 @@ describe('parseReceipt — bỏ dòng rác OCR (vùng mã QR, đường kẻ)', 
     expect(parseReceipt(text).items.map((i) => i.name)).toEqual(['Cơm'])
   })
 })
+
+describe('parseReceipt — hoá đơn điện tử dạng bảng', () => {
+  const text = RECEIPT_FIXTURES.find((f) => f.name.startsWith('hoá đơn điện tử'))!.text
+
+  it('"12.374,00" (đồng kèm phần thập phân) và "12.37400" (mất dấu phẩy) đều đọc ra 12.374', () => {
+    expect(parseReceipt(text.replace('12.37400', '12.374,00')).discount).toEqual({ mode: 'FIXED_AMOUNT', value: 12_374 })
+    expect(parseReceipt(text).discount).toEqual({ mode: 'FIXED_AMOUNT', value: 12_374 })
+  })
+
+  it('mã số thuế không bị hiểu là VAT, dòng chữ ký sau tổng không thành món', () => {
+    const parsed = parseReceipt(text)
+    expect(parsed.vat).toBeUndefined()
+    expect(parsed.items).toHaveLength(6)
+  })
+
+  it('ngày "Ngày (date) 13 tháng (month) 10 năm (year) 2026" đọc được kể cả khi ngoặc bị OCR làm hỏng', () => {
+    expect(parseReceipt('Ngày (date) 13 tháng (month) 10 năm (year) 2026').invoiceDate).toBe('2026-10-13')
+    expect(parseReceipt('Ngày (date) Í 3 tháng (month) 10 năm (ear/2026').invoiceDate).toBe('2026-10-13')
+  })
+
+  it('tên quán lấy từ dòng "Đơn vị bán hàng", kể cả khi nhãn bị OCR làm mất dấu hai chấm', () => {
+    expect(parseReceipt('HÓA ĐƠN BÁN HÀNG\nĐơn vị bán hàng (Con       NHÀ KHACH THANG LỢI\nMã số thuế: 1600852713').vendorName).toBe('NHÀ KHACH THANG LỢI')
+  })
+})

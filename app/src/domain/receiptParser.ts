@@ -38,6 +38,8 @@ const PERCENT_RE = /(\d{1,2}(?:[.,]\d)?)\s*%/g
 const MONEY_TOKEN_RE = /\d[\d.,]*k?/gi
 
 const VAT_RE = /\b(vat|gtgt|thue)\b/
+/** Dòng nhắc tới thuế nhưng không phải khoản VAT: mã số thuế, cơ quan thuế, tra cứu thuế. */
+const TAX_ID_RE = /ma so thue|\bmst\b|tax code|tax id|co quan thue/
 const SERVICE_RE = /phi phuc vu|phuc vu|phi dv|service/
 const DISCOUNT_RE = /giam gia|chiet khau|khuyen mai|discount|\bck\b/
 const TOTAL_RE = /tong cong|tong thanh toan|tong tien|can thanh toan|thanh toan|total/
@@ -48,8 +50,22 @@ const TOTAL_EXCLUDE_RE = /tien hang|tam tinh|tien mat|tien thua|tien thoi|\bthe\
 /** Dòng địa chỉ, điện thoại, mã số thuế: không phải tên quán cũng không phải món. */
 const ADDRESS_RE = /^\W*dc\b|d\/c|dia chi|sdt|\btel\b|hotline|phone|\bmst\b|ma so|website|www\./
 /** Tiêu đề và chân trang của bill. */
-const HEADER_RE = /hoa don|phieu|receipt|ten mon|ten hang|don gia|thanh tien|^sl\b|\bban\b|table|cam on|hen gap|thank|nhan vien|thu ngan|gio vao|gio ra|gio in|\bin:/
+const HEADER_RE = /hoa don|phieu|receipt|ten mon|ten hang|don gia|thanh tien|^sl\b|\bban\b|table|cam on|hen gap|thank|nhan vien|thu ngan|gio vao|gio ra|gio in|\bin:|\bstt\b|description|quantity|unit price|\bamount\b|bill of sale|ky hieu|serial|so\s*\(no|\(\d\s*=\s*\d\s*x\s*\d\)/
+/** Dòng đánh số cột của bảng hoá đơn điện tử: "(1) (2) (3) (4) (5) (6=4x5)" (OCR hay đọc hỏng ngoặc: "a) 2) t3)"). */
+const COLUMN_INDEX_RE = /6\s*=\s*4\s*x\s*5|^(?:\W{0,2}\w{1,2}\)\s*){3,}/
 const FOOTER_RE = /^\W*t[oe0]ng\b|\bsub ?total\b|\bgrand\b|tong|tam tinh|tien mat|tien thua|tien thoi|thanh toan|tien hang|\bthe\b|card|cash|change/
+
+/** Dòng chữ ký, mã tra cứu, đơn vị cung cấp giải pháp ở chân hoá đơn điện tử. */
+const NOTE_RE = /chu ky|signature|ky boi|ky ngay|tra cuu|ma cua co quan|co quan thue|nguoi mua hang|nguoi ban hang|cung cap giai phap|ma qhns|hinh thuc thanh toan|so tai khoan|ngan hang/
+/** Khoản giảm ghi dạng "Đã giảm 12.374,00 tương ứng 20% mức tỷ lệ % để tính thuế GTGT..." (giảm thuế theo nghị quyết): là giảm giá bằng số tiền, không phải VAT. */
+const REDUCTION_RE = /^\W*da giam\b|\bgiam\s+\d[\d.,]*\s+tuong ung/
+/** Dòng tổng của hoá đơn điện tử: "Cộng tiền hàng hoá, dịch vụ (Total amount) 2.050.000" là số phải trả, đã trừ khoản giảm bên dưới. */
+const TOTAL_AMOUNT_RE = /total amount/
+const UNIT_COLUMN_RE = /don vi tinh|\(unit\)/
+/** Đơn vị tính hay gặp (đã bỏ dấu, kể cả dạng OCR đọc hỏng) ở cột "Đơn vị tính" của hoá đơn điện tử. */
+const UNIT_WORDS = new Set(['lau', 'dia', 'di', 'die', 'tho', 'chai', 'ly', 'phan', 'to', 'cai', 'kg', 'bat', 'suat', 'lon', 'hop', 'goi', 'chiec', 'con', 'lit', 'thung', 'ket', 'cay', 'mieng', 'cuon', 'cu', 'qua'])
+/** Dòng "Đơn vị bán hàng (Company): TÊN" của hoá đơn điện tử: tên quán chính là phần sau dấu hai chấm. */
+const SELLER_RE = /(?:don vi ban hang|ten don vi ban|nguoi ban)\b(.*)$/
 
 const VENDOR_KEYWORD_RE = /nha hang|quan\b|cafe|coffee|\blau\b|bbq|\bbill\b|restaurant|karaoke|\btra\b|\bbar\b|buffet|\bcom\b|\bpho\b|\bbun\b|bistro|kitchen/
 
@@ -82,7 +98,8 @@ function fixDigitLookalikes(token: string): string {
 
 /** Các số tiền (≥ 100 đồng) trên dòng, sau khi bỏ phần trăm. */
 function moneyValues(line: string): number[] {
-  const withoutPercent = line.replace(PERCENT_RE, ' ')
+  // "12.374,00" (hoá đơn điện tử ghi đồng kèm phần thập phân 00): bỏ phần thập phân để đọc ra 12.374.
+  const withoutPercent = line.replace(PERCENT_RE, ' ').replace(/(\d{1,3}(?:[.,]\d{3})+)[.,]?00(?!\d)/g, '$1').replace(/(\d)[.,]00(?!\d)/g, '$1')
   const tokens = withoutPercent.match(MONEY_TOKEN_RE) ?? []
   return tokens
     .map((t) => parseMoney(t))
@@ -106,22 +123,40 @@ function adjustmentOf(line: string): ParsedAdjustment | undefined {
 }
 
 function isAdjustmentLine(line: string): boolean {
-  return hit(VAT_RE, line) || hit(SERVICE_RE, line) || hit(DISCOUNT_RE, line)
+  return (hit(VAT_RE, line) && !hit(TAX_ID_RE, line)) || hit(SERVICE_RE, line) || hit(DISCOUNT_RE, line)
 }
 
 /** Dòng có ngày (dd/mm/yyyy hoặc "Ngày d tháng m năm yyyy") không phải món. */
 function isDateLine(line: string): boolean {
-  return /\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/.test(line) || /ngay\s*\d{1,2}\s*thang/.test(fold(line))
+  return /\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/.test(line) || /ngay\s*(?:\([^)]*\)\s*)?[\w|\s]{1,5}?\s*thang/.test(fold(line))
 }
 
 function isTotalLine(line: string): boolean {
   return hit(TOTAL_RE, line) && !hit(TOTAL_EXCLUDE_RE, line)
 }
 
+/** Chữ số bị OCR đọc thành chữ giống số: "Í 3" → 13, "|0" → 10. */
+function digitsOf(raw: string): string {
+  return fold(raw).replace(/[il|]/g, '1').replace(/o/g, '0').replace(/[^\d]/g, '')
+}
+
+/**
+ * "Ngày (date) 13 tháng (month) 10 năm (year) 2026" của hoá đơn điện tử song ngữ: chữ chú thích trong ngoặc chen giữa
+ * và ngày/tháng hay bị đọc lẫn ("Í 3"). Trả về mảng kiểu kết quả `exec` (ngày, tháng, năm ở các nhóm 1-3).
+ */
+function wordsDate(line: string): RegExpExecArray | null {
+  const match = /ngay\s*(?:\([^)]*\)\s*)?([\w|\s]{1,5}?)\s*thang\s*(?:\([^)]*\)\s*)?([\w|\s]{1,5}?)\s*nam\s*(?:\([^)]*\)\s*)?\D{0,12}?(\d{4})/.exec(fold(line))
+  if (!match) return null
+  const day = digitsOf(match[1])
+  const month = digitsOf(match[2])
+  if (day === '' || month === '') return null
+  return Object.assign([match[0], day, month, match[3]], { index: match.index, input: match.input }) as RegExpExecArray
+}
+
 function findDate(lines: string[]): string | undefined {
   for (const line of lines) {
     const dmy = /(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})(?!\d)/.exec(line)
-    const words = /ngay\s*(\d{1,2})\s*thang\s*(\d{1,2})\s*nam\s*(\d{4})/.exec(fold(line))
+    const words = /ngay\s*(\d{1,2})\s*thang\s*(\d{1,2})\s*nam\s*(\d{4})/.exec(fold(line)) ?? wordsDate(line)
     const match = words ?? dmy
     if (!match) continue
     const year = match[3].length === 2 ? `20${match[3]}` : match[3]
@@ -132,7 +167,20 @@ function findDate(lines: string[]): string | undefined {
 }
 
 /** Tên quán: trong 4 dòng đầu không phải địa chỉ/tiêu đề, ưu tiên dòng có từ khoá và viết hoa. */
+function findSeller(lines: string[]): string | undefined {
+  for (const line of lines) {
+    if (!SELLER_RE.test(fold(line))) continue
+    // Tên nằm sau dấu hai chấm hoặc ngoặc đóng của nhãn song ngữ "(Company):"; nhãn bị OCR làm hỏng dấu thì lấy cụm chữ hoa ở cuối dòng.
+    const afterLabel = /[:)]\s*([^:)]+)$/.exec(line)?.[1] ?? /((?:[A-ZÀ-Ỹ]{2,}\s+){1,}[A-ZÀ-Ỹ]{2,})\s*$/.exec(line)?.[1]
+    const name = afterLabel?.replace(/^[^\p{L}\p{N}]+/u, '').replace(/[^\p{L}\p{N})]+$/u, '').trim()
+    if (name && (name.match(/\p{L}/gu) ?? []).length >= 3) return name
+  }
+  return undefined
+}
+
 function findVendor(lines: string[]): string | undefined {
+  const seller = findSeller(lines)
+  if (seller) return seller
   let best: { name: string; score: number } | undefined
   for (const line of lines.slice(0, 4)) {
     if (hit(ADDRESS_RE, line) || hit(HEADER_RE, line) || !/[A-Za-zÀ-ỹ]/.test(line)) continue
@@ -150,7 +198,8 @@ function findVendor(lines: string[]): string | undefined {
 }
 
 function cleanItemName(raw: string): string | undefined {
-  let name = raw.replace(/^\d{1,2}[.)]\s+/, '').trim()
+  // Số thứ tự (STT) đầu dòng của bảng: "1 | Canh chua", "5 |Cơm", "_3._ Cải", "2. Bia".
+  let name = raw.replace(/^[^\p{L}\p{N}]*\d{1,2}\s*(?:[.)]+[_\s]+|\|+\s*)/u, '').trim()
   // Đuôi rác do OCR đọc đường kẻ/dấu chấm thành ": n :", và dấu câu rác ở hai đầu ("` Matcha", "NUI XÀO BO .").
   for (let prev = ''; prev !== name; ) {
     prev = name
@@ -291,6 +340,13 @@ function interpretTail(numbers: string[]): TailItem | null {
   return { quantity, unitPrice, amount, uncertain: quantity * unitPrice !== amount, extra }
 }
 
+/** Bỏ từ đơn vị tính ở cuối tên (chỉ khi còn lại ít nhất một từ). */
+function dropTrailingUnit(name: string): string {
+  const tokens = name.split(' ')
+  if (tokens.length < 2 || !UNIT_WORDS.has(fold(tokens[tokens.length - 1]))) return name
+  return tokens.slice(0, -1).join(' ')
+}
+
 /** Tên "món" thực ra là rác OCR (vùng mã QR, đường kẻ đọc thành chuỗi chữ số): quá dài hoặc phần lớn là token có chữ số. */
 function looksLikeJunk(name: string): boolean {
   if (name.length > 60) return true
@@ -318,12 +374,15 @@ function stripBigNumbers(rawName: string): { name: string; hints: number[] } {
  */
 function parseItems(lines: string[], vendorName: string | undefined): ParsedItem[] {
   const items: ParsedItem[] = []
+  // Bảng có cột "Đơn vị tính": từ đơn vị (Lẩu, Dĩa, Thố…) đứng cuối tên món, không thuộc tên.
+  const unitColumn = lines.some((l) => hit(UNIT_COLUMN_RE, l))
   /** Các dòng chỉ có chữ liên tiếp chưa gắn vào món nào. */
   let pending: string[] = []
 
   const push = (rawName: string, quantity: number, unitPrice: number, rawAmount: number, uncertain: boolean): void => {
     const { name: strippedName, hints } = stripBigNumbers(rawName)
-    const own = cleanItemName(strippedName)
+    const cleaned = cleanItemName(strippedName)
+    const own = cleaned && unitColumn ? dropTrailingUnit(cleaned) : cleaned
     if (!own || looksLikeJunk(own)) return
     let flagged = uncertain
     // Số lớn trong tên là số tiền bị đọc nhầm vào tên: dùng nó để sửa dòng nếu làm SL × đơn giá = thành tiền khớp.
@@ -340,10 +399,14 @@ function parseItems(lines: string[], vendorName: string | undefined): ParsedItem
     items.push({ name, quantity, unitPrice, rawAmount, uncertain: flagged || quantity * unitPrice !== rawAmount })
   }
 
+  // Hoá đơn điện tử dạng bảng: các món nằm trước dòng "Cộng tiền hàng hóa… (Total amount)"; phần sau là chữ ký số, mã tra cứu…
+  const tableMode = unitColumn || lines.some((l) => hit(TOTAL_AMOUNT_RE, l))
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    if (tableMode && items.length > 0 && (hit(TOTAL_AMOUNT_RE, line) || hit(/^\W*cong tien/, line))) break
     const isClassified =
-      isAdjustmentLine(line) || isTotalLine(line) || isDateLine(line) || hit(ADDRESS_RE, line) || hit(HEADER_RE, line) || hit(FOOTER_RE, line)
+      isAdjustmentLine(line) || isTotalLine(line) || isDateLine(line) || hit(ADDRESS_RE, line) || hit(HEADER_RE, line) || hit(FOOTER_RE, line) || hit(COLUMN_INDEX_RE, line) || hit(NOTE_RE, line)
     if (isClassified) {
       pending = []
       continue
@@ -436,7 +499,14 @@ export function parseReceipt(rawText: string): ParsedReceipt {
   if (vendorName) result.vendorName = vendorName
 
   for (const line of lines) {
-    if (hit(VAT_RE, line)) {
+    if (hit(REDUCTION_RE, line)) {
+      const values = moneyValues(line)
+      if (values.length > 0) result.discount = { mode: 'FIXED_AMOUNT', value: values[0] }
+    } else if (hit(TOTAL_AMOUNT_RE, line)) {
+      const values = moneyValues(line)
+      if (values.length > 0) result.billTotal = values[values.length - 1]
+    } else if (hit(VAT_RE, line)) {
+      if (hit(TAX_ID_RE, line)) continue
       const adj = adjustmentOf(line)
       if (adj) result.vat = adj
     } else if (hit(SERVICE_RE, line)) {

@@ -7,6 +7,7 @@ import {
   medianStrokeWidth,
   otsuThreshold,
   quadSize,
+  isCleanDocument,
   scanDocument,
   thicken,
   warpToRect,
@@ -176,5 +177,31 @@ describe('scanDocument — cả quy trình', () => {
     for (let y = 0; y < 300; y += 2) for (let x = 0; x < 300; x++) img.data[y * 300 + x] = 235
     for (let y = 0; y < 300; y++) if (y % 8 < 5) for (let x = 0; x < 300; x++) img.data[y * 300 + x] = 20
     expect(scanDocument(img)).toBeNull()
+  })
+})
+
+describe('isCleanDocument — tài liệu điện tử giữ ảnh xám', () => {
+  /** Nền trắng tuyệt đối với vài nét chữ đen: giống ảnh chụp màn hình PDF. */
+  function digital(width: number, height: number): GrayImage {
+    const img = makeImage(width, height, 255)
+    for (let y = 40; y < height; y += 30) for (let x = 20; x < width - 20; x++) if ((x >> 2) % 2 === 0) img.data[y * width + x] = 0
+    return img
+  }
+
+  it('nền trắng đều → sạch; có bóng/nền xám → không', () => {
+    expect(isCleanDocument(digital(600, 800))).toBe(true)
+    const shaded = digital(600, 800)
+    for (let y = 0; y < 800; y++) for (let x = 0; x < 600; x++) if (shaded.data[y * 600 + x] > 0) shaded.data[y * 600 + x] = 200 + Math.round((x / 600) * 30)
+    expect(isCleanDocument(shaded)).toBe(false)
+    expect(isCleanDocument(makeImage(100, 100, 255))).toBe(false)
+  })
+
+  it('scanDocument giữ ảnh xám cho tài liệu sạch và nhị phân hoá khi bị ép `never`', () => {
+    const img = digital(600, 800)
+    const kept = scanDocument(img, { targetLongEdge: 800, maxUpscale: 1 })!
+    expect(kept.binarized).toBe(false)
+    expect(new Set(kept.image.data).size).toBeGreaterThanOrEqual(1)
+    const forced = scanDocument(img, { targetLongEdge: 800, maxUpscale: 1, keepGray: 'never' })!
+    expect(forced.binarized).toBe(true)
   })
 })

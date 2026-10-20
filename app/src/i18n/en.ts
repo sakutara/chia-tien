@@ -500,4 +500,5 @@ export const en: Record<string, string> = {
   'hoá đơn và ảnh': 'receipts and photos',
   'để giải phóng bộ nhớ. Vẫn giữ lại chi phí từng kèo, các món và lịch sử quyết toán. Không hoàn tác được.': 'to free up storage. Each venue\'s cost, the items and the settlement history are kept. This cannot be undone.',
   'Món của {name}': 'Items of {name}',
+  'Xong': 'Done',
 }
