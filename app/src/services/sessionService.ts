@@ -5,12 +5,13 @@ import type { SessionKeo } from '../types';
 import { deleteFilesBySession } from './fileStorageService';
 import { PeopleError } from './peopleErrors';
 import { loadActiveMeal } from './mealPeopleService';
+import { t } from '../i18n';
 
 const nowIso = () => new Date().toISOString();
 
 async function loadSession(sessionId: string): Promise<SessionKeo> {
   const session = await db.sessions.get(sessionId);
-  if (!session) throw new PeopleError('SESSION_NOT_FOUND', 'Không tìm thấy kèo này.', { sessionId });
+  if (!session) throw new PeopleError('SESSION_NOT_FOUND', t('Không tìm thấy kèo này.'), { sessionId });
   return session;
 }
 
@@ -85,7 +86,7 @@ export async function setSessionParticipants(sessionId: string, memberIds: strin
 
     const outsider = next.find((id) => !meal.participantIds.includes(id));
     if (outsider) {
-      throw new PeopleError('SESSION_MEMBER_NOT_IN_MEAL', 'Chỉ chọn được người đã có trong bữa.', { memberId: outsider });
+      throw new PeopleError('SESSION_MEMBER_NOT_IN_MEAL', t('Chỉ chọn được người đã có trong bữa.'), { memberId: outsider });
     }
 
     const removed = session.participantIds.filter((id) => !next.includes(id));
@@ -96,11 +97,11 @@ export async function setSessionParticipants(sessionId: string, memberIds: strin
       const payerOf = invoices.some((inv) => inv.payerMemberId === memberId);
       const consumerOf = items.some((it) => it.consumers.some((c) => c.memberId === memberId));
       if (payerOf || consumerOf) {
-        throw new PeopleError('SESSION_MEMBER_IN_USE', 'Người này đang ứng tiền hoặc ăn món trong kèo.', { memberId });
+        throw new PeopleError('SESSION_MEMBER_IN_USE', t('Người này đang ứng tiền hoặc ăn món trong kèo.'), { memberId });
       }
     }
     if (next.length === 0 && invoices.length > 0) {
-      throw new PeopleError('SESSION_EMPTY', 'Kèo đã có hoá đơn nên phải có ít nhất một người tham gia.');
+      throw new PeopleError('SESSION_EMPTY', t('Kèo đã có hoá đơn nên phải có ít nhất một người tham gia.'));
     }
 
     // Chỉ ghi lại những hoá đơn thực sự thay đổi danh sách chia đều.
@@ -109,7 +110,7 @@ export async function setSessionParticipants(sessionId: string, memberIds: strin
       return equalSplit.length === inv.equalSplitParticipantIds.length ? [] : [{ ...inv, equalSplitParticipantIds: equalSplit }];
     });
     if (updatedInvoices.some((inv) => inv.equalSplitParticipantIds.length === 0)) {
-      throw new PeopleError('SESSION_EMPTY', 'Danh sách chia đều của hoá đơn không được rỗng.');
+      throw new PeopleError('SESSION_EMPTY', t('Danh sách chia đều của hoá đơn không được rỗng.'));
     }
 
     const updated: SessionKeo = { ...session, participantIds: next };

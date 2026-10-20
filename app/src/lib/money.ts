@@ -1,8 +1,19 @@
-const formatter = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
+import { LOCALES, getLang, type Lang } from '../i18n';
 
-/** `1620000` → `1.620.000 ₫`. Tiền VNĐ không có phần lẻ nên làm tròn đến đồng. */
-export function formatMoney(amount: number): string {
-  return `${formatter.format(Math.round(amount))} ₫`;
+const formatters = new Map<Lang, Intl.NumberFormat>();
+
+function numberFormat(lang: Lang): Intl.NumberFormat {
+  let formatter = formatters.get(lang);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(LOCALES[lang], { maximumFractionDigits: 0 });
+    formatters.set(lang, formatter);
+  }
+  return formatter;
+}
+
+/** `1620000` → `1.620.000 ₫` (vi) hoặc `1,620,000 ₫` (en). Tiền VNĐ không có phần lẻ nên làm tròn đến đồng. */
+export function formatMoney(amount: number, lang: Lang = getLang()): string {
+  return `${numberFormat(lang).format(Math.round(amount))} ₫`;
 }
 
 const MAX_MONEY = 9_999_999_999;

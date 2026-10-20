@@ -8,6 +8,7 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import IconButton from '../ui/IconButton'
 import MemberBankDialog from './MemberBankDialog'
 import PaymentGroupDialog from './PaymentGroupDialog'
+import { T, t } from '../../i18n'
 
 interface Props {
   meal: Meal
@@ -20,9 +21,9 @@ interface Props {
 }
 
 const REASON_TEXT: Record<string, string> = {
-  payer: 'đang ứng tiền cho hoá đơn',
-  consumer: 'đang có trong danh sách ăn của món',
-  equalSplit: 'đang nằm trong danh sách chia đều của hoá đơn',
+  payer: T('đang ứng tiền cho hoá đơn'),
+  consumer: T('đang có trong danh sách ăn của món'),
+  equalSplit: T('đang nằm trong danh sách chia đều của hoá đơn'),
 }
 
 const CHIP = 'flex min-h-9 min-w-0 items-center gap-1 rounded-full border border-usd-paper-200 bg-usd-paper-50 py-0.5 pl-2.5 pr-0.5 text-xs sm:pl-1 sm:text-sm'
@@ -54,12 +55,12 @@ export default function MemberList({ meal, participants, groups, readOnly, creat
       await removeParticipant(meal.id, member.id)
     } catch (e) {
       if (e instanceof PeopleError && e.code === 'MEMBER_IN_USE') {
-        const reasons = ((e.detail?.reasons as string[] | undefined) ?? []).map((r) => REASON_TEXT[r] ?? r)
-        setError(`Không thể bỏ ${member.name}: ${reasons.join(', ')}.`)
+        const reasons = ((e.detail?.reasons as string[] | undefined) ?? []).map((r) => (REASON_TEXT[r] ? t(REASON_TEXT[r]) : r))
+        setError(t('Không thể bỏ {name}: {reasons}.', { name: member.name, reasons: reasons.join(', ') }))
       } else if (e instanceof PeopleError && e.code === 'HOST_REQUIRED') {
-        setError(`Không thể bỏ ${member.name} vì đang là người chủ trì. Hãy đổi chủ trì trước.`)
+        setError(t('Không thể bỏ {name} vì đang là người chủ trì. Hãy đổi chủ trì trước.', { name: member.name }))
       } else {
-        setError(e instanceof Error ? e.message : 'Có lỗi không xác định.')
+        setError(e instanceof Error ? e.message : t('Có lỗi không xác định.'))
       }
     }
   }
@@ -75,7 +76,7 @@ export default function MemberList({ meal, participants, groups, readOnly, creat
 
   return (
     <div className="space-y-2">
-      <ul className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap" aria-label="Người tham gia">
+      <ul className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap" aria-label={t('Người tham gia')}>
         {groups.map((g) => {
           const open = g.id === openGroupId
           return (
@@ -83,7 +84,7 @@ export default function MemberList({ meal, participants, groups, readOnly, creat
               <button
                 type="button"
                 aria-expanded={open}
-                aria-label={`Nhóm ${g.name}`}
+                aria-label={t('Nhóm {name}', { name: g.name })}
                 title={g.members.map((m) => m.name).join(', ')}
                 onClick={() => setOpenGroupId(open ? null : g.id)}
                 className={`${CHIP} w-full pr-2 font-semibold ${open ? 'border-usd-green-700 bg-usd-green-100' : ''}`}
@@ -107,11 +108,11 @@ export default function MemberList({ meal, participants, groups, readOnly, creat
               {m.name.charAt(0)}
             </span>
             <span className="min-w-0 flex-1 truncate" title={m.name}>{m.name}</span>
-            {m.id === meal.hostMemberId && <Crown className="h-3.5 w-3.5 shrink-0 text-usd-gold-600" aria-label="Chủ trì" />}
+            {m.id === meal.hostMemberId && <Crown className="h-3.5 w-3.5 shrink-0 text-usd-gold-600" aria-label={t('Chủ trì')} />}
             {!readOnly && (
               <IconButton
     icon={Landmark}
-    label={`Tài khoản ngân hàng của ${m.name}`}
+    label={t('Tài khoản ngân hàng của {name}', { name: m.name })}
     tone={m.bank ? 'primary' : 'default'}
     className="!h-7 !w-7 shrink-0 rounded-full"
     onClick={() => setBankFor(m)}
@@ -120,41 +121,41 @@ export default function MemberList({ meal, participants, groups, readOnly, creat
             {readOnly || m.id === meal.hostMemberId ? (
               <span className="w-1" />
             ) : (
-              <IconButton icon={X} label={`Bỏ ${m.name} khỏi bữa`} className="!h-7 !w-7 shrink-0 rounded-full" onClick={() => requestRemove(m)} />
+              <IconButton icon={X} label={t('Bỏ {name} khỏi bữa', { name: m.name })} className="!h-7 !w-7 shrink-0 rounded-full" onClick={() => requestRemove(m)} />
             )}
           </li>
         ))}
       </ul>
 
       {openGroup && (
-        <div className="space-y-2 rounded-lg border border-usd-green-600/40 bg-usd-green-100/40 p-2 text-sm" role="group" aria-label={`Chi tiết nhóm ${openGroup.name}`}>
+        <div className="space-y-2 rounded-lg border border-usd-green-600/40 bg-usd-green-100/40 p-2 text-sm" role="group" aria-label={t('Chi tiết nhóm {name}', { name: openGroup.name })}>
           <div className="flex items-center justify-between gap-2">
             <span className="min-w-0 break-words">
               <strong>{openGroup.name}</strong>: {openGroup.members.map((m) => m.name).join(', ')}
             </span>
             {!readOnly && (
               <span className="flex shrink-0">
-                <IconButton icon={Pencil} label={`Sửa nhóm ${openGroup.name}`} onClick={() => setEditing(openGroup)} />
-                <IconButton icon={Unlink} label={`Giải tán nhóm ${openGroup.name}`} tone="danger" onClick={() => void dissolve(openGroup)} />
+                <IconButton icon={Pencil} label={t('Sửa nhóm {name}', { name: openGroup.name })} onClick={() => setEditing(openGroup)} />
+                <IconButton icon={Unlink} label={t('Giải tán nhóm {name}', { name: openGroup.name })} tone="danger" onClick={() => void dissolve(openGroup)} />
               </span>
             )}
           </div>
           {!readOnly && (
-            <ul className="flex flex-wrap gap-1.5" aria-label={`Thành viên nhóm ${openGroup.name}`}>
+            <ul className="flex flex-wrap gap-1.5" aria-label={t('Thành viên nhóm {name}', { name: openGroup.name })}>
               {openGroup.members.map((m) => (
                 <li key={m.id} className={`${CHIP} pl-3`}>
                   <span>{m.name}</span>
                   <IconButton
     icon={Landmark}
-    label={`Tài khoản ngân hàng của ${m.name}`}
+    label={t('Tài khoản ngân hàng của {name}', { name: m.name })}
     tone={m.bank ? 'primary' : 'default'}
     className="!h-7 !w-7 shrink-0 rounded-full"
     onClick={() => setBankFor(m)}
   />
                   {m.id === meal.hostMemberId ? (
-                    <Crown className="h-3.5 w-3.5 text-usd-gold-600" aria-label="Chủ trì" />
+                    <Crown className="h-3.5 w-3.5 text-usd-gold-600" aria-label={t('Chủ trì')} />
                   ) : (
-                    <IconButton icon={X} label={`Bỏ ${m.name} khỏi bữa`} className="!h-7 !w-7 shrink-0 rounded-full" onClick={() => requestRemove(m)} />
+                    <IconButton icon={X} label={t('Bỏ {name} khỏi bữa', { name: m.name })} className="!h-7 !w-7 shrink-0 rounded-full" onClick={() => requestRemove(m)} />
                   )}
                 </li>
               ))}
@@ -171,9 +172,9 @@ export default function MemberList({ meal, participants, groups, readOnly, creat
 
       <ConfirmDialog
         open={confirming !== null}
-        title="Bỏ người đã tick thanh toán?"
-        message={`${confirming?.name ?? ''} đã được tick "Đã thanh toán". Bỏ người này sẽ xoá trạng thái đó.`}
-        confirmLabel="Bỏ khỏi bữa"
+        title={t('Bỏ người đã tick thanh toán?')}
+        message={t('{name} đã được tick "Đã thanh toán". Bỏ người này sẽ xoá trạng thái đó.', { name: confirming?.name ?? '' })}
+        confirmLabel={t('Bỏ khỏi bữa')}
         tone="danger"
         onCancel={() => setConfirming(null)}
         onConfirm={async () => {
@@ -184,9 +185,9 @@ export default function MemberList({ meal, participants, groups, readOnly, creat
       />
       <ConfirmDialog
         open={dissolving !== null}
-        title="Giải tán nhóm đã tick thanh toán?"
-        message={`Nhóm "${dissolving?.name ?? ''}" có trạng thái "Đã thanh toán". Giải tán sẽ xoá trạng thái đó.`}
-        confirmLabel="Giải tán nhóm"
+        title={t('Giải tán nhóm đã tick thanh toán?')}
+        message={t('Nhóm "{name}" có trạng thái "Đã thanh toán". Giải tán sẽ xoá trạng thái đó.', { name: dissolving?.name ?? '' })}
+        confirmLabel={t('Giải tán nhóm')}
         tone="danger"
         onCancel={() => setDissolving(null)}
         onConfirm={async () => {

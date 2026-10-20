@@ -3,6 +3,7 @@
  */
 
 import type { CompressionPreset } from '../types';
+import { T, t } from '../i18n';
 
 export type { CompressionPreset };
 export type OcrReadiness = 'OK' | 'RISKY' | 'POOR';
@@ -15,9 +16,9 @@ interface PresetSpec {
 }
 
 export const COMPRESSION_PRESETS: Record<CompressionPreset, PresetSpec> = {
-  ORIGINAL: { label: 'Giữ nguyên', maxLongEdge: 0, quality: 0.92 },
-  BALANCED: { label: 'Cân bằng', maxLongEdge: 2000, quality: 0.8 },
-  SAVER: { label: 'Tiết kiệm', maxLongEdge: 1400, quality: 0.6 },
+  ORIGINAL: { label: T('Giữ nguyên'), maxLongEdge: 0, quality: 0.92 },
+  BALANCED: { label: T('Cân bằng'), maxLongEdge: 2000, quality: 0.8 },
+  SAVER: { label: T('Tiết kiệm'), maxLongEdge: 1400, quality: 0.6 },
 };
 
 /** Mức khuyến nghị khi người dùng chưa chọn. */
@@ -49,7 +50,7 @@ export function planCompression(
   preset: CompressionPreset,
 ): CompressionPlan {
   if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
-    throw new RangeError('Kích thước ảnh không hợp lệ.');
+    throw new RangeError(t('Kích thước ảnh không hợp lệ.'));
   }
   const spec = COMPRESSION_PRESETS[preset];
   const longEdge = Math.max(width, height);
@@ -62,10 +63,10 @@ export function planCompression(
   let ocrReadiness: OcrReadiness = 'OK';
   if (targetLongEdge < OCR_POOR_LONG_EDGE) {
     ocrReadiness = 'POOR';
-    warnings.push('Ảnh nhỏ, OCR có thể đọc sai. Hãy chụp lại ở độ phân giải cao hơn hoặc gần bill hơn.');
+    warnings.push(t('Ảnh nhỏ, OCR có thể đọc sai. Hãy chụp lại ở độ phân giải cao hơn hoặc gần bill hơn.'));
   } else if (targetLongEdge <= OCR_RISKY_LONG_EDGE || spec.quality <= OCR_RISKY_QUALITY) {
     ocrReadiness = 'RISKY';
-    warnings.push('Mức này có thể làm OCR kém với bill nhỏ chữ. Nhập tay vẫn luôn được.');
+    warnings.push(t('Mức này có thể làm OCR kém với bill nhỏ chữ. Nhập tay vẫn luôn được.'));
   }
 
   return {

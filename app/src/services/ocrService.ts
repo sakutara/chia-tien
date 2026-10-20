@@ -1,5 +1,6 @@
 import { prepareForOcr } from '../lib/imagePreprocess'
 import { PeopleError } from './peopleErrors'
+import { t } from '../i18n'
 
 /*
  * OCR offline bằng Tesseract.js (BR-4.7, BR-4.13). Worker và dữ liệu ngôn ngữ nằm trong public/ocr,
@@ -30,7 +31,7 @@ async function createOcrWorker(): Promise<OcrWorker> {
     langPath: BASE,
     gzip: false,
     logger: (m: { status: string; progress: number }) => {
-      if (m.status === 'recognizing text') currentProgress?.(Math.round(m.progress * 100), 'Đang đọc chữ…')
+      if (m.status === 'recognizing text') currentProgress?.(Math.round(m.progress * 100), t('Đang đọc chữ…'))
     },
   })) as unknown as OcrWorker
   // Bill là một cột chữ: PSM 4 (một cột, kích cỡ chữ đổi dòng) giữ đúng thứ tự dòng và cột giá; PSM 3 hay làm
@@ -82,7 +83,7 @@ export async function runOcr(
 ): Promise<string[]> {
   const { onProgress, signal } = options
   const aborted = () => signal?.aborted === true
-  const cancelled = () => new PeopleError('OCR_CANCELLED', 'Đã huỷ quét ảnh.')
+  const cancelled = () => new PeopleError('OCR_CANCELLED', t('Đã huỷ quét ảnh.'))
 
   if (aborted()) throw cancelled()
   const onAbort = () => void terminateOcrWorker()
@@ -90,12 +91,12 @@ export async function runOcr(
   currentProgress = onProgress
 
   try {
-    onProgress?.(0, 'Đang khởi tạo bộ đọc chữ…')
+    onProgress?.(0, t('Đang khởi tạo bộ đọc chữ…'))
     const worker = await getWorker()
     const texts: string[] = []
     for (let i = 0; i < images.length; i++) {
       if (aborted()) throw cancelled()
-      onProgress?.(Math.round((i / images.length) * 100), `Đang chuẩn bị ảnh ${i + 1}/${images.length}…`)
+      onProgress?.(Math.round((i / images.length) * 100), t('Đang chuẩn bị ảnh {v}/{length}…', { v: i + 1, length: images.length }))
       const prepared = await prepareForOcr(images[i])
       if (aborted()) throw cancelled()
       const { data } = await worker.recognize(prepared)
@@ -106,7 +107,7 @@ export async function runOcr(
   } catch (err) {
     if (aborted()) throw cancelled()
     if (err instanceof PeopleError) throw err
-    throw new PeopleError('OCR_FAILED', 'Không quét được ảnh. Bạn vẫn có thể nhập tay.')
+    throw new PeopleError('OCR_FAILED', t('Không quét được ảnh. Bạn vẫn có thể nhập tay.'))
   } finally {
     signal?.removeEventListener('abort', onAbort)
     currentProgress = undefined

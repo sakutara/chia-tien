@@ -10,6 +10,7 @@ import type {
   SessionKeo,
   SettlementTransfer,
 } from '../types'
+import { t } from '../i18n'
 
 /*
  * Động cơ quyết toán toàn bữa (Epic 6). Hàm thuần: không đọc DB, không chạm DOM.
@@ -176,7 +177,7 @@ export function computeMealSettlement(input: SettlementEngineInput): MealSettlem
     entities.push(
       buildEntity({
         entityId: id,
-        entityName: nameById.get(id) ?? 'Đã rời bữa',
+        entityName: nameById.get(id) ?? t('Đã rời bữa'),
         isGroup: false,
         memberIds: [id],
         nameById,
@@ -208,7 +209,7 @@ export function computeMealSettlement(input: SettlementEngineInput): MealSettlem
     const totalOwed = owedById.get(memberId) ?? 0;
     return {
       memberId,
-      memberName: nameById.get(memberId) ?? 'Đã rời bữa',
+      memberName: nameById.get(memberId) ?? t('Đã rời bữa'),
       paidInvoices: a.paidInvoices,
       chargeLines: a.chargeLines,
       totalPaid: a.paid,
@@ -297,7 +298,7 @@ function buildEntity(input: EntityInput): PaymentEntitySettlement {
     entityName: input.entityName,
     isGroup: input.isGroup,
     memberIds: input.memberIds,
-    memberNames: input.memberIds.map((id) => input.nameById.get(id) ?? 'Đã rời bữa'),
+    memberNames: input.memberIds.map((id) => input.nameById.get(id) ?? t('Đã rời bữa')),
     representativeId: input.representativeId,
     totalPaid,
     totalOwed,
@@ -350,7 +351,7 @@ export function computeHostMediatedTransfers(
   hostEntityId: string,
 ): TransferDraft[] {
   const host = entities.find((e) => e.entityId === hostEntityId);
-  const hostName = host?.entityName ?? 'Chủ trì';
+  const hostName = host?.entityName ?? t('Chủ trì');
   const transfers: TransferDraft[] = [];
   for (const e of entities) {
     if (e.entityId === hostEntityId || e.netBalance === 0) continue;

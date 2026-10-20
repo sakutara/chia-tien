@@ -1,5 +1,6 @@
 import { decodeBounded } from './imageCompress'
 import { scanDocument, type GrayImage } from './documentScan'
+import { t } from '../i18n'
 
 /*
  * Chụp/tải ảnh hoá đơn → ảnh kiểu máy quét (cắt theo 4 góc, nắn thẳng, trắng đen, chữ dày) để OCR đọc rõ hơn.
@@ -11,7 +12,7 @@ function toGray(bitmap: ImageBitmap): GrayImage {
   canvas.width = bitmap.width
   canvas.height = bitmap.height
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) throw new Error('Canvas không khả dụng.')
+  if (!ctx) throw new Error(t('Canvas không khả dụng.'))
   // Nền trắng để ảnh PNG trong suốt không thành đen.
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -48,7 +49,7 @@ export async function scanReceiptImage(file: File): Promise<ScannedImage | null>
   canvas.width = image.width
   canvas.height = image.height
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('Canvas không khả dụng.')
+  if (!ctx) throw new Error(t('Canvas không khả dụng.'))
   const out = ctx.createImageData(image.width, image.height)
   for (let i = 0, p = 0; i < image.data.length; i++, p += 4) {
     out.data[p] = out.data[p + 1] = out.data[p + 2] = image.data[i]

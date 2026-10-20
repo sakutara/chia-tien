@@ -16,6 +16,7 @@ import PeoplePicker from '../ui/PeoplePicker'
 import Switch from '../ui/Switch'
 import EqualSplitPicker from './EqualSplitPicker'
 import InvoiceItemRow from './InvoiceItemRow'
+import { t } from '../../i18n'
 
 interface Props {
   row: InvoiceRow
@@ -30,7 +31,7 @@ interface Props {
   onError: (message: string) => void
 }
 
-const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : 'Có lỗi không xác định.')
+const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : t('Có lỗi không xác định.'))
 
 /**
  * Thẻ một hoá đơn trong kèo (Tầng 2 + Tầng 3), dạng gọn: tên + tổng + icon; người ứng là chuỗi bấm để đổi;
@@ -50,7 +51,7 @@ export default function InvoiceCard({ row, index, session, sessionMembers, readO
     }
   }
 
-  const title = invoice.vendorName ?? 'Không rõ tên quán'
+  const title = invoice.vendorName ?? t('Không rõ tên quán')
 
   return (
     <div className="space-y-2">
@@ -61,18 +62,18 @@ export default function InvoiceCard({ row, index, session, sessionMembers, readO
         <span className="money shrink-0 py-2 text-sm font-semibold sm:py-1.5">{formatMoney(invoice.totalAmount)}</span>
         {!readOnly && (
           <>
-            <IconButton icon={Pencil} label={`Sửa hoá đơn #${n}`} onClick={onEditInvoice} />
-            <IconButton icon={Trash2} label={`Xoá hoá đơn #${n}`} tone="danger" onClick={onDeleteInvoice} />
+            <IconButton icon={Pencil} label={t('Sửa hoá đơn #{n}', { n })} onClick={onEditInvoice} />
+            <IconButton icon={Trash2} label={t('Xoá hoá đơn #{n}', { n })} tone="danger" onClick={onDeleteInvoice} />
           </>
         )}
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span>
-          <span className="text-usd-green-700">Ứng: </span>
+          <span className="text-usd-green-700">{t('Ứng:')}</span>
           <PeoplePicker
             mode="single"
-            label={`Người ứng tiền hoá đơn #${n}`}
+            label={t('Người ứng tiền hoá đơn #{n}', { n })}
             options={sessionMembers}
             value={invoice.payerMemberId}
             readOnly={readOnly}
@@ -81,7 +82,7 @@ export default function InvoiceCard({ row, index, session, sessionMembers, readO
         </span>
         {!locked && (
           <Switch
-            label="Chia từng món"
+            label={t('Chia từng món')}
             checked={invoice.splitType === 'BY_ITEM'}
             disabled={readOnly}
             onChange={(on) => void run(() => setInvoiceSplitType(invoice.id, on ? 'BY_ITEM' : 'EQUAL_TOTAL'))}
@@ -91,11 +92,11 @@ export default function InvoiceCard({ row, index, session, sessionMembers, readO
 
       {unassigned > 0 && (
         <div role="status" className="flex items-center justify-between gap-2 rounded bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
-          <span>Còn {unassigned} món chưa chọn người ăn</span>
+          <span>{t('Còn {n} món chưa chọn người ăn', { n: unassigned })}</span>
           {!readOnly && (
             <IconButton
               icon={UsersRound}
-              label="Gán cả kèo cho các món trống"
+              label={t('Gán cả kèo cho các món trống')}
               onClick={() => void run(() => setAllItemsConsumers(invoice.id, session.participantIds, 'UNASSIGNED_ONLY'))}
             />
           )}
@@ -107,15 +108,15 @@ export default function InvoiceCard({ row, index, session, sessionMembers, readO
       )}
 
       {!locked && (
-        <section aria-label={`Món của hoá đơn #${n}`} className="space-y-1.5">
+        <section aria-label={t('Món của hoá đơn #{n}', { n })} className="space-y-1.5">
           <div className="flex items-center justify-between gap-2">
-            <h5 className="text-xs font-semibold uppercase tracking-wide text-usd-green-700">Món ({items.length})</h5>
+            <h5 className="text-xs font-semibold uppercase tracking-wide text-usd-green-700">{t('Món ({n})', { n: items.length })}</h5>
             {!readOnly && (
               <IconButton
                 icon={Plus}
-                label={`Thêm món vào hoá đơn #${n}`}
+                label={t('Thêm món vào hoá đơn #{n}', { n })}
                 tone="outline"
-                onClick={() => void run(() => addInvoiceItem(invoice.id, { name: 'Món mới', quantity: 1, unitPrice: 0 }))}
+                onClick={() => void run(() => addInvoiceItem(invoice.id, { name: t('Món mới'), quantity: 1, unitPrice: 0 }))}
               />
             )}
           </div>

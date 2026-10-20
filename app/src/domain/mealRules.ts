@@ -1,6 +1,7 @@
 import { formatDateVi, isYmdInRange } from '../lib/dates';
 import { PeopleError } from '../services/peopleErrors';
 import type { Meal, MealSummary } from '../types';
+import { t } from '../i18n';
 
 export const MEAL_TITLE_MAX = 100;
 export const MEAL_NOTE_MAX = 500;
@@ -17,7 +18,7 @@ export function cleanMealTitle(raw: string): string {
 }
 
 export function defaultMealTitle(ymd: string): string {
-  return `Bữa ${formatDateVi(ymd)}`;
+  return t('Bữa {v}', { v: formatDateVi(ymd) });
 }
 
 /**
@@ -26,17 +27,17 @@ export function defaultMealTitle(ymd: string): string {
  */
 export function validateMealDraft(draft: MealDraft): MealDraft {
   if (!isYmdInRange(draft.date)) {
-    throw new PeopleError('INVALID_DATE', 'Ngày không hợp lệ. Hãy chọn một ngày từ 01/01/2000 đến 31/12/2099.');
+    throw new PeopleError('INVALID_DATE', t('Ngày không hợp lệ. Hãy chọn một ngày từ 01/01/2000 đến 31/12/2099.'));
   }
 
   const cleaned = cleanMealTitle(draft.title);
   if (cleaned.length > MEAL_TITLE_MAX) {
-    throw new PeopleError('INVALID_TITLE', `Tên bữa tối đa ${MEAL_TITLE_MAX} ký tự.`);
+    throw new PeopleError('INVALID_TITLE', t('Tên bữa tối đa {MEAL_TITLE_MAX} ký tự.', { MEAL_TITLE_MAX }));
   }
 
   const note = (draft.note ?? '').replace(/\r\n?/g, '\n').trim();
   if (note.length > MEAL_NOTE_MAX) {
-    throw new PeopleError('INVALID_NOTE', `Ghi chú tối đa ${MEAL_NOTE_MAX} ký tự.`);
+    throw new PeopleError('INVALID_NOTE', t('Ghi chú tối đa {MEAL_NOTE_MAX} ký tự.', { MEAL_NOTE_MAX }));
   }
 
   const result: MealDraft = { title: cleaned || defaultMealTitle(draft.date), date: draft.date };

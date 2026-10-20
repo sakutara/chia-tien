@@ -5,6 +5,7 @@ import type {
   MealSettlementResult,
   SessionKeo,
 } from '../types';
+import { t } from '../i18n'
 
 /*
  * Điều kiện và đóng gói dữ liệu khi Lưu trữ bữa (Epic 7). Hàm thuần, không đọc DB.
@@ -30,17 +31,17 @@ export function checkArchiveEligibility(settlement: MealSettlementResult): Archi
   const base = { unassignedItemCount: settlement.unassignedItemCount, unpaidEntityNames };
 
   if (settlement.status !== 'ACTIVE') {
-    return { ...base, canArchive: false, reason: 'ALREADY_ARCHIVED', message: 'Bữa đã được lưu trữ.' };
+    return { ...base, canArchive: false, reason: 'ALREADY_ARCHIVED', message: t('Bữa đã được lưu trữ.') };
   }
   if (settlement.totalMealAmount <= 0) {
-    return { ...base, canArchive: false, reason: 'NO_COST', message: 'Bữa chưa có chi phí để lưu trữ.' };
+    return { ...base, canArchive: false, reason: 'NO_COST', message: t('Bữa chưa có chi phí để lưu trữ.') };
   }
   if (settlement.unassignedItemCount > 0) {
     return {
       ...base,
       canArchive: false,
       reason: 'UNASSIGNED_ITEMS',
-      message: `Còn ${settlement.unassignedItemCount} món chưa có người ăn.`,
+      message: t('Còn {unassignedItemCount} món chưa có người ăn.', { unassignedItemCount: settlement.unassignedItemCount }),
     };
   }
   if (unpaidEntityNames.length > 0) {
@@ -48,7 +49,7 @@ export function checkArchiveEligibility(settlement: MealSettlementResult): Archi
       ...base,
       canArchive: false,
       reason: 'UNPAID_ENTITIES',
-      message: `Chưa tick đã chuyển: ${unpaidEntityNames.join(', ')}.`,
+      message: t('Chưa tick đã chuyển: {v}.', { v: unpaidEntityNames.join(', ') }),
     };
   }
   return { ...base, canArchive: true };

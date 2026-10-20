@@ -1,5 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
+import { localizeSession } from '../db/localize'
+import { useLang } from '../i18n'
 import type { Invoice, InvoiceItem, SessionKeo } from '../types'
 
 export interface InvoiceRow {
@@ -18,6 +20,7 @@ export interface SessionView {
 
 /** Các kèo của một bữa theo thứ tự, kèm hoá đơn, món và tổng chi (BR-4.11). `undefined` khi đang tải. */
 export function useMealSessions(mealId: string): SessionView[] | undefined {
+  const lang = useLang()
   return useLiveQuery(async () => {
     const [sessions, invoices, items] = await Promise.all([
       db.sessions.where('mealId').equals(mealId).toArray(),
@@ -44,11 +47,11 @@ export function useMealSessions(mealId: string): SessionView[] | undefined {
         const liveTotal = mine.reduce((sum, row) => sum + row.invoice.totalAmount, 0)
         const archived = session.archivedTotalAmount
         return {
-          session,
+          session: localizeSession(session),
           invoices: mine,
           total: archived ?? liveTotal,
           hasCost: archived !== undefined || mine.length > 0,
         }
       })
-  }, [mealId])
+  }, [mealId, lang])
 }

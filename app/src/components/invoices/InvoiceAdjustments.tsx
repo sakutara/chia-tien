@@ -1,5 +1,6 @@
 import type { AdjustmentMode } from '../../types'
 import type { AdjustmentState } from './formState'
+import { T, t } from '../../i18n'
 
 interface Props {
   /** Tên khoản, ví dụ "Giảm giá", "Phí phục vụ", "VAT". */
@@ -14,9 +15,9 @@ const SELECT = 'field min-h-10 px-2'
 const INPUT = 'field min-h-10'
 
 const MODE_LABEL: Record<AdjustmentMode, string> = {
-  NONE: 'Không',
-  PERCENTAGE: 'Theo %',
-  FIXED_AMOUNT: 'Số tiền',
+  NONE: T('Không'),
+  PERCENTAGE: T('Theo %'),
+  FIXED_AMOUNT: T('Số tiền'),
 }
 
 /** Một khoản điều chỉnh của hoá đơn: chọn cách tính (không / % / số tiền) và nhập giá trị (BR-4.15, BR-4.9). */
@@ -35,7 +36,7 @@ export default function InvoiceAdjustments({ label, idBase, value, onChange }: P
         >
           {(Object.keys(MODE_LABEL) as AdjustmentMode[]).map((mode) => (
             <option key={mode} value={mode}>
-              {MODE_LABEL[mode]}
+              {t(MODE_LABEL[mode])}
             </option>
           ))}
         </select>
@@ -44,13 +45,13 @@ export default function InvoiceAdjustments({ label, idBase, value, onChange }: P
         {value.mode !== 'NONE' && (
           <>
             <label htmlFor={`${idBase}-value`} className="sr-only">
-              {label} — {value.mode === 'PERCENTAGE' ? 'phần trăm' : 'số tiền'}
+              {label} — {value.mode === 'PERCENTAGE' ? t('phần trăm') : t('số tiền')}
             </label>
             <input
               id={`${idBase}-value`}
               inputMode="numeric"
               value={value.value}
-              placeholder={value.mode === 'PERCENTAGE' ? 'VD: 8' : 'VD: 45.000'}
+              placeholder={value.mode === 'PERCENTAGE' ? t('VD: 8') : t('VD: 45.000')}
               onChange={(e) => onChange({ ...value, value: e.target.value })}
               className={INPUT}
             />

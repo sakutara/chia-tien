@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { formatDateVi } from '../../lib/dates'
 import { deleteMeal, getDeletePreview, type DeletePreview } from '../../services/mealService'
 import ConfirmDialog from '../ui/ConfirmDialog'
+import { t } from '../../i18n'
 
 interface Props {
   mealId: string
@@ -27,10 +28,10 @@ export default function DeleteMealDialog({ mealId, title, date, onClose, onDelet
 
   const parts = preview
     ? ([
-        [preview.sessions, 'kèo'],
-        [preview.invoices, 'hoá đơn'],
-        [preview.items, 'món'],
-        [preview.files, 'file ảnh'],
+        [preview.sessions, t('kèo')],
+        [preview.invoices, t('hoá đơn')],
+        [preview.items, t('món')],
+        [preview.files, t('file ảnh')],
       ] as const)
         .filter(([n]) => n > 0)
         .map(([n, label]) => `${n} ${label}`)
@@ -39,16 +40,16 @@ export default function DeleteMealDialog({ mealId, title, date, onClose, onDelet
   return (
     <ConfirmDialog
       open
-      title="Xoá bữa này?"
+      title={t('Xoá bữa này?')}
       tone="danger"
-      confirmLabel="Xoá bữa"
+      confirmLabel={t('Xoá bữa')}
       message={
         <div className="space-y-2">
           <p>
-            Bữa <strong>{title}</strong> ({formatDateVi(date)}) sẽ bị xoá vĩnh viễn.
+            {t('Bữa')} <strong>{title}</strong> ({formatDateVi(date)}) {t('sẽ bị xoá vĩnh viễn.')}
           </p>
-          {parts.length > 0 && <p>Sẽ mất kèm theo: {parts.join(', ')}.</p>}
-          <p>Không thể hoàn tác. Danh bạ thành viên vẫn được giữ.</p>
+          {parts.length > 0 && <p>{t('Sẽ mất kèm theo: {parts}.', { parts: parts.join(', ') })}</p>}
+          <p>{t('Không thể hoàn tác. Danh bạ thành viên vẫn được giữ.')}</p>
         </div>
       }
       onCancel={onClose}

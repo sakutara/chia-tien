@@ -1,5 +1,6 @@
 import { useId, useMemo, useState } from 'react'
 import { BANKS, findBankByBin, searchBanks, type BankInfo } from '../../domain/banks'
+import { t } from '../../i18n'
 
 interface Props {
   id: string
@@ -34,7 +35,7 @@ export default function BankSelect({ id, value, onChange }: Props) {
         aria-controls={listId}
         aria-autocomplete="list"
         autoComplete="off"
-        placeholder="Gõ để tìm ngân hàng…"
+        placeholder={t('Gõ để tìm ngân hàng…')}
         value={query}
         className="field min-h-10"
         onFocus={(e) => {
@@ -65,8 +66,8 @@ export default function BankSelect({ id, value, onChange }: Props) {
         }}
       />
       {open && (
-        <ul id={listId} role="listbox" aria-label="Ngân hàng" className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-usd-paper-200 bg-usd-paper-50 p-1 shadow-lg">
-          {results.length === 0 && <li className="px-2 py-2 text-sm text-usd-green-700">Không tìm thấy ngân hàng.</li>}
+        <ul id={listId} role="listbox" aria-label={t('Ngân hàng')} className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-usd-paper-200 bg-usd-paper-50 p-1 shadow-lg">
+          {results.length === 0 && <li className="px-2 py-2 text-sm text-usd-green-700">{t('Không tìm thấy ngân hàng.')}</li>}
           {results.map((b, i) => (
             <li
               key={b.bin}

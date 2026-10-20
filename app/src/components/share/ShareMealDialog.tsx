@@ -6,6 +6,7 @@ import { buildShareTargets, canUseWebShare, copyTextToClipboard, loadMealSnapsho
 import IconButton from '../ui/IconButton'
 import Modal from '../ui/Modal'
 import Switch from '../ui/Switch'
+import { t } from '../../i18n'
 
 interface Props {
   mealId: string
@@ -15,7 +16,7 @@ interface Props {
 /** URL dài hơn ngưỡng này có thể bị ứng dụng chat cắt (BR-8 rủi ro 3). */
 const LONG_URL_WARNING = 4000
 
-const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : 'Có lỗi không xác định.')
+const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : t('Có lỗi không xác định.'))
 
 /** Hộp thoại chia sẻ tin nhắn thanh toán: xem trước, lọc người chưa trả, chia sẻ hoặc sao chép (BR-8.6). */
 export default function ShareMealDialog({ mealId, onClose }: Props) {
@@ -50,8 +51,8 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
 
   if (!loaded) {
     return (
-      <Modal open title="Chia sẻ thông báo thanh toán" onClose={onClose}>
-        {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : <p className="text-sm text-usd-green-700">Đang tạo tin nhắn…</p>}
+      <Modal open title={t('Chia sẻ thông báo thanh toán')} onClose={onClose}>
+        {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : <p className="text-sm text-usd-green-700">{t('Đang tạo tin nhắn…')}</p>}
       </Modal>
     )
   }
@@ -99,15 +100,15 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
   }
 
   return (
-    <Modal open title="Chia sẻ thông báo thanh toán" onClose={onClose}>
+    <Modal open title={t('Chia sẻ thông báo thanh toán')} onClose={onClose}>
       <div className="space-y-4 text-sm">
-        <Switch label="Chỉ khoản chưa trả" checked={onlyUnpaid} onChange={setOnlyUnpaid} />
-        <Switch label="Kèm các món của người nhận (link dài hơn)" checked={withInvoices} onChange={setWithInvoices} />
+        <Switch label={t('Chỉ khoản chưa trả')} checked={onlyUnpaid} onChange={setOnlyUnpaid} />
+        <Switch label={t('Kèm các món của người nhận (link dài hơn)')} checked={withInvoices} onChange={setWithInvoices} />
 
         {debtors.length > 1 && (
           <fieldset className="space-y-1.5">
-            <legend className="mb-1 text-xs text-usd-green-700">Gửi cho (link chỉ chứa thanh toán của người được chọn)</legend>
-            <div role="radiogroup" aria-label="Gửi cho" className="flex flex-wrap gap-1.5">
+            <legend className="mb-1 text-xs text-usd-green-700">{t('Gửi cho (link chỉ chứa thanh toán của người được chọn)')}</legend>
+            <div role="radiogroup" aria-label={t('Gửi cho')} className="flex flex-wrap gap-1.5">
               <button
                 type="button"
                 role="radio"
@@ -115,7 +116,7 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
                 onClick={() => setRecipients(null)}
                 className={`min-h-9 rounded-full border px-3 ${subset === null ? 'border-usd-green-700 bg-usd-green-100 font-semibold' : 'border-usd-paper-200 bg-white'}`}
               >
-                Tất cả
+                {t('Tất cả')}
               </button>
               {debtors.map((e) => {
                 const on = subset?.includes(e.entityId) ?? false
@@ -137,31 +138,31 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
         )}
 
         <div>
-                    <pre className="whitespace-pre-wrap break-words rounded-lg border border-usd-paper-200 bg-usd-paper-50 p-3 font-sans select-text" aria-label="Nội dung tin nhắn">
+                    <pre className="whitespace-pre-wrap break-words rounded-lg border border-usd-paper-200 bg-usd-paper-50 p-3 font-sans select-text" aria-label={t('Nội dung tin nhắn')}>
             {previewMessage}
           </pre>
         </div>
 
         {snapshotUrl.length > LONG_URL_WARNING && (
           <p role="status" className="rounded-lg border border-amber-600 bg-amber-50 p-2 text-amber-900">
-            Link khá dài nên có thể bị cắt khi gửi. Hãy dùng ứng dụng chat hỗ trợ tin nhắn dài.
+            {t('Link khá dài nên có thể bị cắt khi gửi. Hãy dùng ứng dụng chat hỗ trợ tin nhắn dài.')}
           </p>
         )}
 
-        <div className="flex items-center justify-end gap-2" role="group" aria-label="Chia sẻ">
+        <div className="flex items-center justify-end gap-2" role="group" aria-label={t('Chia sẻ')}>
           {copied && (
             <span role="status" className="mr-auto inline-flex items-center gap-1 text-xs text-usd-green-800">
               <Check className="h-3.5 w-3.5" aria-hidden="true" />
-              Đã sao chép
+              {t('Đã sao chép')}
             </span>
           )}
-          <IconButton icon={Copy} label="Sao chép toàn bộ tin nhắn" tone={canUseWebShare() ? 'outline' : 'primary'} onClick={() => void copy(message, 'ALL')} />
-          <IconButton icon={Link2} label="Chỉ sao chép Link Snapshot" tone="outline" onClick={() => void copy(snapshotUrl, 'LINK')} />
-          {canUseWebShare() && <IconButton icon={Share2} label="Chia sẻ qua ứng dụng khác" tone="primary" onClick={() => void shareOs()} />}
+          <IconButton icon={Copy} label={t('Sao chép toàn bộ tin nhắn')} tone={canUseWebShare() ? 'outline' : 'primary'} onClick={() => void copy(message, 'ALL')} />
+          <IconButton icon={Link2} label={t('Chỉ sao chép Link Snapshot')} tone="outline" onClick={() => void copy(snapshotUrl, 'LINK')} />
+          {canUseWebShare() && <IconButton icon={Share2} label={t('Chia sẻ qua ứng dụng khác')} tone="primary" onClick={() => void shareOs()} />}
         </div>
 
         <div>
-          <p className="mb-1 text-xs text-usd-green-700">Gửi nhanh qua</p>
+          <p className="mb-1 text-xs text-usd-green-700">{t('Gửi nhanh qua')}</p>
           <div className="flex flex-wrap gap-2">
             {buildShareTargets(message).map((t) => (
               <a key={t.id} href={t.href} target="_blank" rel="noopener noreferrer" className="btn-secondary">
@@ -170,7 +171,7 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
             ))}
           </div>
           {!canUseWebShare() && (
-            <p className="mt-1 text-xs text-usd-green-700">Trình duyệt chưa hỗ trợ menu chia sẻ hệ thống (cần HTTPS), nên dùng các nút trên hoặc sao chép.</p>
+            <p className="mt-1 text-xs text-usd-green-700">{t('Trình duyệt chưa hỗ trợ menu chia sẻ hệ thống (cần HTTPS), nên dùng các nút trên hoặc sao chép.')}</p>
           )}
         </div>
 

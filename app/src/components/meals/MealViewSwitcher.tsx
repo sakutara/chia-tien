@@ -1,6 +1,7 @@
 import { CalendarDays, List, ShieldCheck } from 'lucide-react'
 import { useRef, type KeyboardEvent } from 'react'
 import type { MealViewMode } from '../../types'
+import { T, t } from '../../i18n'
 
 interface Props {
   mode: MealViewMode
@@ -8,9 +9,9 @@ interface Props {
 }
 
 const OPTIONS: ReadonlyArray<{ mode: MealViewMode; label: string; Icon: typeof List }> = [
-  { mode: 'CALENDAR', label: 'Lịch', Icon: CalendarDays },
-  { mode: 'LIST', label: 'Danh sách', Icon: List },
-  { mode: 'STATUS', label: 'Theo loại', Icon: ShieldCheck },
+  { mode: 'CALENDAR', label: T('Lịch'), Icon: CalendarDays },
+  { mode: 'LIST', label: T('Danh sách'), Icon: List },
+  { mode: 'STATUS', label: T('Theo loại'), Icon: ShieldCheck },
 ]
 
 /** Thanh chuyển 3 chế độ xem bữa (BR-3.7). Mũi tên trái/phải đổi chế độ. */
@@ -28,7 +29,7 @@ export default function MealViewSwitcher({ mode, onChange }: Props) {
   }
 
   return (
-    <div role="tablist" aria-label="Chế độ xem bữa" className="flex gap-0.5 rounded-xl bg-usd-paper-200 p-0.5" onKeyDown={onKeyDown}>
+    <div role="tablist" aria-label={t('Chế độ xem bữa')} className="flex gap-0.5 rounded-xl bg-usd-paper-200 p-0.5" onKeyDown={onKeyDown}>
       {OPTIONS.map(({ mode: m, label, Icon }) => {
         const selected = m === mode
         return (
@@ -42,8 +43,8 @@ export default function MealViewSwitcher({ mode, onChange }: Props) {
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(m)}
-            aria-label={label}
-            title={label}
+            aria-label={t(label)}
+            title={t(label)}
             className={`flex h-9 w-10 items-center justify-center rounded-lg ${
               selected ? 'bg-usd-green-900 text-usd-paper-50' : 'text-usd-green-900 hover:bg-usd-paper-50'
             }`}

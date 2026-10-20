@@ -1,10 +1,13 @@
 /** Ngày dạng `YYYY-MM-DD` theo giờ địa phương. Không dùng toISOString() vì lệch UTC (BR Epic 3 R-2). */
+import { LOCALES, getLang, type Lang } from '../i18n';
 
 export const MIN_YMD = '2000-01-01';
 export const MAX_YMD = '2099-12-31';
 
 /** Thứ 2 → Chủ nhật (R-12). */
-export const WEEKDAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] as const;
+export function weekdayLabels(lang: Lang = getLang()): readonly string[] {
+  return lang === 'en' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+}
 
 const YMD_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -41,11 +44,18 @@ export function todayLocal(now: Date = new Date()): string {
   return toYmd(now.getFullYear(), now.getMonth() + 1, now.getDate());
 }
 
-/** `2026-10-19` → `19/10/2026`. Chuỗi không hợp lệ được trả nguyên. */
-export function formatDateVi(ymd: string): string {
+/** `2026-10-19` → `19/10/2026` (vi) hoặc `Oct 19, 2026` (en). Chuỗi không hợp lệ được trả nguyên. */
+export function formatDate(ymd: string, lang: Lang = getLang()): string {
   const parts = parseYmd(ymd);
-  return parts ? `${pad(parts.day)}/${pad(parts.month)}/${parts.year}` : ymd;
+  if (!parts) return ymd;
+  if (lang === 'en') {
+    return new Date(parts.year, parts.month - 1, parts.day).toLocaleDateString(LOCALES.en, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  return `${pad(parts.day)}/${pad(parts.month)}/${parts.year}`;
 }
+
+/** Tên cũ của `formatDate` (giữ để không đổi các nơi gọi). */
+export const formatDateVi = formatDate;
 
 export interface CalendarDay {
   ymd: string;

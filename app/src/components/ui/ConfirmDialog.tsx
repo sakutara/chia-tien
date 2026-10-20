@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import Modal from './Modal'
+import { t } from '../../i18n'
 
 interface Props {
   open: boolean
@@ -22,7 +23,7 @@ export default function ConfirmDialog({ open, title, message, confirmLabel, tone
     try {
       await onConfirm()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Có lỗi không xác định.')
+      setError(e instanceof Error ? e.message : t('Có lỗi không xác định.'))
     } finally {
       setBusy(false)
     }
@@ -44,7 +45,7 @@ export default function ConfirmDialog({ open, title, message, confirmLabel, tone
         )}
         <div className="flex justify-end gap-2">
           <button type="button" className="btn-secondary min-h-11" data-autofocus onClick={cancel} disabled={busy}>
-            Huỷ
+            {t('Huỷ')}
           </button>
           <button
             type="button"

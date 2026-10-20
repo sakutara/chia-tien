@@ -1,6 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
+import { localizeMember } from '../db/localize';
 import { sortMembers } from '../domain/memberFilter';
+import { useLang } from '../i18n';
 import type { Meal, Member, PaymentGroup } from '../types';
 
 export interface GroupView extends PaymentGroup {
@@ -16,6 +18,7 @@ export interface MealPeopleView {
 
 /** Người tham gia, chủ trì và nhóm thanh toán của một bữa. `undefined` khi đang tải hoặc không có bữa. */
 export function useMealPeople(mealId: string): MealPeopleView | null | undefined {
+  const lang = useLang();
   return useLiveQuery(async () => {
     const meal = await db.meals.get(mealId);
     if (!meal) return null;
@@ -27,7 +30,7 @@ export function useMealPeople(mealId: string): MealPeopleView | null | undefined
     ]);
     const found = await db.members.bulkGet([...ids]);
     const byId = new Map<string, Member>();
-    found.forEach((m) => m && byId.set(m.id, m));
+    found.forEach((m) => m && byId.set(m.id, localizeMember(m)));
 
     const participants = sortMembers(
       meal.participantIds.map((id) => byId.get(id)).filter((m): m is Member => !!m),
@@ -38,5 +41,5 @@ export function useMealPeople(mealId: string): MealPeopleView | null | undefined
     }));
 
     return { meal, participants, host: byId.get(meal.hostMemberId), groups };
-  }, [mealId]);
+  }, [mealId, lang]);
 }

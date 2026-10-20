@@ -9,6 +9,7 @@ import Collapse from '../ui/Collapse'
 import Switch from '../ui/Switch'
 import EntityGroupList from './EntityGroupList'
 import TransferInstructionList from './TransferInstructionList'
+import { t } from '../../i18n'
 
 interface Props {
   meal: Meal
@@ -17,7 +18,7 @@ interface Props {
   actionsSlot?: React.ReactNode
 }
 
-const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : 'Có lỗi không xác định.')
+const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : t('Có lỗi không xác định.'))
 
 /**
  * Bước 4 — quyết toán. Thứ tự: chế độ → danh sách khoản chuyển tiền (mỗi khoản có ô tick) → tiến độ →
@@ -30,14 +31,14 @@ export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) 
 
   if (!result) {
     return (
-      <section className="card space-y-2" aria-label="Quyết toán">
-        <p className="text-sm text-usd-green-700">Đang tải…</p>
+      <section className="card space-y-2" aria-label={t('Quyết toán')}>
+        <p className="text-sm text-usd-green-700">{t('Đang tải…')}</p>
       </section>
     )
   }
 
   const hasCost = result.totalMealAmount > 0
-  const hostName = result.memberBreakdowns.find((m) => m.memberId === meal.hostMemberId)?.memberName ?? 'chủ trì'
+  const hostName = result.memberBreakdowns.find((m) => m.memberId === meal.hostMemberId)?.memberName ?? t('chủ trì')
 
   async function run(action: () => Promise<unknown>) {
     setError(null)
@@ -54,17 +55,17 @@ export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) 
   }
 
   return (
-    <section className="card space-y-3" aria-label="Quyết toán">
+    <section className="card space-y-3" aria-label={t('Quyết toán')}>
       {readOnly && (
-        <Lock className="h-3 w-3 text-usd-green-700" aria-label="Chỉ xem" />
+        <Lock className="h-3 w-3 text-usd-green-700" aria-label={t('Chỉ xem')} />
       )}
 
       {!hasCost ? (
-        <p className="text-sm text-usd-green-700">Chưa có chi phí để quyết toán. Hãy thêm hoá đơn ở bước 3.</p>
+        <p className="text-sm text-usd-green-700">{t('Chưa có chi phí để quyết toán. Hãy thêm hoá đơn ở bước 3.')}</p>
       ) : (
         <>
           <Switch
-            label={`Nhờ chủ trì thu chi (${hostName})`}
+            label={t('Nhờ chủ trì thu chi ({name})', { name: hostName })}
             checked={result.settlementMode === 'HOST_MEDIATED'}
             disabled={readOnly}
             onChange={(on) => changeMode(on ? 'HOST_MEDIATED' : 'SELF_SETTLEMENT')}
@@ -72,7 +73,7 @@ export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) 
 
           {result.unassignedItemCount > 0 && (
             <div role="alert" className="rounded-lg border border-amber-600 bg-amber-50 p-2 text-sm text-amber-900">
-              Còn <strong>{result.unassignedItemCount}</strong> món chưa có người ăn ({formatMoney(result.unassignedAmount)}) chưa tính cho ai.
+              {t('Còn')} <strong>{result.unassignedItemCount}</strong> {t('món chưa có người ăn ({amount}) chưa tính cho ai.', { amount: formatMoney(result.unassignedAmount) })}
             </div>
           )}
 
@@ -85,7 +86,7 @@ export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) 
             progress={
               <span
                 role="status"
-                aria-label={result.isAllSettled ? 'Đã thanh toán xong toàn bữa' : `Đã thanh toán ${result.paidTransferCount}/${result.transferCount} khoản chuyển tiền`}
+                aria-label={result.isAllSettled ? t('Đã thanh toán xong toàn bữa') : t('Đã thanh toán {paid}/{total} khoản chuyển tiền', { paid: result.paidTransferCount, total: result.transferCount })}
                 className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${result.isAllSettled ? 'bg-usd-green-100 text-usd-green-800' : 'bg-usd-paper-200 text-usd-green-700'}`}
               >
                 <Check className="h-3.5 w-3.5" aria-hidden="true" />
@@ -97,7 +98,7 @@ export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) 
             actions={actionsSlot}
           />
 
-          <Collapse title="Chi tiết quyết toán" label="Chi tiết quyết toán">
+          <Collapse title={t('Chi tiết quyết toán')} label={t('Chi tiết quyết toán')}>
             <EntityGroupList entities={result.entities} breakdowns={result.memberBreakdowns} />
           </Collapse>
 

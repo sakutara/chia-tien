@@ -14,6 +14,7 @@ import type { Invoice, InvoiceItem, InvoiceSplitType, ItemShare, Meal, SessionKe
 import { deleteFilesByInvoice } from './fileStorageService';
 import { loadActiveMeal } from './mealPeopleService';
 import { PeopleError } from './peopleErrors';
+import { t } from '../i18n';
 
 const nowIso = () => new Date().toISOString();
 
@@ -39,14 +40,14 @@ export interface InvoiceResult {
 
 async function loadSession(sessionId: string): Promise<SessionKeo> {
   const session = await db.sessions.get(sessionId);
-  if (!session) throw new PeopleError('SESSION_NOT_FOUND', 'Không tìm thấy kèo này.', { sessionId });
+  if (!session) throw new PeopleError('SESSION_NOT_FOUND', t('Không tìm thấy kèo này.'), { sessionId });
   return session;
 }
 
 /** Người ứng và người chia đều phải thuộc người tham gia kèo (R-5, R-6). */
 function assertPayerInSession(session: SessionKeo, payerMemberId: string): void {
   if (!session.participantIds.includes(payerMemberId)) {
-    throw new PeopleError('PAYER_NOT_IN_SESSION', 'Người ứng tiền phải tham gia kèo này.', { payerMemberId });
+    throw new PeopleError('PAYER_NOT_IN_SESSION', t('Người ứng tiền phải tham gia kèo này.'), { payerMemberId });
   }
 }
 
@@ -98,7 +99,7 @@ export async function createInvoice(draft: InvoiceDraft): Promise<InvoiceResult>
     const session = await loadSession(draft.sessionId);
     await loadActiveMeal(session.mealId);
     if (session.participantIds.length === 0) {
-      throw new PeopleError('SESSION_EMPTY', 'Kèo chưa có người tham gia.');
+      throw new PeopleError('SESSION_EMPTY', t('Kèo chưa có người tham gia.'));
     }
     assertPayerInSession(session, draft.payerMemberId);
 
@@ -107,7 +108,7 @@ export async function createInvoice(draft: InvoiceDraft): Promise<InvoiceResult>
     const equalSplit = validateEqualSplit(draft.equalSplitParticipantIds ?? session.participantIds, session.participantIds);
     const invoiceId = draft.id ?? generateId();
     if (await db.invoices.get(invoiceId)) {
-      throw new PeopleError('INVOICE_EXISTS', 'Hoá đơn này đã được lưu.', { invoiceId });
+      throw new PeopleError('INVOICE_EXISTS', t('Hoá đơn này đã được lưu.'), { invoiceId });
     }
     const invoice: Invoice = {
       id: invoiceId,
@@ -161,7 +162,7 @@ export async function createInvoice(draft: InvoiceDraft): Promise<InvoiceResult>
 export async function updateInvoice(invoiceId: string, draft: InvoiceDraft): Promise<InvoiceResult> {
   return db.transaction('rw', [db.meals, db.sessions, db.invoices, db.items, db.invoice_files], async () => {
     const existing = await db.invoices.get(invoiceId);
-    if (!existing) throw new PeopleError('INVOICE_NOT_FOUND', 'Không tìm thấy hoá đơn này.', { invoiceId });
+    if (!existing) throw new PeopleError('INVOICE_NOT_FOUND', t('Không tìm thấy hoá đơn này.'), { invoiceId });
     const session = await loadSession(draft.sessionId);
     await loadActiveMeal(session.mealId);
     assertPayerInSession(session, draft.payerMemberId);
@@ -226,7 +227,7 @@ export interface InvoiceDeletePreview {
 
 export async function getInvoiceDeletePreview(invoiceId: string): Promise<InvoiceDeletePreview> {
   if (!(await db.invoices.get(invoiceId))) {
-    throw new PeopleError('INVOICE_NOT_FOUND', 'Không tìm thấy hoá đơn này.', { invoiceId });
+    throw new PeopleError('INVOICE_NOT_FOUND', t('Không tìm thấy hoá đơn này.'), { invoiceId });
   }
   const [items, files] = await Promise.all([
     db.items.where('invoiceId').equals(invoiceId).count(),
@@ -238,7 +239,7 @@ export async function getInvoiceDeletePreview(invoiceId: string): Promise<Invoic
 /** Xoá hoá đơn cùng món và file ảnh. File vật lý xoá trước, DB sau (R-15). */
 export async function deleteInvoice(invoiceId: string): Promise<void> {
   const invoice = await db.invoices.get(invoiceId);
-  if (!invoice) throw new PeopleError('INVOICE_NOT_FOUND', 'Không tìm thấy hoá đơn này.', { invoiceId });
+  if (!invoice) throw new PeopleError('INVOICE_NOT_FOUND', t('Không tìm thấy hoá đơn này.'), { invoiceId });
   await loadActiveMeal(invoice.mealId);
 
   await deleteFilesByInvoice(invoiceId);
@@ -260,7 +261,7 @@ export interface ItemInput extends Omit<ItemDraft, 'id'> {
 /** Tải hoá đơn, kèo và bữa; bữa phải đang ACTIVE (R-14, BR-5.9). Gọi trong transaction. */
 async function loadEditableInvoice(invoiceId: string): Promise<{ invoice: Invoice; session: SessionKeo; meal: Meal }> {
   const invoice = await db.invoices.get(invoiceId);
-  if (!invoice) throw new PeopleError('INVOICE_NOT_FOUND', 'Không tìm thấy hoá đơn này.', { invoiceId });
+  if (!invoice) throw new PeopleError('INVOICE_NOT_FOUND', t('Không tìm thấy hoá đơn này.'), { invoiceId });
   const session = await loadSession(invoice.sessionId);
   const meal = await loadActiveMeal(invoice.mealId);
   return { invoice, session, meal };
@@ -269,7 +270,7 @@ async function loadEditableInvoice(invoiceId: string): Promise<{ invoice: Invoic
 /** Hoá đơn chỉ nhập tổng không có món nên mọi thao tác món đều bị khoá (R-2). */
 function assertItemized(invoice: Invoice): void {
   if (invoice.inputMode === 'TOTAL_ONLY') {
-    throw new PeopleError('SPLIT_TYPE_LOCKED', 'Hoá đơn chỉ nhập tổng tiền không có danh sách món.', { invoiceId: invoice.id });
+    throw new PeopleError('SPLIT_TYPE_LOCKED', t('Hoá đơn chỉ nhập tổng tiền không có danh sách món.'), { invoiceId: invoice.id });
   }
 }
 
@@ -387,7 +388,7 @@ export async function addInvoiceItem(invoiceId: string, itemDraft: ItemInput): P
 export async function updateInvoiceItem(itemId: string, patch: ItemInput): Promise<InvoiceResult> {
   return db.transaction('rw', [db.meals, db.sessions, db.invoices, db.items], async () => {
     const target = await db.items.get(itemId);
-    if (!target) throw new PeopleError('ITEM_NOT_FOUND', 'Không tìm thấy món này.', { itemId });
+    if (!target) throw new PeopleError('ITEM_NOT_FOUND', t('Không tìm thấy món này.'), { itemId });
     const { invoice, session, meal } = await loadEditableInvoice(target.invoiceId);
     assertItemized(invoice);
     const existing = await loadInvoiceItems(invoice.id);
@@ -404,12 +405,12 @@ export async function updateInvoiceItem(itemId: string, patch: ItemInput): Promi
 export async function deleteInvoiceItem(itemId: string): Promise<InvoiceResult> {
   return db.transaction('rw', [db.meals, db.sessions, db.invoices, db.items], async () => {
     const target = await db.items.get(itemId);
-    if (!target) throw new PeopleError('ITEM_NOT_FOUND', 'Không tìm thấy món này.', { itemId });
+    if (!target) throw new PeopleError('ITEM_NOT_FOUND', t('Không tìm thấy món này.'), { itemId });
     const { invoice, session, meal } = await loadEditableInvoice(target.invoiceId);
     assertItemized(invoice);
     const existing = await loadInvoiceItems(invoice.id);
     if (existing.length <= 1) {
-      throw new PeopleError('LAST_ITEM_CANNOT_DELETE', 'Hoá đơn phải có ít nhất một món. Hãy xoá cả hoá đơn hoặc đổi sang chỉ nhập tổng tiền.', { itemId });
+      throw new PeopleError('LAST_ITEM_CANNOT_DELETE', t('Hoá đơn phải có ít nhất một món. Hãy xoá cả hoá đơn hoặc đổi sang chỉ nhập tổng tiền.'), { itemId });
     }
     const drafts = existing
       .filter((it) => it.id !== itemId)
@@ -422,7 +423,7 @@ export async function deleteInvoiceItem(itemId: string): Promise<InvoiceResult> 
 export async function setItemConsumers(itemId: string, consumers: ItemShare[]): Promise<InvoiceItem> {
   return db.transaction('rw', [db.meals, db.sessions, db.invoices, db.items], async () => {
     const target = await db.items.get(itemId);
-    if (!target) throw new PeopleError('ITEM_NOT_FOUND', 'Không tìm thấy món này.', { itemId });
+    if (!target) throw new PeopleError('ITEM_NOT_FOUND', t('Không tìm thấy món này.'), { itemId });
     const { session, meal } = await loadEditableInvoice(target.invoiceId);
     const updated: InvoiceItem = {
       ...target,

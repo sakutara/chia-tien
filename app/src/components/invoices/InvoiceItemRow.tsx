@@ -10,6 +10,7 @@ import IconButton from '../ui/IconButton'
 import InlineText from '../ui/InlineText'
 import PeoplePicker from '../ui/PeoplePicker'
 import Popover from '../ui/Popover'
+import { t } from '../../i18n'
 
 interface Props {
   item: InvoiceItem
@@ -23,7 +24,7 @@ interface Props {
   onError: (message: string) => void
 }
 
-const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : 'Có lỗi không xác định.')
+const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : t('Có lỗi không xác định.'))
 
 /**
  * Một món rút gọn thành 3 dòng (Tầng 3):
@@ -46,20 +47,20 @@ export default function InvoiceItemRow({ item, splitType, sessionMembers, readOn
   }
 
   return (
-    <li className="space-y-0.5 rounded-lg border border-usd-paper-200 bg-white/70 px-2 py-1.5 text-sm" aria-label={`Món ${item.name}`}>
+    <li className="space-y-0.5 rounded-lg border border-usd-paper-200 bg-white/70 px-2 py-1.5 text-sm" aria-label={t('Món {name}', { name: item.name })}>
       <div className="flex items-start gap-1">
         <p className="min-w-0 flex-1 break-words font-medium">
-          <InlineText label="Tên món" value={item.name} readOnly={readOnly} maxLength={ITEM_NAME_MAX} onCommit={rename} />
+          <InlineText label={t('Tên món')} value={item.name} readOnly={readOnly} maxLength={ITEM_NAME_MAX} onCommit={rename} />
         </p>
         {!readOnly && (
           <IconButton
             icon={Trash2}
-            label={`Xoá món ${item.name}`}
+            label={t('Xoá món {name}', { name: item.name })}
             tone="danger"
             className="-my-1.5"
             onClick={requestDelete}
             disabled={!canDelete}
-            title={canDelete ? `Xoá món ${item.name}` : 'Hoá đơn phải có ít nhất một món'}
+            title={canDelete ? t('Xoá món {name}', { name: item.name }) : t('Hoá đơn phải có ít nhất một món')}
           />
         )}
       </div>
@@ -73,11 +74,11 @@ export default function InvoiceItemRow({ item, splitType, sessionMembers, readOn
           <span className="text-usd-green-700">Tham gia: </span>
           <PeoplePicker
             mode="shares"
-            label={`Người ăn ${item.name}`}
+            label={t('Người ăn {name}', { name: item.name })}
             options={sessionMembers}
             value={consumers}
             readOnly={readOnly}
-            empty="Chưa chọn người"
+            empty={t('Chưa chọn người')}
             onChange={(next) => void setItemConsumers(item.id, next).catch((err) => onError(errorText(err)))}
           />
         </div>
@@ -85,9 +86,9 @@ export default function InvoiceItemRow({ item, splitType, sessionMembers, readOn
 
       <ConfirmDialog
         open={confirming}
-        title="Xoá món đã có người ăn?"
-        message={<>Món <strong>{item.name}</strong> đang có {consumers.length} người ăn. Các phần đã chọn sẽ mất.</>}
-        confirmLabel="Xoá món"
+        title={t('Xoá món đã có người ăn?')}
+        message={<>{t('Món')} <strong>{item.name}</strong> {t('đang có {n} người ăn. Các phần đã chọn sẽ mất.', { n: consumers.length })}</>}
+        confirmLabel={t('Xoá món')}
         tone="danger"
         onConfirm={() => {
           setConfirming(false)
@@ -106,7 +107,7 @@ function AmountLine({ item, readOnly, onError }: { item: InvoiceItem; readOnly: 
   const extra = adjustment !== 0 && (
     <span className="ml-1 text-xs text-usd-green-700">
       ({adjustment > 0 ? '+' : '−'}
-      {formatMoney(Math.abs(adjustment))} phân bổ)
+      {t('{amount} phân bổ)', { amount: formatMoney(Math.abs(adjustment)) })}
     </span>
   )
 
@@ -120,7 +121,7 @@ function AmountLine({ item, readOnly, onError }: { item: InvoiceItem; readOnly: 
   }
   return (
     <>
-      <Popover label={`Số lượng và đơn giá ${item.name}`} summary={text} trigger={<span className="money">{text}</span>}>
+      <Popover label={t('Số lượng và đơn giá {name}', { name: item.name })} summary={text} trigger={<span className="money">{text}</span>}>
         {(close) => <AmountForm item={item} onDone={close} onError={onError} />}
       </Popover>
       {extra}
@@ -158,18 +159,18 @@ function AmountForm({ item, onDone, onError }: { item: InvoiceItem; onDone: () =
       <div className="grid grid-cols-[4rem_1fr] gap-2">
         <label className="text-xs">
           SL
-          <input data-autofocus inputMode="numeric" aria-label="Số lượng" value={qty} onChange={(e) => setQty(e.target.value)} className="field mt-0.5" />
+          <input data-autofocus inputMode="numeric" aria-label={t('Số lượng')} value={qty} onChange={(e) => setQty(e.target.value)} className="field mt-0.5" />
         </label>
         <label className="text-xs">
-          Đơn giá
-          <input inputMode="numeric" aria-label="Đơn giá" value={price} onChange={(e) => setPrice(e.target.value)} className="field mt-0.5" />
+          {t('Đơn giá')}
+          <input inputMode="numeric" aria-label={t('Đơn giá')} value={price} onChange={(e) => setPrice(e.target.value)} className="field mt-0.5" />
         </label>
       </div>
       <div className="flex items-center justify-between gap-2">
         <span className="money text-sm font-semibold" aria-live="polite">
           = {total === null ? '—' : formatMoney(total)}
         </span>
-        <IconButton icon={Check} label="Lưu số lượng và đơn giá" tone="primary" type="submit" disabled={!valid} />
+        <IconButton icon={Check} label={t('Lưu số lượng và đơn giá')} tone="primary" type="submit" disabled={!valid} />
       </div>
     </form>
   )

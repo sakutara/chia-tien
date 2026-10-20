@@ -1,94 +1,96 @@
 # Epic 9 — System Analysis (SA)
 
-**Epic 9**: Song ngữ Việt – Anh (i18n) cho toàn bộ ứng dụng & Snapshot · **Trạng thái**: Chưa triển khai (đang ở giai đoạn đặc tả)
+**Epic 9**: Song ngữ Việt – Anh (i18n) cho toàn bộ ứng dụng & Snapshot · **Trạng thái**: Đã triển khai (còn kiểm thủ công trên thiết bị thật trước khi đóng)
 
 Tài liệu đi cùng: [BR](./BR.md) · [Epics & Roadmap](../04-epics-and-roadmap.md) · [Epic 8 SA](../epic-8/SA.md)
 
 ---
 
 ### B.1. Công nghệ / thư viện sử dụng
-- **Không thêm thư viện i18n nặng.** Tự viết lớp mỏng (`src/i18n/`) gồm từ điển TypeScript, `I18nProvider` (React Context) và hook `useT()`; định dạng bằng `Intl.DateTimeFormat` / `Intl.NumberFormat` / `Intl.Collator` có sẵn của trình duyệt.
-- Từ điển là object TypeScript lồng khoá, kiểu của `en` được ràng buộc bằng kiểu của `vi` (`satisfies`/`Record`) để thiếu khoá là lỗi biên dịch.
-- Lưu lựa chọn: bảng `settings` (Dexie) khoá `language`; Snapshot không ghi DB nên dùng `localStorage` (bọc try/catch) cho lựa chọn của người nhận.
+- **Không thêm thư viện i18n.** Lớp mỏng tự viết ở `app/src/i18n/`: `t()` toàn cục, `useLang()` và `Intl.*` có sẵn của trình duyệt.
+- **Khoá dịch là câu tiếng Việt gốc**: `t('Chia tiền')` trả đúng câu đó khi `vi` và tra `en` khi `en`; thiếu bản dịch thì dùng câu gốc (R-2). Cách này giữ nguyên mọi test cũ (chạy ở `vi`) và không cần đặt tên khoá. Tham số `{name}`; số nhiều `{n|một|nhiều}` chọn vế đầu khi `n = 1`.
+- Ngôn ngữ nằm trong một biến toàn cục nên cả code thuần (domain, service) cũng dịch được; **`App` gọi `useLang()` để cả cây render lại** khi đổi ngôn ngữ, nên không component nào phải tự đăng ký.
+- Hằng số cấp module (nhãn tab, bảng lý do…) dùng `T('…')` (đánh dấu, trả nguyên chuỗi) rồi dịch lúc hiển thị bằng `t(x)`; nếu gọi `t()` ở cấp module thì chuỗi bị đóng băng ở `vi`.
+- Lưu lựa chọn: `localStorage` khoá `fee-calculator.lang` (bọc try/catch); Snapshot không ghi IndexedDB nên dùng cùng nơi lưu này.
 
 ### B.2. Cấu trúc mã nguồn
 ```text
 app/src/i18n/
-├─ dictionaries/vi.ts        # nguồn gốc, định nghĩa tập khoá
-├─ dictionaries/en.ts        # phải đủ khoá của vi
-├─ I18nProvider.tsx          # Context: lang, setLang, t(), formatters
-├─ useT.ts                   # hook trả về { t, lang, fmt }
-├─ detectLanguage.ts         # ưu tiên: đã lưu > ?l= > navigator.language
-├─ format.ts                 # formatMoney/formatDate/collator theo lang
-└─ i18n.test.ts              # cùng tập khoá, nội suy, fallback, detect
-app/src/components/ui/LanguageSwitch.tsx   # công tắc dùng ở app và Snapshot
+├─ index.ts        # Lang, t, T, tIn, setLang, initLanguage, detectLanguage, useLang, interpolate
+├─ en.ts           # Record<câu tiếng Việt, câu tiếng Anh>
+└─ i18n.test.ts    # quét mã nguồn: mọi t()/T() có bản dịch, không khoá thừa, đúng tham số; detect; đổi ngôn ngữ
+app/src/components/ui/LanguageSwitch.tsx   # công tắc role="switch" VI/EN, dùng ở app và Snapshot (cùng thanh đầu trang)
+app/src/db/localize.ts                     # localizeMember ("Tôi" → "Me"), localizeSession ("Kèo n" → "Venue n")
+app/src/App.i18n.test.tsx                  # công tắc, Snapshot, tên mặc định, tham số l
 ```
-Sửa: `lib/money.ts` (nhận `lang`), `lib/dates.ts`, `domain/shareSnapshot.ts` (`formatShareMessage` nhận `lang`), `domain/memberFilter.ts` (collator theo locale), `domain/paymentSlides.ts` (nhãn bước), `pages/SnapshotViewerPage.tsx`, `components/share/*`, `App.tsx`, `index.html`, manifest PWA, toàn bộ component có chuỗi cứng.
+Sửa: `lib/money.ts` (`formatMoney(amount, lang?)`), `lib/dates.ts` (`formatDate`, `weekdayLabels`; `formatDateVi` là bí danh), `domain/shareSnapshot.ts` (`formatShareMessage` nhận `lang`, `buildSnapshotUrl` thêm `&l=`), `domain/sessionRules.ts`, `domain/vietQr.ts`, `hooks/use*` (đưa `lang` vào deps của `useLiveQuery`), `main.tsx` (`initLanguage`), và mọi component/service/domain có chuỗi hiển thị.
 
 ### B.3. Thành phần & trách nhiệm
 | Thành phần | Trách nhiệm |
 | :--- | :--- |
-| `I18nProvider` | Giữ `lang`, nạp lựa chọn đã lưu, cập nhật `document.documentElement.lang` và `document.title`, cung cấp `t`. |
-| `t(key, params?)` | Tra từ điển theo khoá dạng `scope.name`, nội suy `{name}`; fallback `vi` rồi tên khoá (R-2). Số nhiều qua khoá riêng (`items.one` / `items.other`) bằng `Intl.PluralRules`. |
+| `useLang()` ở `App` | Đăng ký đổi ngôn ngữ để cả cây render lại; `setLang` cập nhật `document.documentElement.lang` và `document.title`. |
+| `t(source, params?)` | Tra `en` theo câu tiếng Việt gốc, nội suy `{name}`, số nhiều `{n\|một\|nhiều}`; thiếu bản dịch dùng câu gốc (R-2). |
 | `LanguageSwitch` | Công tắc `role="switch"` hai trạng thái VI/EN, dùng chung cho app chính và Snapshot. |
 | `detectLanguage` | Hàm thuần theo BR-9.4/9.8, dễ kiểm. |
-| Domain thuần (`formatShareMessage`…) | **Không** import React/Context: nhận `lang` hoặc bộ chuỗi làm tham số để giữ test thuần. |
+| Domain thuần (`formatShareMessage`…) | **Không** import React/Context: nhận `lang` làm tham số (mặc định ngôn ngữ hiện tại) để test được cả hai ngôn ngữ. |
 
 ### B.4. Thiết kế dữ liệu
-- `AppSettings` thêm trường `language?: 'vi' | 'en'` (không cần migration schema Dexie vì `settings` khoá theo `id`; `normalize` đặt mặc định khi thiếu).
-- **Giá trị mặc định do hệ thống sinh** (BR-9.9): không lưu chuỗi đã dịch nữa mà lưu dấu hiệu rỗng/cờ rồi hiển thị theo `lang`. Cụ thể: hồ sơ mặc định nhận diện bằng cờ có sẵn (chủ app) và hiển thị `t('profile.me')`; kèo tên mặc định lưu `name: ''` + `orderIndex`, hiển thị `t('session.default', {n})`. Dữ liệu cũ đã lưu "Tôi"/"Kèo 1": `normalize` nhận diện đúng các chuỗi mặc định cũ và coi là mặc định (chuỗi người dùng tự đặt giữ nguyên).
-- **Snapshot link**: thêm tham số `l` (`vi`|`en`) cạnh `s`: `…?s=<mã>&l=en`. Không đổi định dạng nhị phân `~` đã phát hành nên link cũ vẫn giải mã (R-6). `MealSnapshotPayload` không đổi.
+- Không đổi schema IndexedDB và không đổi `MealSnapshotPayload`.
+- **Giá trị mặc định do hệ thống sinh** (BR-9.9) vẫn lưu nguyên văn nhưng được *dịch lúc đọc*: `localizeMember` đổi hồ sơ chủ app còn tên mặc định `Tôi` thành `Me`; `localizeSession` đổi `Kèo n` / `Venue n` theo ngôn ngữ hiện tại. Áp dụng ở các hook (`useMembers`, `useMealPeople`, `useMealSessions`, `useMealSettlement`) và khi dựng Snapshot. Tên người dùng tự đặt giữ nguyên. `isDefaultSessionName` nhận cả `Kèo n` lẫn `Venue n`.
+- Hộp thoại "Hồ sơ của tôi" lưu lại `Tôi` (dạng gốc) nếu tên không đổi so với bản đang hiển thị, để tên mặc định không bị khoá cứng sang `Me`.
+- **Snapshot link**: thêm tham số `l` (`vi` | `en`) sau `s`: `…?s=<mã>&l=en`. Định dạng nén nhị phân `~` không đổi nên link cũ vẫn mở; link cũ không có `l` rơi về ngôn ngữ trình duyệt.
+- **Nội dung chuyển khoản** (`<người> thanh toán <bữa>`) không lưu trong link khi bằng mặc định mà dựng lại ở máy người xem theo ngôn ngữ của họ (`en`: `<người> pays <bữa>`).
 
 ### B.5. Luồng xử lý chính
 1. **Khởi động**: `detectLanguage({ stored, urlParam, navigatorLang })` → `I18nProvider` → đặt `<html lang>`, `<title>`.
 2. **Đổi ngôn ngữ (app)**: `setLang` → cập nhật Context (render lại tức thì) → ghi `settings.language`.
 3. **Đổi ngôn ngữ (Snapshot)**: `setLang` → Context + `localStorage`; không động tới DB hay URL.
-4. **Sinh tin nhắn**: `formatShareMessage(data, { lang })`. Mẫu đề xuất:
-   - `vi`: `- An: nợ Bình 50.000 ₫, nợ Cường 20.000 ₫`
-   - `en`: `- An: owes Bình ₫50,000, owes Cường ₫20,000`
+4. **Sinh tin nhắn**: `formatShareMessage({ …, lang })`, mặc định theo ngôn ngữ giao diện. Mẫu:
+   - `vi`: `- An: chuyển cho Bình 50.000 ₫, chuyển cho Cường 20.000 ₫`
+   - `en`: `- An: transfer to Bình 50,000 ₫, transfer to Cường 20,000 ₫`
    - Không có khoản cần chuyển: `vi` `- Tất cả các khoản thanh toán đã hoàn tất.` / `en` `- All payments are settled.`
-   Link sinh kèm `&l=<lang của tin nhắn>`.
+   Link sinh kèm `&l=<ngôn ngữ giao diện>`.
 5. **Mở Snapshot**: giải mã payload như Epic 8, `detectLanguage` với `urlParam = l` (BR-9.8), render toàn bộ trang bằng `useT()`.
 
 ### B.6. Giao diện lập trình nội bộ
 ```ts
 type Lang = 'vi' | 'en'
-useT(): { t: (key: Key, params?: Record<string, string | number>) => string; lang: Lang; setLang(l: Lang): void; money(n: number): string; date(d: string | Date, style?: 'short' | 'long'): string; collator: Intl.Collator }
-detectLanguage(input: { stored?: Lang; urlParam?: string | null; navigatorLang?: string }): Lang
-formatShareMessage(input, opts: { lang: Lang; onlyUnpaid?: boolean }): string
-buildSnapshotUrl(payload, opts?: { lang?: Lang }): string   // thêm &l=
+t(source: string, params?: Record<string, string | number | undefined>): string   // theo ngôn ngữ hiện tại
+tIn(lang: Lang, source, params?): string                                            // theo ngôn ngữ chỉ định
+T(source: string): string                                                           // đánh dấu câu gốc ở hằng số cấp module
+setLang(lang: Lang, persist = true): void
+initLanguage(urlLang?: string | null): Lang      // gọi một lần ở main.tsx
+detectLanguage({ stored, urlParam, navigatorLang }): Lang
+useLang(): Lang                                  // useSyncExternalStore; gọi ở App và ở hook có useLiveQuery
+formatMoney(amount, lang?), formatDate(ymd, lang?), weekdayLabels(lang?)
+formatShareMessage(input: { …; lang?: Lang }): string
+buildSnapshotUrl(payload | encoded, baseLocation?, lang?): string   // thêm &l=
 ```
-`Key` suy ra từ kiểu của `vi` để IDE gợi ý và thiếu khoá là lỗi biên dịch.
 
 ### B.7. Yêu cầu phi chức năng
-- Bundle: hai từ điển nạp tĩnh (nhỏ); nếu về sau thêm ngôn ngữ thì tách `import()` động. Không tăng đáng kể kích thước link Snapshot.
-- Không nháy giao diện khi khởi động: đọc ngôn ngữ đã lưu trước lần render đầu (đọc đồng bộ từ `localStorage` bản sao, đồng bộ lại vào `settings`).
+- Bundle: từ điển `en` nạp tĩnh (khoảng 500 câu); nếu về sau thêm ngôn ngữ thì tách `import()` động. Link Snapshot chỉ dài thêm 4 ký tự (`&l=en`).
+- Không nháy giao diện khi khởi động: `initLanguage` chạy đồng bộ trong `main.tsx` trước lần render đầu.
 - Hiển thị: chuỗi tiếng Anh dài hơn; mọi nút/chip phải co giãn, không cắt chữ ở 375 px.
 
 ### B.8. Rủi ro & hạn chế đã biết
-- **Khối lượng**: toàn bộ chuỗi cứng rải khắp component — nên làm theo từng nhóm màn hình (xem B.10), mỗi nhóm có test đổi ngôn ngữ.
-- **Dữ liệu mặc định đã lưu** (“Tôi”, “Kèo n”) cần `normalize` nhận diện đúng, tránh biến tên người dùng tự đặt thành mặc định.
+- **Câu ghép từ nhiều mảnh** (ví dụ `Lưu trữ <b>tên</b> sẽ khoá…`) dịch theo từng mảnh nên đúng thứ tự từ chỉ khi hai ngôn ngữ cùng trật tự câu; khi gặp câu khó nên gộp thành một khoá có tham số.
+- **`t()` gọi ở cấp module** bị đóng băng ở `vi`: dùng `T()` + `t()` lúc hiển thị (test không bắt được lỗi này, cần soát khi review).
+- **Giá trị bữa/nhóm đã lưu** như tên bữa mặc định `Bữa <ngày>` giữ ngôn ngữ lúc tạo (là dữ liệu).
 - **Link Snapshot ngoài đời** do người gửi dùng ngôn ngữ nào cũng phải mở được: tham số `l` tuỳ chọn, bỏ trống thì rơi về `navigator.language`.
 - **Từ điển deflate đã đóng băng** của Snapshot chứa từ tiếng Việt: giữ nguyên; không ảnh hưởng ngôn ngữ giao diện.
-- Sắp xếp A–Z dùng collator `vi` chuẩn tiếng Việt; với `en` dùng collator `en` nhưng tên người Việt vẫn nên sắp theo `vi` để nhất quán danh bạ — **chốt**: danh bạ luôn dùng collator `vi` bất kể ngôn ngữ giao diện.
+- Danh bạ luôn sắp A–Z theo collator `vi` bất kể ngôn ngữ giao diện (tên người Việt).
+- Nội dung chuyển khoản vẫn là chữ không dấu (`pays`/`thanh toan`) theo yêu cầu của ngân hàng.
 
 ### B.9. Ma trận truy vết kiểm thử
 | Kiểm thử | Phủ |
 | :--- | :--- |
-| `i18n.test`: tập khoá `vi` = `en`; nội suy; plural; fallback | R-1, R-2, AC-9 |
-| `i18n.test`: `detectLanguage` đủ tổ hợp ưu tiên | BR-9.4, BR-9.8, AC-3, AC-7 |
-| `shareSnapshot.test`: tin nhắn `vi`/`en` đúng mẫu; link có `l` | BR-9.6, AC-5 |
-| `money`/`dates` test theo locale; giá trị không đổi | BR-9.5, R-4, AC-4 |
-| `SnapshotViewerPage.test`: đổi ngôn ngữ, không ghi IndexedDB | BR-9.7, R-5, AC-6 |
-| `normalize.test`: nhận diện “Tôi”/“Kèo n” cũ | BR-9.9, AC-8 |
-| Test app: bật `en`, không còn ký tự có dấu tiếng Việt trong DOM giao diện (trừ dữ liệu nhập) | AC-1, BR-9.2 |
-| Kiểm trình duyệt 375 px, cả hai ngôn ngữ | AC-9 |
+| `i18n.test`: mọi `t()`/`T()` có bản dịch `en`; không khoá thừa; bản dịch giữ đúng tham số | R-1, R-2, AC-9 |
+| `i18n.test`: `detectLanguage` đủ tổ hợp ưu tiên; `setLang` ghi nhớ, đổi `<html lang>` và `<title>`; số nhiều; `tIn` | BR-9.4, BR-9.8, AC-3, AC-7 |
+| `App.i18n.test`: công tắc đổi tiêu đề, nút, tên app; Snapshot đổi ngôn ngữ và IndexedDB trống; "Tôi" ↔ "Me"; link có `&l=` | BR-9.1, BR-9.2, BR-9.3, BR-9.7, BR-9.8, BR-9.9, AC-1, AC-2, AC-6, AC-7, AC-8 |
+| `shareSnapshot.test`: tin nhắn `en`, định dạng link | BR-9.6, AC-5 |
+| Toàn bộ test Epic 1–8 (chạy ở `vi`) | R-4, hồi quy |
+| Duyệt bốn bước của bữa ở `en` trên trình duyệt 375 px, quét ký tự tiếng Việt còn sót | AC-1, AC-9 |
 
-### B.10. Kế hoạch triển khai đề xuất
-1. Hạ tầng `src/i18n/` + `LanguageSwitch` + `detectLanguage` + test từ điển.
-2. Định dạng: tiền, ngày, collator theo `lang`.
-3. Chuyển chuỗi theo nhóm: khung app & tên app → danh sách/lịch bữa → người & nhóm → kèo/hoá đơn/món/OCR → quyết toán → chia sẻ.
-4. Giá trị mặc định + `normalize` (BR-9.9).
-5. Tin nhắn chia sẻ & tham số `l` của link.
-6. Trang Snapshot: công tắc, ưu tiên ngôn ngữ, bảng quyết toán/giải trình.
-7. Kiểm `en` toàn bộ trên 375 px; cập nhật tài liệu 01/02/03.
+### B.10. Việc còn lại để đóng Epic
+- Kiểm thủ công trên thiết bị thật: hộp thoại chia sẻ, trang Snapshot và các hộp thoại dài ở 375 px bằng tiếng Anh; sao chép/Web Share với tin nhắn `en`.
+- Soát câu ghép nhiều mảnh (B.8) với người đọc tiếng Anh bản ngữ.

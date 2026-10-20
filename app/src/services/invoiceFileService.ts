@@ -7,6 +7,7 @@ import { addFile, deleteFile, deleteFilesByInvoice, listFilesByInvoice } from '.
 import { syncInvoiceFileIds } from './invoiceService'
 import { loadActiveMeal } from './mealPeopleService'
 import { PeopleError } from './peopleErrors'
+import { t } from '../i18n'
 
 /** Định dạng ảnh được nhận (BR-4.6, R-12). */
 export const INVOICE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
@@ -44,14 +45,14 @@ export async function addInvoiceImage(input: AddInvoiceImageInput): Promise<Invo
     if (inferred) file = new File([file], file.name, { type: inferred, lastModified: file.lastModified })
   }
   if (!(INVOICE_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-    throw new PeopleError('FILE_TYPE_NOT_ALLOWED', `Chỉ nhận ảnh JPEG, PNG hoặc WebP (ảnh này là "${file.type || 'không rõ'}"). Nếu máy chụp HEIC, hãy đổi sang JPEG trong cài đặt camera.`, { type: file.type })
+    throw new PeopleError('FILE_TYPE_NOT_ALLOWED', t('Chỉ nhận ảnh JPEG, PNG hoặc WebP (ảnh này là "{v}"). Nếu máy chụp HEIC, hãy đổi sang JPEG trong cài đặt camera.', { v: file.type || t('không rõ') }), { type: file.type })
   }
   if (file.size > MAX_IMAGE_BYTES) {
-    throw new PeopleError('FILE_TOO_LARGE', 'Ảnh tối đa 40 MB.', { size: file.size })
+    throw new PeopleError('FILE_TOO_LARGE', t('Ảnh tối đa 40 MB.'), { size: file.size })
   }
   const existing = await listFilesByInvoice(invoiceId)
   if (existing.length >= MAX_IMAGES_PER_INVOICE) {
-    throw new PeopleError('TOO_MANY_FILES', `Mỗi hoá đơn tối đa ${MAX_IMAGES_PER_INVOICE} ảnh.`)
+    throw new PeopleError('TOO_MANY_FILES', t('Mỗi hoá đơn tối đa {MAX_IMAGES_PER_INVOICE} ảnh.', { MAX_IMAGES_PER_INVOICE }))
   }
 
   // Ảnh được xử lý như máy quét: cắt theo 4 góc hoá đơn, trắng đen nền trắng, chữ dày (giúp OCR). Không xử lý được

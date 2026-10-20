@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import IconButton from '../ui/IconButton'
+import { t } from '../../i18n'
 
 interface Props {
   percent: number
@@ -15,11 +16,11 @@ export default function OcrProgress({ percent, stage, onCancel }: Props) {
         <span>
           {stage} {percent}%
         </span>
-        <IconButton icon={X} label="Huỷ quét" tone="outline" onClick={onCancel} />
+        <IconButton icon={X} label={t('Huỷ quét')} tone="outline" onClick={onCancel} />
       </div>
       <div
         role="progressbar"
-        aria-label="Tiến trình quét hoá đơn"
+        aria-label={t('Tiến trình quét hoá đơn')}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}

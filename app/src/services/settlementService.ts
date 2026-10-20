@@ -3,6 +3,7 @@ import { computeMealSettlement } from '../domain/settlementEngine';
 import type { Meal, SettlementMode } from '../types';
 import { loadActiveMeal } from './mealPeopleService';
 import { PeopleError } from './peopleErrors';
+import { t } from '../i18n';
 
 const nowIso = () => new Date().toISOString();
 const SETTLEMENT_MODES: SettlementMode[] = ['SELF_SETTLEMENT', 'HOST_MEDIATED'];
@@ -10,7 +11,7 @@ const SETTLEMENT_MODES: SettlementMode[] = ['SELF_SETTLEMENT', 'HOST_MEDIATED'];
 /** Đổi chế độ quyết toán của bữa (BR-6.5). Bữa đã lưu trữ bị khoá (R-8). */
 export async function setSettlementMode(mealId: string, mode: SettlementMode): Promise<Meal> {
   if (!SETTLEMENT_MODES.includes(mode)) {
-    throw new PeopleError('INVALID_SETTLEMENT_MODE', 'Chế độ quyết toán không hợp lệ.', { mode });
+    throw new PeopleError('INVALID_SETTLEMENT_MODE', t('Chế độ quyết toán không hợp lệ.'), { mode });
   }
   return db.transaction('rw', db.meals, async () => {
     const meal = await loadActiveMeal(mealId);
@@ -39,7 +40,7 @@ export async function setTransfersPaid(mealId: string, keys: string[], isPaid: b
     const next = { ...meal.settlementStatuses };
     for (const key of keys) {
       const transfer = byKey.get(key);
-      if (!transfer) throw new PeopleError('TRANSFER_NOT_FOUND', 'Không tìm thấy khoản chuyển tiền này.', { key });
+      if (!transfer) throw new PeopleError('TRANSFER_NOT_FOUND', t('Không tìm thấy khoản chuyển tiền này.'), { key });
       if (isPaid) next[key] = { isPaid: true, paidAt: now.toISOString(), amount: transfer.amount };
       else delete next[key];
     }

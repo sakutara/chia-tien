@@ -1,9 +1,9 @@
 import { generateId } from '../lib/id';
 import type { AppSettings, Member } from '../types';
 import { db } from './db';
+import { DEFAULT_HOST_NAME } from './localize';
 import { normalizeName } from './normalize';
 
-const DEFAULT_HOST_NAME = 'Tôi';
 
 /**
  * Tạo dữ liệu mặc định (hồ sơ "Tôi" và AppSettings) nếu chưa có.

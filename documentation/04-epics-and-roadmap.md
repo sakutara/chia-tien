@@ -203,7 +203,7 @@ flowchart TD
 
 ### EPIC 9: Song ngữ Việt – Anh (i18n) cho toàn bộ ứng dụng & Snapshot
 
-> **Trạng thái**: chưa triển khai (xem [epic-9/BR.md](./epic-9/BR.md), [epic-9/SA.md](./epic-9/SA.md)).
+> **Trạng thái**: đã triển khai, còn kiểm thủ công trước khi đóng (xem [epic-9/BR.md](./epic-9/BR.md), [epic-9/SA.md](./epic-9/SA.md)).
 
 **Mục tiêu**: Ứng dụng hỗ trợ tiếng Anh (`en`) bên cạnh tiếng Việt (`vi`), chuyển qua lại bằng công tắc ngôn ngữ. Mọi hiển thị — gồm tên ứng dụng và nội dung Snapshot — đều theo ngôn ngữ đã chọn; trang Snapshot có công tắc ngôn ngữ riêng.
 

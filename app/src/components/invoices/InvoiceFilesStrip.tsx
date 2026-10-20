@@ -17,6 +17,7 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import IconButton from '../ui/IconButton'
 import CameraCaptureDialog from './CameraCaptureDialog'
 import ImageViewerDialog from './ImageViewerDialog'
+import { t } from '../../i18n'
 
 interface Props {
   /** Id của hoá đơn đã lưu hoặc id tạo trước của hoá đơn đang soạn. */
@@ -115,8 +116,8 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
           const record = await addInvoiceImage({ mealId, sessionId, invoiceId, file })
           added.push(record.id)
         } catch (err) {
-          const reason = err instanceof PeopleError ? err.message : 'Không lưu được ảnh (bộ nhớ đầy hoặc trình duyệt chặn lưu).'
-          failed.push(`${file.name || 'Ảnh vừa chụp'}: ${reason}`)
+          const reason = err instanceof PeopleError ? err.message : t('Không lưu được ảnh (bộ nhớ đầy hoặc trình duyệt chặn lưu).')
+          failed.push(t('{v}: {reason}', { v: file.name || t('Ảnh vừa chụp'), reason }))
         }
       }
     } finally {
@@ -129,13 +130,13 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
   }
 
   return (
-    <section aria-label="Ảnh hoá đơn" className="space-y-2 rounded-xl border border-dashed border-usd-green-600/60 bg-usd-green-100/30 p-2.5">
+    <section aria-label={t('Ảnh hoá đơn')} className="space-y-2 rounded-xl border border-dashed border-usd-green-600/60 bg-usd-green-100/30 p-2.5">
       <div className="flex items-center gap-2">
-        <IconButton icon={Camera} label="Chụp ảnh" tone="primary" disabled={locked || full} onClick={openCamera} />
-        <IconButton icon={ImagePlus} label="Tải ảnh lên" tone="outline" disabled={locked || full} onClick={() => galleryInput.current?.click()} />
+        <IconButton icon={Camera} label={t('Chụp ảnh')} tone="primary" disabled={locked || full} onClick={openCamera} />
+        <IconButton icon={ImagePlus} label={t('Tải ảnh lên')} tone="outline" disabled={locked || full} onClick={() => galleryInput.current?.click()} />
         {actions}
-        <span className="ml-auto text-xs text-usd-green-700" title="Ảnh được nén ở mức Cân bằng (cạnh dài tối đa 2000 px) và tự quét nội dung sau khi lưu">
-          {count === 0 ? 'Chụp hoặc tải ảnh bill' : `${count}/${MAX_IMAGES_PER_INVOICE} ảnh`}
+        <span className="ml-auto text-xs text-usd-green-700" title={t('Ảnh được nén ở mức Cân bằng (cạnh dài tối đa 2000 px) và tự quét nội dung sau khi lưu')}>
+          {count === 0 ? t('Chụp hoặc tải ảnh bill') : t('{count}/{MAX_IMAGES_PER_INVOICE} ảnh', { count, MAX_IMAGES_PER_INVOICE })}
         </span>
       </div>
 
@@ -145,7 +146,7 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
         accept={ACCEPT}
         multiple
         className="hidden"
-        aria-label="Tải ảnh lên"
+        aria-label={t('Tải ảnh lên')}
         onChange={(e) => handleFiles(e.target.files)}
       />
       <input
@@ -154,7 +155,7 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
         accept={ACCEPT}
         capture="environment"
         className="hidden"
-        aria-label="Chụp ảnh hoá đơn"
+        aria-label={t('Chụp ảnh hoá đơn')}
         onChange={(e) => handleFiles(e.target.files)}
       />
 
@@ -164,10 +165,10 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
         </p>
       ))}
 
-      {busy && <p className="text-sm text-usd-green-700">Đang nén và lưu ảnh…</p>}
+      {busy && <p className="text-sm text-usd-green-700">{t('Đang nén và lưu ảnh…')}</p>}
       {problems.map((p) => (
         <p key={p} role="alert" className="rounded-lg border border-red-300 bg-red-50 p-2 text-sm text-red-800">
-          Không thêm được ảnh — {p}
+          {t('Không thêm được ảnh — {p}', { p })}
         </p>
       ))}
 
@@ -175,18 +176,18 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
         <ul className="space-y-1.5">
           {files?.map((file, i) => (
             <li key={file.id} className="flex items-center gap-2 rounded-lg border border-usd-paper-200 bg-white/60 px-2 py-1 text-sm">
-              <Thumb fileId={file.id} alt={`Ảnh ${i + 1}`} />
+              <Thumb fileId={file.id} alt={t('Ảnh {v}', { v: i + 1 })} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{file.fileName}</p>
                 <p className="text-xs text-usd-green-700">
                   {sizeLabel(file)}
-                  {file.ocrRawText !== undefined && ' · đã quét'}
+                  {file.ocrRawText !== undefined && t(' · đã quét')}
                 </p>
               </div>
               <div className="flex shrink-0 gap-1">
                 <IconButton icon={Eye} label={`Xem ${file.fileName}`} onClick={() => setViewing(file)} />
-                <IconButton icon={Download} label={`Tải ${file.fileName}`} onClick={() => void downloadFile(file.id)} />
-                <IconButton icon={Trash2} label={`Xoá ${file.fileName}`} tone="danger" onClick={() => setRemoving(file)} />
+                <IconButton icon={Download} label={t('Tải {fileName}', { fileName: file.fileName })} onClick={() => void downloadFile(file.id)} />
+                <IconButton icon={Trash2} label={t('Xoá {fileName}', { fileName: file.fileName })} tone="danger" onClick={() => setRemoving(file)} />
               </div>
             </li>
           ))}
@@ -209,9 +210,9 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
       {viewing && <ImageViewerDialog fileId={viewing.id} fileName={viewing.fileName} onClose={() => setViewing(null)} />}
       <ConfirmDialog
         open={removing !== null}
-        title="Xoá ảnh này?"
-        message={<>Ảnh <strong>{removing?.fileName}</strong> sẽ bị xoá khỏi bộ nhớ. Không hoàn tác được.</>}
-        confirmLabel="Xoá ảnh"
+        title={t('Xoá ảnh này?')}
+        message={<>{t('Ảnh')} <strong>{removing?.fileName}</strong> {t('sẽ bị xoá khỏi bộ nhớ. Không hoàn tác được.')}</>}
+        confirmLabel={t('Xoá ảnh')}
         tone="danger"
         onConfirm={async () => {
           if (removing) await removeInvoiceImage(removing.id)

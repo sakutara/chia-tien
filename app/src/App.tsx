@@ -3,13 +3,18 @@ import { Banknote, UserRound } from 'lucide-react'
 import IconButton from './components/ui/IconButton'
 import MyProfileDialog from './components/profile/MyProfileDialog'
 import { ensureDefaultData } from './db/seed'
+import LanguageSwitch from './components/ui/LanguageSwitch'
+import { useLang } from './i18n'
 import { exitSnapshot, mealPath, useHashRoute } from './hooks/useHashRoute'
 import { useMembers } from './hooks/useMembers'
 import MealsPage from './pages/MealsPage'
 import MealWorkspacePage from './pages/MealWorkspacePage'
 import SnapshotViewerPage from './pages/SnapshotViewerPage'
+import { t } from './i18n'
 
 export default function App() {
+  // Đăng ký đổi ngôn ngữ ở gốc: App render lại thì cả cây con render lại theo ngôn ngữ mới.
+  useLang()
   const [ready, setReady] = useState(false)
   const [seedError, setSeedError] = useState<string | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -23,7 +28,7 @@ export default function App() {
       .then(() => setReady(true))
       .catch((err) => {
         console.error('Seed failed', err)
-        setSeedError('Không khởi tạo được dữ liệu. Hãy tải lại trang.')
+        setSeedError(t('Không khởi tạo được dữ liệu. Hãy tải lại trang.'))
       })
   }, [])
 
@@ -33,17 +38,20 @@ export default function App() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-3 py-1.5 sm:px-6">
           <a href="#/" className="flex min-h-10 items-center gap-2 rounded-lg">
             <Banknote className="h-5 w-5 text-usd-green-100" aria-hidden="true" />
-            <h1 className="text-base font-bold tracking-tight">Chia tiền</h1>
+            <h1 className="text-base font-bold tracking-tight">{t('Chia tiền')}</h1>
           </a>
-          {!inSnapshot && (
-            <IconButton
-              icon={UserRound}
-              label="Hồ sơ của tôi"
-              onClick={() => setProfileOpen(true)}
-              disabled={!me}
-              className="border border-usd-green-600 !text-usd-paper-50 hover:!bg-usd-green-800"
-            />
-          )}
+          <div className="flex items-center gap-1.5">
+            <LanguageSwitch className="!text-usd-paper-50" />
+            {!inSnapshot && (
+              <IconButton
+                icon={UserRound}
+                label={t('Hồ sơ của tôi')}
+                onClick={() => setProfileOpen(true)}
+                disabled={!me}
+                className="border border-usd-green-600 !text-usd-paper-50 hover:!bg-usd-green-800"
+              />
+            )}
+          </div>
         </div>
         <div className="h-0.5 bg-usd-gold-600" aria-hidden="true" />
       </header>
@@ -56,7 +64,7 @@ export default function App() {
             {seedError}
           </p>
         ) : !ready ? (
-          <p className="text-usd-green-700">Đang tải…</p>
+          <p className="text-usd-green-700">{t('Đang tải…')}</p>
         ) : route.name === 'meal' ? (
           <MealWorkspacePage key={route.id} mealId={route.id} onBack={() => navigate('/')} />
         ) : (

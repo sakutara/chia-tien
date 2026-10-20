@@ -4,6 +4,7 @@ import { computeMealSettlement } from '../domain/settlementEngine';
 import { deleteFilesByMeal } from './fileStorageService';
 import { loadActiveMeal } from './mealPeopleService';
 import { PeopleError, type PeopleErrorCode } from './peopleErrors';
+import { t } from '../i18n';
 
 const BLOCKER_CODE: Record<Exclude<ArchiveBlockerReason, 'ALREADY_ARCHIVED'>, PeopleErrorCode> = {
   NO_COST: 'ARCHIVE_EMPTY_MEAL',
@@ -49,9 +50,9 @@ export async function archiveMeal(mealId: string, now: Date = new Date()): Promi
   const eligibility = checkArchiveEligibility(settlement);
   if (!eligibility.canArchive && eligibility.reason) {
     if (eligibility.reason === 'ALREADY_ARCHIVED') {
-      throw new PeopleError('MEAL_ARCHIVED', 'Bữa đã lưu trữ, không thể chỉnh sửa.', { mealId });
+      throw new PeopleError('MEAL_ARCHIVED', t('Bữa đã lưu trữ, không thể chỉnh sửa.'), { mealId });
     }
-    throw new PeopleError(BLOCKER_CODE[eligibility.reason], eligibility.message ?? 'Chưa đủ điều kiện lưu trữ.', {
+    throw new PeopleError(BLOCKER_CODE[eligibility.reason], eligibility.message ?? t('Chưa đủ điều kiện lưu trữ.'), {
       mealId,
       unpaidEntityNames: eligibility.unpaidEntityNames,
       unassignedItemCount: eligibility.unassignedItemCount,

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { t } from '../../i18n'
 
 interface Props {
   open: boolean
@@ -64,7 +65,7 @@ function ModalBody({ title, onClose, size = 'md', children }: Omit<Props, 'open'
           <button
             type="button"
             onClick={onClose}
-            aria-label="Đóng"
+            aria-label={t('Đóng')}
             className="-m-2 flex h-10 w-10 items-center justify-center rounded-full text-usd-green-700 hover:bg-usd-paper-200"
           >
             <X className="h-5 w-5" aria-hidden="true" />

@@ -3,7 +3,9 @@ import { buildPaymentSlides, toSnapshotPayments } from '../domain/paymentSlides'
 import { buildItemShares, buildSnapshotPayload, buildSnapshotUrl, encodeCompactSnapshot } from '../domain/shareSnapshot';
 import { computeMealSettlement, type SettlementEngineInput } from '../domain/settlementEngine';
 import type { MealSettlementResult, MealSnapshotPayload } from '../types';
+import { localizeMember, localizeSession } from '../db/localize';
 import { PeopleError } from './peopleErrors';
+import { t } from '../i18n';
 
 export interface LoadedMealSnapshot {
   payload: MealSnapshotPayload;
@@ -61,14 +63,14 @@ export async function loadMealSnapshotPayload(
   payerEntityIds: ReadonlyArray<string> | null = null,
 ): Promise<LoadedMealSnapshot> {
   const meal = await db.meals.get(mealId);
-  if (!meal) throw new PeopleError('MEAL_NOT_FOUND', 'Không tìm thấy bữa.', { mealId });
+  if (!meal) throw new PeopleError('MEAL_NOT_FOUND', t('Không tìm thấy bữa.'), { mealId });
   const [members, sessions, invoices, items] = await Promise.all([
     db.members.toArray(),
     db.sessions.where('mealId').equals(mealId).toArray(),
     db.invoices.where('mealId').equals(mealId).toArray(),
     db.items.where('mealId').equals(mealId).toArray(),
   ]);
-  const input = { meal, members, sessions, invoices, items };
+  const input = { meal, members: members.map(localizeMember), sessions: sessions.map(localizeSession), invoices, items };
   const settlement = computeMealSettlement(input);
   const data: SnapshotSource = { input, settlement, exportedAt: now.toISOString() };
   return { ...scopeSnapshot(data, payerEntityIds), settlement, data };
@@ -84,14 +86,14 @@ export function canUseWebShare(): boolean {
  */
 export async function shareMessageViaOs(data: { title: string; text: string }): Promise<boolean> {
   if (!canUseWebShare()) {
-    throw new PeopleError('SHARE_FAILED', 'Thiết bị này không hỗ trợ chia sẻ trực tiếp. Hãy sao chép tin nhắn.');
+    throw new PeopleError('SHARE_FAILED', t('Thiết bị này không hỗ trợ chia sẻ trực tiếp. Hãy sao chép tin nhắn.'));
   }
   try {
     await navigator.share(data);
     return true;
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') return false;
-    throw new PeopleError('SHARE_FAILED', 'Không mở được menu chia sẻ.');
+    throw new PeopleError('SHARE_FAILED', t('Không mở được menu chia sẻ.'));
   }
 }
 
@@ -128,7 +130,7 @@ export async function copyTextToClipboard(text: string): Promise<void> {
     area.remove();
     previous?.focus();
   }
-  if (!copied) throw new PeopleError('SHARE_FAILED', 'Không sao chép được. Hãy chọn và sao chép thủ công.');
+  if (!copied) throw new PeopleError('SHARE_FAILED', t('Không sao chép được. Hãy chọn và sao chép thủ công.'));
 }
 
 /** Rút gọn link snapshot để hiển thị: giữ domain + vài ký tự đầu của phần mã hoá, phần còn lại thay bằng “…”. */
@@ -149,7 +151,7 @@ export interface ShareTarget {
 export function buildShareTargets(text: string): ShareTarget[] {
   const q = encodeURIComponent(text);
   return [
-    { id: 'sms', label: 'Tin nhắn SMS', href: `sms:?&body=${q}` },
+    { id: 'sms', label: t('Tin nhắn SMS'), href: `sms:?&body=${q}` },
     { id: 'telegram', label: 'Telegram', href: `https://t.me/share/url?url=%20&text=${q}` },
     { id: 'whatsapp', label: 'WhatsApp', href: `https://wa.me/?text=${q}` },
     { id: 'email', label: 'Email', href: `mailto:?body=${q}` },

@@ -7,6 +7,7 @@ import { PeopleError } from '../../services/peopleErrors'
 import type { Member, Meal } from '../../types'
 import IconButton from '../ui/IconButton'
 import SessionCard from './SessionCard'
+import { t } from '../../i18n'
 
 interface Props {
   meal: Meal
@@ -29,15 +30,15 @@ export default function SessionsPanel({ meal, participants }: Props) {
     try {
       await addSession(meal.id)
     } catch (err) {
-      setError(err instanceof PeopleError ? err.message : 'Có lỗi không xác định.')
+      setError(err instanceof PeopleError ? err.message : t('Có lỗi không xác định.'))
     }
   }
 
   return (
-    <section className="space-y-3" aria-label="Kèo và hoá đơn">
+    <section className="space-y-3" aria-label={t('Kèo và hoá đơn')}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">Kèo ({sessions?.length ?? 0})</h3>
-        {!readOnly && <IconButton icon={Plus} label="Thêm kèo" tone="primary" onClick={handleAdd} />}
+        <h3 className="text-sm font-semibold">{t('Kèo ({n})', { n: sessions?.length ?? 0 })}</h3>
+        {!readOnly && <IconButton icon={Plus} label={t('Thêm kèo')} tone="primary" onClick={handleAdd} />}
       </div>
 
       {error && (
@@ -47,10 +48,10 @@ export default function SessionsPanel({ meal, participants }: Props) {
       )}
 
       {sessions === undefined ? (
-        <p className="text-sm text-usd-green-700">Đang tải kèo…</p>
+        <p className="text-sm text-usd-green-700">{t('Đang tải kèo…')}</p>
       ) : sessions.length === 0 ? (
         <p className="card text-sm text-usd-green-700">
-          {readOnly ? 'Bữa này không có kèo nào.' : 'Chưa có kèo nào. Bấm + để thêm kèo đầu tiên.'}
+          {readOnly ? t('Bữa này không có kèo nào.') : t('Chưa có kèo nào. Bấm + để thêm kèo đầu tiên.')}
         </p>
       ) : (
         <ul className="grid gap-3 xl:grid-cols-2">

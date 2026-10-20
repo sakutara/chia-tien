@@ -3,6 +3,7 @@ import { MAX_ITEM_SHARES } from '../../domain/invoiceRules'
 import type { ItemShare, Member } from '../../types'
 import IconButton from './IconButton'
 import Popover from './Popover'
+import { t } from '../../i18n'
 
 interface BaseProps {
   /** Tên truy cập, ví dụ "Người tham gia kèo Kèo 1". */
@@ -56,7 +57,7 @@ function namesText(options: Member[], props: Pick<Props, 'mode' | 'value'>): str
  * hoặc chọn kèm số phần). Mỗi lần bấm lưu ngay, không cần nút xác nhận.
  */
 export default function PeoplePicker(props: Props) {
-  const { label, options, readOnly, empty = 'Chọn' } = props
+  const { label, options, readOnly, empty = t('Chọn') } = props
   const text = namesText(options, props)
   const shown = text || empty
 
@@ -65,7 +66,7 @@ export default function PeoplePicker(props: Props) {
   return (
     <Popover
       label={label}
-      summary={text || 'chưa chọn'}
+      summary={text || t('chưa chọn')}
       trigger={text ? text : <span className="italic text-usd-green-700">{shown}</span>}
     >
       {props.mode === 'multi' && <MultiList {...props} />}
@@ -89,7 +90,7 @@ function MultiList({ label, options, value, onChange, min = 0 }: MultiProps) {
         <span className="text-xs text-usd-green-700">
           {value.length}/{options.length}
         </span>
-        <IconButton icon={Check} label={`Chọn tất cả: ${label}`} onClick={() => onChange(options.map((m) => m.id))} disabled={value.length === options.length} />
+        <IconButton icon={Check} label={t('Chọn tất cả: {label}', { label })} onClick={() => onChange(options.map((m) => m.id))} disabled={value.length === options.length} />
       </div>
       <ul className="max-h-60 space-y-0.5 overflow-auto">
         {options.map((m) => {
@@ -130,7 +131,7 @@ function SharesList({ label, options, value, onChange }: SharesProps) {
         </span>
         <IconButton
           icon={Check}
-          label={`Chọn tất cả: ${label}`}
+          label={t('Chọn tất cả: {label}', { label })}
           onClick={() => onChange(options.map((m) => ({ memberId: m.id, shares: 1 })))}
           disabled={allOn}
         />
@@ -146,11 +147,11 @@ function SharesList({ label, options, value, onChange }: SharesProps) {
               </label>
               {n > 0 && (
                 <span className="flex items-center gap-0.5">
-                  <IconButton icon={Minus} label={n > 1 ? `Giảm số phần của ${m.name}` : `Bỏ ${m.name}`} onClick={() => set(m.id, n - 1)} />
+                  <IconButton icon={Minus} label={n > 1 ? t('Giảm số phần của {name}', { name: m.name }) : t('Bỏ {name}', { name: m.name })} onClick={() => set(m.id, n - 1)} />
                   <span className="min-w-5 text-center font-semibold" aria-live="polite">
                     {n}
                   </span>
-                  <IconButton icon={Plus} label={`Tăng số phần của ${m.name}`} onClick={() => set(m.id, n + 1)} disabled={n >= MAX_ITEM_SHARES} />
+                  <IconButton icon={Plus} label={t('Tăng số phần của {name}', { name: m.name })} onClick={() => set(m.id, n + 1)} disabled={n >= MAX_ITEM_SHARES} />
                 </span>
               )}
             </li>
