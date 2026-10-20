@@ -71,7 +71,7 @@ Toàn bộ tài liệu thiết kế hệ thống được chia thành 4 phần c
 3. [**03. Thiết kế Giao diện (UI/UX) & Hệ màu USD Green (`03-ui-ux-and-design-system.md`)**](./03-ui-ux-and-design-system.md)
    - Bảng màu USD, Typography, bố cục 3 chế độ xem Bữa, luồng tương tác Quick Filter chọn người, chụp/OCR hoá đơn, bảng thanh toán, Modal Chia sẻ và giao diện Xem Snapshot (Read-only).
 4. [**04. Phân rã Epics & Lộ trình Triển khai (`04-epics-and-roadmap.md`)**](./04-epics-and-roadmap.md)
-   - Chia nhỏ toàn bộ tính năng thành 8 Epics độc lập kèm User Stories, Acceptance Criteria và thứ tự ưu tiên phát triển.
+   - Chia nhỏ toàn bộ tính năng thành 9 Epics độc lập kèm User Stories, Acceptance Criteria và thứ tự ưu tiên phát triển.
 5. **Tài liệu theo Epic** (`documentation/epic-<n>/`, mỗi Epic gồm 2 file — xem quy tắc bắt buộc ở mục 5 bên dưới):
    - Epic 1: [**BR — Yêu cầu nghiệp vụ**](./epic-1/BR.md) · [**SA — Phân tích hệ thống**](./epic-1/SA.md)
    - Epic 2: [**BR — Yêu cầu nghiệp vụ**](./epic-2/BR.md) · [**SA — Phân tích hệ thống**](./epic-2/SA.md) *(đã triển khai, còn kiểm thủ công trước khi đóng)*
@@ -81,6 +81,7 @@ Toàn bộ tài liệu thiết kế hệ thống được chia thành 4 phần c
    - Epic 6: [**BR — Yêu cầu nghiệp vụ**](./epic-6/BR.md) · [**SA — Phân tích hệ thống**](./epic-6/SA.md) *(đã triển khai, còn kiểm thủ công trước khi đóng)*
    - Epic 7: [**BR — Yêu cầu nghiệp vụ**](./epic-7/BR.md) · [**SA — Phân tích hệ thống**](./epic-7/SA.md) *(đã triển khai, còn kiểm thủ công trước khi đóng)*
    - Epic 8: [**BR — Yêu cầu nghiệp vụ**](./epic-8/BR.md) · [**SA — Phân tích hệ thống**](./epic-8/SA.md) *(đã triển khai, còn kiểm thủ công trước khi đóng)*
+   - Epic 9: [**BR — Yêu cầu nghiệp vụ**](./epic-9/BR.md) · [**SA — Phân tích hệ thống**](./epic-9/SA.md) *(chưa triển khai, mới có đặc tả)*
 
 ---
 
