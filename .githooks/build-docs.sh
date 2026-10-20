@@ -25,6 +25,14 @@ if git -C "$root" diff --cached --quiet -- docs; then
   exit 0
 fi
 
-git -C "$root" commit -q --no-verify -m "Build docs ($(git -C "$root" rev-parse --short HEAD))" -- docs
+msg="Build docs ($(git -C "$root" rev-parse --short HEAD))"
+if [ -f "$(git -C "$root" rev-parse --git-path MERGE_HEAD)" ]; then
+  # post-merge chạy khi MERGE_HEAD còn tồn tại nên `git commit` bị từ chối: tạo commit bằng lệnh cấp thấp (index lúc này trùng HEAD + docs).
+  tree="$(git -C "$root" write-tree)"
+  new="$(git -C "$root" commit-tree "$tree" -p HEAD -m "$msg")"
+  git -C "$root" update-ref -m "build docs" HEAD "$new"
+else
+  git -C "$root" commit -q --no-verify -m "$msg" -- docs
+fi
 echo "[docs] Đã commit bản build mới trong docs/."
 exit 10
