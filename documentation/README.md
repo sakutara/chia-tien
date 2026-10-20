@@ -144,3 +144,14 @@ documentation/epic-<n>/
 - [ ] Mọi User Story của Epic được truy vết trong BR (A.3) và SA (B.9).
 - [ ] Mọi tiêu chí nghiệm thu trong file 04 có `AC-<k>` tương ứng và trạng thái thật.
 - [ ] Code, test và build đạt; kết quả được ghi vào B.9; việc còn lại (B.10) rỗng hoặc đã chuyển sang Epic khác có ghi chú.
+
+---
+
+## 6. Build GitHub Pages (`docs/`) tự động
+
+GitHub Pages phục vụ từ nhánh `main`, thư mục `/docs` (bản build prod, base `/chia-tien/`). Hook trong `.githooks/` giữ thư mục này luôn khớp mã nguồn:
+
+- **`post-merge`**: sau mỗi `git merge` / `git pull` vào `main` (kể cả fast-forward), tự build và commit `Build docs (<sha>)` nếu bản build đổi. Gồm cả trường hợp merge PR trên GitHub rồi `git pull` về máy.
+- **`pre-push`**: lưới an toàn; build lỗi thì chặn push, bản build đổi thì commit rồi dừng để chạy lại `git push`.
+- Chỉ chạy trên nhánh `main`, cần `app/node_modules` (thiếu thì bỏ qua và cảnh báo). Bỏ qua bằng `SKIP_PAGES_BUILD=1`; build tay bằng `.githooks/build-docs.sh`.
+- Hook được bật nhờ `core.hooksPath=.githooks`, tự đặt khi chạy `npm install` trong `app/` (script `prepare`); máy đã clone sẵn chạy một lần: `git config core.hooksPath .githooks`.
