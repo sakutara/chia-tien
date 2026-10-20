@@ -1,5 +1,6 @@
 import type { PaymentGroup } from '../types';
 import { PeopleError } from '../services/peopleErrors';
+import { t } from '../i18n';
 
 /** R-9: tên mặc định là các tên thành viên nối bằng " + ". */
 export function defaultGroupName(memberNames: string[]): string {
@@ -28,12 +29,12 @@ export function validateGroupDraft({
 }: GroupDraft): void {
   const unique = new Set(memberIds);
   if (unique.size < 2 || unique.size !== memberIds.length) {
-    throw new PeopleError('GROUP_TOO_SMALL', 'Nhóm cần ít nhất 2 thành viên khác nhau.');
+    throw new PeopleError('GROUP_TOO_SMALL', t('Nhóm cần ít nhất 2 thành viên khác nhau.'));
   }
 
   for (const id of memberIds) {
     if (!participantIds.includes(id)) {
-      throw new PeopleError('NOT_PARTICIPANT', 'Thành viên chưa tham gia bữa này.', { memberId: id });
+      throw new PeopleError('NOT_PARTICIPANT', t('Thành viên chưa tham gia bữa này.'), { memberId: id });
     }
   }
 
@@ -43,7 +44,7 @@ export function validateGroupDraft({
     if (clash) {
       throw new PeopleError(
         'MEMBER_ALREADY_GROUPED',
-        `${names[clash] ?? 'Thành viên'} đã thuộc nhóm "${group.name}".`,
+        t('{v} đã thuộc nhóm "{name}".', { v: names[clash] ?? t('Thành viên'), name: group.name }),
         { groupId: group.id, groupName: group.name, memberId: clash },
       );
     }

@@ -3,6 +3,7 @@ import { Check, Crown, Plus } from 'lucide-react'
 import { formatMemberName } from '../../db/normalize'
 import { decideEnter, filterMembers, findExactMatch } from '../../domain/memberFilter'
 import type { Member } from '../../types'
+import { t } from '../../i18n'
 
 interface Props {
   /** Toàn bộ danh bạ, đã xếp (chủ app ghim đầu). */
@@ -50,7 +51,7 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
 
   async function pick(member: Member) {
     if (participantIds.includes(member.id)) {
-      setMessage(`${member.name} đã tham gia bữa này.`)
+      setMessage(t('{name} đã tham gia bữa này.', { name: member.name }))
       return
     }
     await onPick(member)
@@ -92,7 +93,7 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
     })
     if (action.type === 'pick') return pick(action.member)
     if (action.type === 'already') {
-      setMessage(`${action.member.name} đã tham gia bữa này.`)
+      setMessage(t('{name} đã tham gia bữa này.', { name: action.member.name }))
       return
     }
     if (action.type === 'create') return create(action.name)
@@ -101,7 +102,7 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
   return (
     <div className="relative">
       <label htmlFor={`${listId}-input`} className="sr-only">
-        Thêm người vào bữa
+        {t('Thêm người vào bữa')}
       </label>
       <input
         id={`${listId}-input`}
@@ -114,7 +115,7 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
         autoComplete="off"
         disabled={disabled}
         value={query}
-        placeholder="Thêm người: gõ tên…"
+        placeholder={t('Thêm người: gõ tên…')}
         onChange={(e) => {
           setQuery(e.target.value)
           setActiveKey(null)
@@ -131,7 +132,7 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
         <ul
           id={listId}
           role="listbox"
-          aria-label="Danh sách người"
+          aria-label={t('Danh sách người')}
           onMouseDown={(e) => e.preventDefault()}
           className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-usd-paper-200 bg-usd-paper-50 py-1 shadow-md"
         >
@@ -148,7 +149,7 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
                   className={`flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-sm font-semibold text-usd-green-900 ${active ? 'bg-usd-green-100' : ''}`}
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
-                  <span>Thêm "{row.name}"</span>
+                  <span>{t('Thêm "{name}"', { name: row.name })}</span>
                 </li>
               )
             }
@@ -163,12 +164,12 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
                 className={`flex min-h-11 cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm ${active ? 'bg-usd-green-100' : 'hover:bg-usd-paper-200'}`}
               >
                 <span className="flex items-center gap-2">
-                  {row.member.isDefaultHost && <Crown className="h-4 w-4 text-usd-gold-600" aria-label="Chủ app" />}
+                  {row.member.isDefaultHost && <Crown className="h-4 w-4 text-usd-gold-600" aria-label={t('Chủ app')} />}
                   <span>{row.member.name}</span>
                 </span>
                 {joined && (
                   <span className="flex items-center gap-1 text-xs text-usd-green-700">
-                    <Check className="h-3.5 w-3.5" aria-label="Đã tham gia" />
+                    <Check className="h-3.5 w-3.5" aria-label={t('Đã tham gia')} />
                   </span>
                 )}
               </li>
@@ -178,7 +179,7 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
       )}
 
       <p role="status" className="min-h-4 text-xs text-usd-green-700">
-        {message ?? (name && exact ? `Đã có "${exact.name}". Muốn thêm người khác cùng tên, hãy thêm họ hoặc hậu tố (ví dụ "${exact.name} A").` : '')}
+        {message ?? (name && exact ? t('Đã có "{name}". Muốn thêm người khác cùng tên, hãy thêm họ hoặc hậu tố (ví dụ "{name} A").', { name: exact.name }) : '')}
       </p>
     </div>
   )

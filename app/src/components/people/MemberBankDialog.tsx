@@ -8,6 +8,7 @@ import Modal from '../ui/Modal'
 import { Trash2 } from 'lucide-react'
 import { emptyBankDraft, isBankDraftEmpty } from './bankDraft'
 import MemberBankFields from './MemberBankFields'
+import { t } from '../../i18n'
 
 interface Props {
   member: Member
@@ -27,7 +28,7 @@ export default function MemberBankDialog({ member, onClose }: Props) {
       await updateMemberBank(member.id, next)
       onClose()
     } catch (err) {
-      setError(err instanceof PeopleError ? err.message : 'Có lỗi không xác định.')
+      setError(err instanceof PeopleError ? err.message : t('Có lỗi không xác định.'))
     } finally {
       setSaving(false)
     }
@@ -39,7 +40,7 @@ export default function MemberBankDialog({ member, onClose }: Props) {
   }
 
   return (
-    <Modal open title={`Tài khoản ngân hàng — ${member.name}`} onClose={onClose}>
+    <Modal open title={t('Tài khoản ngân hàng — {name}', { name: member.name })} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <MemberBankFields idBase={`bank-${member.id}`} value={draft} onChange={setDraft} />
         {error && (
@@ -48,8 +49,8 @@ export default function MemberBankDialog({ member, onClose }: Props) {
           </p>
         )}
         <div className="flex items-center justify-between gap-2">
-          {member.bank ? <IconButton icon={Trash2} label="Xoá tài khoản ngân hàng" tone="danger" onClick={() => void save(null)} /> : <span />}
-          <DialogActions onCancel={onClose} saveLabel="Lưu tài khoản" saving={saving} />
+          {member.bank ? <IconButton icon={Trash2} label={t('Xoá tài khoản ngân hàng')} tone="danger" onClick={() => void save(null)} /> : <span />}
+          <DialogActions onCancel={onClose} saveLabel={t('Lưu tài khoản')} saving={saving} />
         </div>
       </form>
     </Modal>

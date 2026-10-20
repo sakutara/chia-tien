@@ -3,6 +3,7 @@ import { ITEM_NAME_MAX } from '../../domain/invoiceRules'
 import { formatMoney } from '../../lib/money'
 import IconButton from '../ui/IconButton'
 import { newItemRow, suggestAmount, type ItemRow } from './formState'
+import { t } from '../../i18n'
 
 interface Props {
   rows: ItemRow[]
@@ -29,7 +30,7 @@ export default function InvoiceItemsEditor({ rows, onChange }: Props) {
 
   return (
     <div className="space-y-2">
-      {rows.length === 0 && <p className="text-sm text-usd-green-700">Chưa có món nào. Bấm + để thêm.</p>}
+      {rows.length === 0 && <p className="text-sm text-usd-green-700">{t('Chưa có món nào. Bấm + để thêm.')}</p>}
 
       <ul className="space-y-2">
         {rows.map((row, i) => (
@@ -38,18 +39,18 @@ export default function InvoiceItemsEditor({ rows, onChange }: Props) {
             className={`grid grid-cols-[minmax(0,1fr)_4rem_auto] gap-1.5 rounded-lg border p-2 sm:grid-cols-[minmax(0,2fr)_4rem_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center ${row.uncertain ? 'border-amber-600 bg-amber-50' : 'border-usd-paper-200'}`}
           >
             {row.uncertain && (
-              <p className="col-span-full text-xs font-semibold text-amber-800">Cần xem lại: thành tiền không khớp SL × đơn giá trên bill.</p>
+              <p className="col-span-full text-xs font-semibold text-amber-800">{t('Cần xem lại: thành tiền không khớp SL × đơn giá trên bill.')}</p>
             )}
             <input
-              aria-label={`Tên món ${i + 1}`}
-              placeholder="Tên món"
+              aria-label={t('Tên món {v}', { v: i + 1 })}
+              placeholder={t('Tên món')}
               value={row.name}
               maxLength={ITEM_NAME_MAX}
               onChange={(e) => update(row.key, { name: e.target.value })}
               className={INPUT}
             />
             <input
-              aria-label={`Số lượng ${i + 1}`}
+              aria-label={t('Số lượng {v}', { v: i + 1 })}
               placeholder="SL"
               inputMode="numeric"
               value={row.quantity}
@@ -58,22 +59,22 @@ export default function InvoiceItemsEditor({ rows, onChange }: Props) {
             />
             <IconButton
               icon={Trash2}
-              label={`Xoá món ${i + 1}`}
+              label={t('Xoá món {v}', { v: i + 1 })}
               tone="danger"
               className="sm:order-last"
               onClick={() => onChange(rows.filter((r) => r.key !== row.key))}
             />
             <input
-              aria-label={`Đơn giá ${i + 1}`}
-              placeholder="Đơn giá"
+              aria-label={t('Đơn giá {v}', { v: i + 1 })}
+              placeholder={t('Đơn giá')}
               inputMode="numeric"
               value={row.unitPrice}
               onChange={(e) => update(row.key, { unitPrice: e.target.value })}
               className={INPUT}
             />
             <input
-              aria-label={`Thành tiền ${i + 1}`}
-              placeholder="Thành tiền"
+              aria-label={t('Thành tiền {v}', { v: i + 1 })}
+              placeholder={t('Thành tiền')}
               inputMode="numeric"
               value={row.amount}
               onChange={(e) => update(row.key, { amount: e.target.value })}
@@ -84,9 +85,9 @@ export default function InvoiceItemsEditor({ rows, onChange }: Props) {
       </ul>
 
       <div className="flex items-center justify-between gap-2">
-        <IconButton icon={Plus} label="Thêm món" tone="outline" onClick={() => onChange([...rows, newItemRow()])} />
+        <IconButton icon={Plus} label={t('Thêm món')} tone="outline" onClick={() => onChange([...rows, newItemRow()])} />
         <span className="money text-sm">
-          Tổng món: {formatMoney(rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0))}
+          {t('Tổng món: {amount}', { amount: formatMoney(rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)) })}
         </span>
       </div>
     </div>

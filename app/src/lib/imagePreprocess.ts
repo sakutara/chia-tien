@@ -1,4 +1,5 @@
-/*
+
+import { t } from '../i18n'/*
  * Tiền xử lý ảnh trước khi OCR (02 §3, bước 1): đưa cạnh dài về khoảng 2800 px (phóng to ảnh nhỏ, thu ảnh quá lớn),
  * chuyển xám, kéo giãn tương phản. Tesseract cần chữ cao tối thiểu ~25 px; ảnh bill đã nén thường chỉ rộng ~600 px nên
  * không phóng to thì đọc sai gần hết.
@@ -69,7 +70,7 @@ export async function prepareForOcr(source: Blob): Promise<Blob> {
     canvas.width = width
     canvas.height = height
     const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Canvas không khả dụng.')
+    if (!ctx) throw new Error(t('Canvas không khả dụng.'))
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(bitmap, 0, 0, width, height)
@@ -88,7 +89,7 @@ export async function prepareForOcr(source: Blob): Promise<Blob> {
     ctx.putImageData(image, 0, 0)
 
     return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Không tạo được ảnh OCR.'))), 'image/png'),
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error(t('Không tạo được ảnh OCR.')))), 'image/png'),
     )
   } finally {
     bitmap.close()

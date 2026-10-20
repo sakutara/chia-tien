@@ -4,7 +4,7 @@ import { groupByDate } from '../../domain/mealRules'
 import {
   MAX_YMD,
   MIN_YMD,
-  WEEKDAY_LABELS,
+  weekdayLabels,
   buildMonthGrid,
   formatDateVi,
   parseYmd,
@@ -16,6 +16,7 @@ import { formatMoney } from '../../lib/money'
 import type { MealSummary } from '../../types'
 import IconButton from '../ui/IconButton'
 import MealCard from './MealCard'
+import { t } from '../../i18n'
 
 interface Props {
   summaries: MealSummary[]
@@ -91,8 +92,8 @@ export default function MealCalendarView({ summaries, onCreateForDate, onOpen, o
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
       <div className="space-y-2">
       <div className="flex items-center gap-1.5">
-        <IconButton icon={ChevronLeft} label="Tháng trước" tone="outline" onClick={() => goMonth(-1)} disabled={atMin} />
-        <label className="sr-only" htmlFor="cal-month">Tháng</label>
+        <IconButton icon={ChevronLeft} label={t('Tháng trước')} tone="outline" onClick={() => goMonth(-1)} disabled={atMin} />
+        <label className="sr-only" htmlFor="cal-month">{t('Tháng')}</label>
         <select
           id="cal-month"
           value={month}
@@ -101,11 +102,11 @@ export default function MealCalendarView({ summaries, onCreateForDate, onOpen, o
         >
           {Array.from({ length: 12 }, (_, i) => (
             <option key={i + 1} value={i + 1}>
-              Tháng {i + 1}
+              {t('Tháng {n}', { n: i + 1 })}
             </option>
           ))}
         </select>
-        <label className="sr-only" htmlFor="cal-year">Năm</label>
+        <label className="sr-only" htmlFor="cal-year">{t('Năm')}</label>
         <select
           id="cal-year"
           value={year}
@@ -118,13 +119,13 @@ export default function MealCalendarView({ summaries, onCreateForDate, onOpen, o
             </option>
           ))}
         </select>
-        <IconButton icon={ChevronRight} label="Tháng sau" tone="outline" onClick={() => goMonth(1)} disabled={atMax} />
-        <IconButton icon={CalendarCheck} label="Hôm nay" tone="outline" className="ml-auto" onClick={() => show(today)} />
+        <IconButton icon={ChevronRight} label={t('Tháng sau')} tone="outline" onClick={() => goMonth(1)} disabled={atMax} />
+        <IconButton icon={CalendarCheck} label={t('Hôm nay')} tone="outline" className="ml-auto" onClick={() => show(today)} />
       </div>
 
-      <div role="grid" aria-label={`Lịch tháng ${month} năm ${year}`} onKeyDown={onGridKeyDown}>
+      <div role="grid" aria-label={t('Lịch tháng {month} năm {year}', { month, year })} onKeyDown={onGridKeyDown}>
         <div role="row" className="grid grid-cols-7 text-center text-xs font-semibold text-usd-green-700">
-          {WEEKDAY_LABELS.map((w) => (
+          {weekdayLabels().map((w) => (
             <div key={w} role="columnheader" className="py-1">
               {w}
             </div>
@@ -142,7 +143,7 @@ export default function MealCalendarView({ summaries, onCreateForDate, onOpen, o
                     data-ymd={d.ymd}
                     tabIndex={isSelected ? 0 : -1}
                     onClick={() => show(d.ymd)}
-                    aria-label={`${formatDateVi(d.ymd)}${meals.length ? `, ${meals.length} bữa` : ''}${d.isToday ? ', hôm nay' : ''}`}
+                    aria-label={`${formatDateVi(d.ymd)}${meals.length ? `, ${t('{n} bữa', { n: meals.length })}` : ''}${d.isToday ? `, ${t('hôm nay')}` : ''}`}
                     className={`flex h-12 w-full min-w-0 flex-col items-stretch gap-0.5 p-1 text-left sm:h-20 ${
                       isSelected ? 'bg-usd-green-100' : d.inMonth ? 'bg-usd-paper-50 hover:bg-usd-paper-200' : 'bg-usd-paper-100 hover:bg-usd-paper-200'
                     } ${d.inMonth ? '' : 'opacity-50'}`}
@@ -169,7 +170,7 @@ export default function MealCalendarView({ summaries, onCreateForDate, onOpen, o
                             </span>
                           ))}
                           {meals.length > MAX_BADGES && (
-                            <span className="text-[11px] text-usd-green-700">+{meals.length - MAX_BADGES} bữa nữa</span>
+                            <span className="text-[11px] text-usd-green-700">{t('+{n} bữa nữa', { n: meals.length - MAX_BADGES })}</span>
                           )}
                         </span>
                       </>
@@ -183,13 +184,13 @@ export default function MealCalendarView({ summaries, onCreateForDate, onOpen, o
       </div>
       </div>
 
-      <section aria-label={`Bữa ngày ${formatDateVi(selected)}`} className="space-y-2">
+      <section aria-label={t('Bữa ngày {date}', { date: formatDateVi(selected) })} className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base font-semibold">Ngày {formatDateVi(selected)}</h2>
-          <IconButton icon={Plus} label="Tạo bữa mới cho ngày này" tone="primary" onClick={() => onCreateForDate(selected)} />
+          <h2 className="text-base font-semibold">{t('Ngày {date}', { date: formatDateVi(selected) })}</h2>
+          <IconButton icon={Plus} label={t('Tạo bữa mới cho ngày này')} tone="primary" onClick={() => onCreateForDate(selected)} />
         </div>
         {dayMeals.length === 0 ? (
-          <p className="text-sm text-usd-green-700">Chưa có bữa nào vào ngày này.</p>
+          <p className="text-sm text-usd-green-700">{t('Chưa có bữa nào vào ngày này.')}</p>
         ) : (
           <ul className="space-y-2">
             {dayMeals.map((s) => (

@@ -1,5 +1,6 @@
 import { PeopleError } from '../services/peopleErrors';
 import type { AdjustmentMode } from '../types';
+import { t } from '../i18n';
 
 /*
  * Tính tiền hoá đơn bằng số nguyên đồng (BR-4.9, BR-4.15, R-1, R-8).
@@ -32,7 +33,7 @@ const MAX_PERCENT = 100;
 
 function assertNonNegativeInteger(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 0) {
-    throw new PeopleError('INVALID_AMOUNT', `${label} phải là số nguyên không âm.`, { value });
+    throw new PeopleError('INVALID_AMOUNT', t('{label} phải là số nguyên không âm.', { label }), { value });
   }
 }
 
@@ -41,13 +42,13 @@ function assertNonNegativeInteger(value: number, label: string): void {
  * (hoà thì mục đứng trước). Kết quả luôn có tổng đúng bằng `amount`.
  */
 export function allocateProportional(weights: number[], amount: number): number[] {
-  assertNonNegativeInteger(amount, 'Số tiền cần phân bổ');
-  weights.forEach((w) => assertNonNegativeInteger(w, 'Trọng số phân bổ'));
+  assertNonNegativeInteger(amount, t('Số tiền cần phân bổ'));
+  weights.forEach((w) => assertNonNegativeInteger(w, t('Trọng số phân bổ')));
 
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
   if (totalWeight === 0) {
     if (amount === 0) return weights.map(() => 0);
-    throw new PeopleError('INVALID_AMOUNT', 'Không có mục nào để phân bổ số tiền này.', { amount });
+    throw new PeopleError('INVALID_AMOUNT', t('Không có mục nào để phân bổ số tiền này.'), { amount });
   }
 
   const bigAmount = BigInt(amount);
@@ -74,16 +75,16 @@ export function allocateProportional(weights: number[], amount: number): number[
 
 /** Số tiền của một khoản điều chỉnh trên `base` (làm tròn đến đồng, nửa lên). */
 export function computeAdjustment(adjustment: Adjustment, base: number): number {
-  assertNonNegativeInteger(base, 'Cơ sở tính');
+  assertNonNegativeInteger(base, t('Cơ sở tính'));
   const { mode, value } = adjustment;
 
   if (mode === 'NONE') return 0;
   if (mode === 'FIXED_AMOUNT') {
-    assertNonNegativeInteger(value, 'Số tiền');
+    assertNonNegativeInteger(value, t('Số tiền'));
     return value;
   }
   if (!Number.isInteger(value) || value < 0 || value > MAX_PERCENT) {
-    throw new PeopleError('INVALID_VAT', 'Tỷ lệ phần trăm phải từ 0 đến 100.', { value });
+    throw new PeopleError('INVALID_VAT', t('Tỷ lệ phần trăm phải từ 0 đến 100.'), { value });
   }
   // round(base × value / 100) với nửa lên, dùng BigInt để không tràn số.
   const numerator = BigInt(base) * BigInt(value) * 2n + 100n;
@@ -93,11 +94,11 @@ export function computeAdjustment(adjustment: Adjustment, base: number): number 
 /** Tính toàn bộ các khoản của hoá đơn theo thứ tự giảm giá → phí phục vụ → VAT (R-8). */
 export function computeBill(input: BillInput): BillTotals {
   const { subtotal, discount, service, vat } = input;
-  assertNonNegativeInteger(subtotal, 'Tiền hàng');
+  assertNonNegativeInteger(subtotal, t('Tiền hàng'));
 
   const discountAmount = computeAdjustment(discount, subtotal);
   if (discountAmount > subtotal) {
-    throw new PeopleError('INVALID_DISCOUNT', 'Giảm giá không được lớn hơn tiền hàng.', { discountAmount });
+    throw new PeopleError('INVALID_DISCOUNT', t('Giảm giá không được lớn hơn tiền hàng.'), { discountAmount });
   }
   const netSubtotal = subtotal - discountAmount;
   const serviceAmount = computeAdjustment(service, netSubtotal);

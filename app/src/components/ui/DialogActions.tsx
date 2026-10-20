@@ -1,5 +1,6 @@
 import { Check, X } from 'lucide-react'
 import IconButton from './IconButton'
+import { t } from '../../i18n'
 
 interface Props {
   onCancel: () => void
@@ -13,7 +14,7 @@ interface Props {
 }
 
 /** Chân hộp thoại gồm hai nút icon: Huỷ (X) và Lưu (dấu tick). */
-export default function DialogActions({ onCancel, saveLabel, cancelLabel = 'Huỷ', saving, onSave, saveDisabled }: Props) {
+export default function DialogActions({ onCancel, saveLabel, cancelLabel = t('Huỷ'), saving, onSave, saveDisabled }: Props) {
   return (
     <div className="flex justify-end gap-2">
       <IconButton icon={X} label={cancelLabel} tone="outline" onClick={onCancel} />

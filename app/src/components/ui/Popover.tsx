@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { t } from '../../i18n'
 
 interface Props {
   /** Tên truy cập của nút mở và của khung nổi. */
@@ -46,7 +47,7 @@ export default function Popover({ label, trigger, summary, disabled, triggerClas
         type="button"
         className={`editable break-words ${triggerClassName}`}
         aria-label={summary ? `${label}: ${summary}` : label}
-        title={`${label} — bấm để sửa`}
+        title={t('{label} — bấm để sửa', { label })}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}

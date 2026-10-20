@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, type LucideIcon } from 'lucide-react'
 import { useRef, type KeyboardEvent } from 'react'
 import IconButton from './IconButton'
+import { t } from '../../i18n'
 
 export interface Step<K extends string = string> {
   key: K
@@ -40,7 +41,7 @@ export default function StepTabs<K extends string>({ steps, active, onChange, la
   return (
     <nav aria-label={label} className="fixed inset-x-0 bottom-0 z-20 border-t border-usd-paper-200 bg-usd-paper-50/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-1 px-2 py-1 sm:px-6">
-        <IconButton icon={ChevronLeft} label="Bước trước" tone="outline" disabled={current <= 0} onClick={() => onChange(steps[current - 1].key)} />
+        <IconButton icon={ChevronLeft} label={t('Bước trước')} tone="outline" disabled={current <= 0} onClick={() => onChange(steps[current - 1].key)} />
         <div role="tablist" aria-label={label} onKeyDown={onKeyDown} className="grid min-w-0 flex-1 grid-flow-col auto-cols-fr gap-1 rounded-xl bg-usd-paper-200 p-1">
           {steps.map(({ key, label: text, icon: Icon }, index) => {
             const selected = key === active
@@ -63,13 +64,13 @@ export default function StepTabs<K extends string>({ steps, active, onChange, la
               >
                 <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span className="max-w-full truncate">
-                  <span className="hidden opacity-70 sm:inline">{index + 1}. </span>{text}
+                  <span className="hidden opacity-70 sm:inline">{index + 1}. </span>{t(text)}
                 </span>
               </button>
             )
           })}
         </div>
-        <IconButton icon={ChevronRight} label="Bước sau" tone="primary" disabled={current >= steps.length - 1} onClick={() => onChange(steps[current + 1].key)} />
+        <IconButton icon={ChevronRight} label={t('Bước sau')} tone="primary" disabled={current >= steps.length - 1} onClick={() => onChange(steps[current + 1].key)} />
       </div>
     </nav>
   )

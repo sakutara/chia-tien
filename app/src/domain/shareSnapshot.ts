@@ -1,4 +1,5 @@
 import LZString from 'lz-string'
+import { getLang, t, tIn, type Lang } from '../i18n'
 import { formatMoney } from '../lib/money'
 import { findBankByBin } from './banks'
 import { buildTransferContent } from './vietQr'
@@ -33,13 +34,15 @@ import type { SettlementEngineInput } from './settlementEngine'
  */
 
 export const SNAPSHOT_PARAM = 's'
+/** Tham số ngôn ngữ của người gửi (`vi` | `en`), đặt sau `s` để không ảnh hưởng chuỗi mã hoá (Epic 9, BR-9.8). */
+export const SNAPSHOT_LANG_PARAM = 'l'
 /** Tên tham số của link cũ (`?snapshot=`), vẫn đọc được. */
 export const LEGACY_SNAPSHOT_PARAM = 'snapshot'
 const SNAPSHOT_MEAL_ID = 'snapshot'
 const DEFAULT_AVATAR = '#2D6A4F'
 
 const invalidSnapshot = () =>
-  new PeopleError('INVALID_SNAPSHOT', 'Link Snapshot không hợp lệ hoặc đã bị cắt bớt khi gửi tin nhắn.')
+  new PeopleError('INVALID_SNAPSHOT', t('Link Snapshot không hợp lệ hoặc đã bị cắt bớt khi gửi tin nhắn.'))
 
 /** R-1: đóng gói toàn bộ dữ liệu của bữa; không đưa ảnh, OCR hay đường dẫn file vào payload. */
 export function buildSnapshotPayload(
@@ -177,7 +180,7 @@ export function buildItemShares(
           const equal = [...new Set(inv.equalSplitParticipantIds)].filter((id) => inSession.has(id))
           for (const payer of payers) {
             const mine = payer.memberIds.filter((id) => equal.includes(id)).length
-            if (mine > 0 && equal.length > 0) push(inv.vendorName?.trim() || `Hoá đơn ${n + 1}`, (inv.totalAmount * mine) / equal.length, payer)
+            if (mine > 0 && equal.length > 0) push(inv.vendorName?.trim() || t('Hoá đơn {n}', { n: n + 1 }), (inv.totalAmount * mine) / equal.length, payer)
           }
           return
         }
@@ -512,9 +515,10 @@ export function decodeSnapshotPayload(encoded: string): MealSnapshotPayload {
 export function buildSnapshotUrl(
   payload: MealSnapshotPayload | string,
   baseLocation: Pick<Location, 'origin' | 'pathname'> = window.location,
+  lang: Lang = getLang(),
 ): string {
   const encoded = typeof payload === 'string' ? payload : encodeSnapshotPayload(payload)
-  return `${baseLocation.origin}${baseLocation.pathname}?${SNAPSHOT_PARAM}=${encoded}`
+  return `${baseLocation.origin}${baseLocation.pathname}?${SNAPSHOT_PARAM}=${encoded}&${SNAPSHOT_LANG_PARAM}=${lang}`
 }
 
 /** Dựng dữ liệu trong bộ nhớ từ payload để chạy lại `computeMealSettlement` (Epic 6) mà không chạm IndexedDB. */
@@ -636,7 +640,7 @@ export function hostRecipientLabels(
 ): Record<string, string> {
   const host = entities.find((e) => e.isGroup && e.memberIds.includes(hostMemberId))
   if (!host) return {}
-  return { [host.entityId]: nameById.get(hostMemberId) ?? 'Chủ trì' }
+  return { [host.entityId]: nameById.get(hostMemberId) ?? t('Chủ trì') }
 }
 
 export interface FormatShareMessageInput {
@@ -650,6 +654,8 @@ export interface FormatShareMessageInput {
   recipientLabelByEntityId?: Record<string, string>;
   /** Chỉ liệt kê khoản chuyển của các thực thể này (gửi cho một số người); bỏ trống → tất cả. */
   onlyEntityIds?: ReadonlyArray<string>;
+  /** Ngôn ngữ của tin nhắn; mặc định theo ngôn ngữ giao diện (BR-9.6). */
+  lang?: Lang;
 }
 
 /**
@@ -657,7 +663,7 @@ export interface FormatShareMessageInput {
  * `<Tên bữa>` / `- <Cá nhân>: chuyển cho <người nhận> <số tiền>, ...` / `<Link snapshot>`.
  */
 export function formatShareMessage(input: FormatShareMessageInput): string {
-  const { mealTitle, entities, transfers, snapshotUrl, onlyUnpaid = false, recipientLabelByEntityId = {}, onlyEntityIds } = input
+  const { mealTitle, entities, transfers, snapshotUrl, onlyUnpaid = false, recipientLabelByEntityId = {}, onlyEntityIds, lang = getLang() } = input
   const entityById = new Map(entities.map((e) => [e.entityId, e] as const))
   const recipientLabel = (t: SettlementTransfer) => {
     const override = recipientLabelByEntityId[t.toEntityId]
@@ -673,10 +679,10 @@ export function formatShareMessage(input: FormatShareMessageInput): string {
       (t) => t.fromEntityId === entity.entityId && t.amount > 0 && !(onlyUnpaid && t.isPaid),
     )
     if (outgoing.length === 0) continue
-    const debts = outgoing.map((t) => `chuyển cho ${recipientLabel(t)} ${formatMoney(t.amount)}`)
+    const debts = outgoing.map((t) => tIn(lang, 'chuyển cho {name} {amount}', { name: recipientLabel(t), amount: formatMoney(t.amount, lang) }))
     lines.push(`- ${formatEntityShareLabel(entity)}: ${debts.join(', ')}`)
   }
-  if (lines.length === 1) lines.push('- Tất cả các khoản thanh toán đã hoàn tất.')
+  if (lines.length === 1) lines.push(`- ${tIn(lang, 'Tất cả các khoản thanh toán đã hoàn tất.')}`)
   lines.push(snapshotUrl)
   return lines.join('\n')
 }

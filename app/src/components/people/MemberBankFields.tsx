@@ -1,6 +1,7 @@
 import BankSelect from './BankSelect'
 
 import type { BankDraft } from './bankDraft'
+import { t } from '../../i18n'
 
 interface Props {
   idBase: string
@@ -13,11 +14,11 @@ export default function MemberBankFields({ idBase, value, onChange }: Props) {
   return (
     <div className="space-y-3">
       <div>
-        <label htmlFor={`${idBase}-bank`} className="mb-1 block text-sm font-medium">Ngân hàng</label>
+        <label htmlFor={`${idBase}-bank`} className="mb-1 block text-sm font-medium">{t('Ngân hàng')}</label>
         <BankSelect id={`${idBase}-bank`} value={value.bankBin} onChange={(b) => onChange({ ...value, bankBin: b.bin, bankName: b.name })} />
       </div>
       <div>
-        <label htmlFor={`${idBase}-holder`} className="mb-1 block text-sm font-medium">Tên chủ tài khoản</label>
+        <label htmlFor={`${idBase}-holder`} className="mb-1 block text-sm font-medium">{t('Tên chủ tài khoản')}</label>
         <input
           id={`${idBase}-holder`}
           value={value.accountName}
@@ -27,7 +28,7 @@ export default function MemberBankFields({ idBase, value, onChange }: Props) {
         />
       </div>
       <div>
-        <label htmlFor={`${idBase}-number`} className="mb-1 block text-sm font-medium">Số tài khoản</label>
+        <label htmlFor={`${idBase}-number`} className="mb-1 block text-sm font-medium">{t('Số tài khoản')}</label>
         <input
           id={`${idBase}-number`}
           inputMode="numeric"

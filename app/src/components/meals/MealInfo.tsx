@@ -6,6 +6,7 @@ import type { MealPeopleView } from '../../hooks/useMealPeople'
 import type { MealSummary } from '../../types'
 import HostSelector from '../people/HostSelector'
 import InlineText from '../ui/InlineText'
+import { t } from '../../i18n'
 
 interface Props {
   view: MealPeopleView
@@ -23,19 +24,19 @@ export default function MealInfo({ view, summary }: Props) {
     <div className="space-y-3">
       <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         <div className="min-w-0 sm:col-span-2">
-          <dt className="text-xs text-usd-green-700">Tên bữa</dt>
+          <dt className="text-xs text-usd-green-700">{t('Tên bữa')}</dt>
           <dd className="text-lg font-bold">
-            <InlineText label="Tên bữa" value={meal.title} readOnly={archived} onCommit={(title) => save({ title })} maxLength={140} />
+            <InlineText label={t('Tên bữa')} value={meal.title} readOnly={archived} onCommit={(title) => save({ title })} maxLength={140} />
           </dd>
         </div>
         <div>
           <dt className="flex items-center gap-1 text-xs text-usd-green-700">
             <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
-            Ngày
+            {t('Ngày')}
           </dt>
           <dd className="money !text-left">
             <InlineText
-              label="Ngày diễn ra"
+              label={t('Ngày diễn ra')}
               type="date"
               value={meal.date}
               display={formatDateVi}
@@ -47,7 +48,7 @@ export default function MealInfo({ view, summary }: Props) {
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-usd-green-700">Chủ trì</dt>
+          <dt className="text-xs text-usd-green-700">{t('Chủ trì')}</dt>
           <dd>
             <HostSelector mealId={meal.id} participants={participants} hostMemberId={meal.hostMemberId} readOnly={archived} />
           </dd>
@@ -55,13 +56,13 @@ export default function MealInfo({ view, summary }: Props) {
         <div className="min-w-0 sm:col-span-2">
           <dt className="flex items-center gap-1 text-xs text-usd-green-700">
             <NotebookPen className="h-3.5 w-3.5" aria-hidden="true" />
-            Ghi chú
+            {t('Ghi chú')}
           </dt>
           <dd className="whitespace-pre-line">
             <InlineText
-              label="Ghi chú"
+              label={t('Ghi chú')}
               value={meal.note ?? ''}
-              empty="Thêm ghi chú"
+              empty={t('Thêm ghi chú')}
               multiline
               readOnly={archived}
               onCommit={(note) => save({ note })}
@@ -69,9 +70,9 @@ export default function MealInfo({ view, summary }: Props) {
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-usd-green-700">Tổng chi</dt>
+          <dt className="text-xs text-usd-green-700">{t('Tổng chi')}</dt>
           <dd className={summary?.hasCost ? 'money !text-left font-semibold' : 'text-usd-green-700'}>
-            {summary?.hasCost ? formatMoney(summary.totalAmount) : 'Chưa có chi phí'}
+            {summary?.hasCost ? formatMoney(summary.totalAmount) : t('Chưa có chi phí')}
           </dd>
         </div>
       </dl>
@@ -79,7 +80,7 @@ export default function MealInfo({ view, summary }: Props) {
       {archived && (
         <p className="flex items-start gap-2 rounded-lg border border-usd-gold-600 p-2 text-xs">
           <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-usd-gold-600" aria-hidden="true" />
-          Đã lưu trữ: ảnh và chi tiết món đã xoá, chỉ xem. Vẫn xoá được bữa.
+          {t('Đã lưu trữ: ảnh và chi tiết món đã xoá, chỉ xem. Vẫn xoá được bữa.')}
         </p>
       )}
     </div>

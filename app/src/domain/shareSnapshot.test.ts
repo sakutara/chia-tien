@@ -176,6 +176,16 @@ describe('định dạng tin nhắn chia sẻ (BR-8.5, R-3, R-4)', () => {
     ])
   })
 
+  it('tin nhắn tiếng Anh: câu, dấu phân cách số và dòng hoàn tất theo ngôn ngữ truyền vào (Epic 9, BR-9.6)', () => {
+    const entities = [entity({ entityId: 'binh', entityName: 'Bình' })]
+    const transfers: SettlementTransfer[] = [
+      { fromEntityId: 'binh', fromEntityName: 'Bình', toEntityId: 'an', toEntityName: 'An', amount: 1_620_000, key: 'binh->an', isPaid: false },
+    ]
+    expect(formatShareMessage({ mealTitle: 'Dinner', entities, transfers, snapshotUrl: 'L', lang: 'en' }).split('\n')[1]).toBe('- Bình: transfer to An 1,620,000 ₫')
+    expect(formatShareMessage({ mealTitle: 'Dinner', entities, transfers, snapshotUrl: 'L', lang: 'vi' }).split('\n')[1]).toBe('- Bình: chuyển cho An 1.620.000 ₫')
+    expect(formatShareMessage({ mealTitle: 'Dinner', entities, transfers, snapshotUrl: 'L', lang: 'en', onlyEntityIds: ['x'] }).split('\n')[1]).toBe('- All payments are settled.')
+  })
+
   it('onlyUnpaid bỏ khoản đã tick; không còn khoản nợ thì ghi đã hoàn tất', () => {
     const entities = [entity({ entityId: 'binh', entityName: 'Bình', isPaid: true })]
     const transfers: SettlementTransfer[] = [

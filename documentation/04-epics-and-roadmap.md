@@ -16,6 +16,7 @@ flowchart TD
     E6["Epic 6: Động cơ Tính toán Chia tiền theo Bữa, 2 Chế độ Quyết toán & Tick Thanh toán"]
     E7["Epic 7: Lưu trữ Bữa (Archive), Xoá Hoá đơn/Chi tiết Món & Khoá Chỉnh sửa"]
     E8["Epic 8: Chia sẻ Thông báo Thanh toán qua Ứng dụng khác & Custom URL Snapshot (Read-Only)"]
+    E9["Epic 9: Song ngữ Việt – Anh (i18n) cho toàn bộ ứng dụng & Snapshot"]
 
     E1 --> E2
     E1 --> E3
@@ -26,6 +27,7 @@ flowchart TD
     E5 --> E6
     E6 --> E7
     E6 --> E8
+    E8 --> E9
 ```
 
 ---
@@ -199,6 +201,26 @@ flowchart TD
 
 ---
 
+### EPIC 9: Song ngữ Việt – Anh (i18n) cho toàn bộ ứng dụng & Snapshot
+
+> **Trạng thái**: đã triển khai, còn kiểm thủ công trước khi đóng (xem [epic-9/BR.md](./epic-9/BR.md), [epic-9/SA.md](./epic-9/SA.md)).
+
+**Mục tiêu**: Ứng dụng hỗ trợ tiếng Anh (`en`) bên cạnh tiếng Việt (`vi`), chuyển qua lại bằng công tắc ngôn ngữ. Mọi hiển thị — gồm tên ứng dụng và nội dung Snapshot — đều theo ngôn ngữ đã chọn; trang Snapshot có công tắc ngôn ngữ riêng.
+
+#### Danh sách Tính năng / User Stories:
+- **US-9.1**: Hạ tầng i18n (`I18nProvider`, `useT`, từ điển `vi`/`en` cùng tập khoá) và **công tắc ngôn ngữ** trên thanh đầu trang; ghi nhớ lựa chọn, mặc định theo ngôn ngữ trình duyệt.
+- **US-9.2**: Chuyển toàn bộ chuỗi giao diện (nhãn, nút, placeholder, `aria-label`, lỗi, trạng thái rỗng) sang từ điển; **tên ứng dụng** đổi theo ngôn ngữ (`<title>`, header, PWA).
+- **US-9.3**: Định dạng theo ngôn ngữ: ngày, dấu phân cách số (tiền vẫn là VNĐ), sắp xếp; các giá trị mặc định do hệ thống sinh ("Tôi"/"Me", "Kèo n"/"Venue n") hiển thị theo ngôn ngữ.
+- **US-9.4**: Tin nhắn thanh toán (`formatShareMessage`) sinh theo ngôn ngữ; link Snapshot mang tham số `l` ngôn ngữ người gửi.
+- **US-9.5**: Trang **Xem Snapshot** có công tắc ngôn ngữ; toàn bộ nội dung đổi theo, không ghi IndexedDB, link cũ vẫn mở được.
+
+#### Tiêu chí nghiệm thu (Acceptance Criteria):
+- [ ] Đổi ngôn ngữ đổi tức thì toàn bộ màn hình, không sót chuỗi của ngôn ngữ kia; dữ liệu người dùng nhập không bị dịch.
+- [ ] Tên ứng dụng, tin nhắn chia sẻ và trang Snapshot đều theo ngôn ngữ đã chọn; Snapshot đổi ngôn ngữ được ngay trên trang.
+- [ ] Số liệu tính toán không đổi giữa hai ngôn ngữ; bố cục không vỡ ở 375 px với tiếng Anh.
+
+---
+
 ## Đối chiếu Kiểm tra Đầy đủ Yêu cầu (Requirements Traceability Matrix)
 
 | STT | Yêu cầu từ Người dùng | Tài liệu Thiết kế | Epic phụ trách |
@@ -226,4 +248,5 @@ flowchart TD
 | 21 | Snapshot là 1 custom URL chứa toàn bộ thông tin của 1 bữa, người mở snapshot không thể thay đổi thông tin bữa đó | `01-architecture-and-data-model.md`, `02-business-logic-and-algorithms.md` | Epic 8 |
 | 23 | Mỗi kèo có một số người tham gia cụ thể (có thể tất cả hoặc một số người trong bữa); chia tiền kèo chỉ tính trên người tham gia kèo | `01-architecture-and-data-model.md` §3.3, `02-business-logic-and-algorithms.md` §1.0 | Epic 2 (dọn khi bỏ người), 4, 5, 6 |
 | 22 | Định dạng tin nhắn chia sẻ: `<Tên bữa>`, `- <Cá nhân>: nợ <cá nhân> <số tiền>...`, `- <Cá nhân> + <cá nhân>: ...`, `<Link snapshot>` | `02-business-logic-and-algorithms.md`, `03-ui-ux-and-design-system.md` | Epic 8 |
+| 24 | App hỗ trợ tiếng Anh, chuyển qua lại en/vi bằng switch; mọi hiển thị (kể cả tên app và nội dung snapshot) theo ngôn ngữ đã chọn; snapshot đổi được ngôn ngữ bằng switch | `epic-9/BR.md`, `epic-9/SA.md` | Epic 9 |
 

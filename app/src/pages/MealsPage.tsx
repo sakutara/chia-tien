@@ -10,6 +10,7 @@ import IconButton from '../components/ui/IconButton'
 import { useMealSummaries } from '../hooks/useMealSummaries'
 import { useMealViewMode } from '../hooks/useMealViewMode'
 import type { Meal } from '../types'
+import { t } from '../i18n'
 
 interface Props {
   onOpenMeal: (mealId: string) => void
@@ -23,7 +24,7 @@ export default function MealsPage({ onOpenMeal }: Props) {
   const [createDate, setCreateDate] = useState<string | undefined>(undefined)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  if (!summaries) return <p className="text-usd-green-700">Đang tải…</p>
+  if (!summaries) return <p className="text-usd-green-700">{t('Đang tải…')}</p>
 
   const deleting = summaries.find((s) => s.meal.id === deletingId)?.meal
   const openCreate = (ymd = '') => setCreateDate(ymd)
@@ -35,10 +36,10 @@ export default function MealsPage({ onOpenMeal }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-bold">Bữa ăn</h2>
+        <h2 className="text-lg font-bold">{t('Bữa ăn')}</h2>
         <div className="flex items-center gap-2">
           <MealViewSwitcher mode={mode} onChange={setMode} />
-          <IconButton icon={Plus} label="Tạo bữa mới" tone="primary" onClick={() => openCreate()} />
+          <IconButton icon={Plus} label={t('Tạo bữa mới')} tone="primary" onClick={() => openCreate()} />
         </div>
       </div>
 

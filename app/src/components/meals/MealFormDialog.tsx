@@ -6,6 +6,7 @@ import { PeopleError } from '../../services/peopleErrors'
 import type { Meal } from '../../types'
 import DialogActions from '../ui/DialogActions'
 import Modal from '../ui/Modal'
+import { t } from '../../i18n'
 
 interface Props {
   mode: 'create' | 'edit'
@@ -42,18 +43,18 @@ export default function MealFormDialog({ mode, meal, initialDate, onClose, onSav
       if (err instanceof PeopleError && err.code === 'INVALID_TITLE') setErrors({ title: err.message })
       else if (err instanceof PeopleError && err.code === 'INVALID_DATE') setErrors({ date: err.message })
       else if (err instanceof PeopleError && err.code === 'INVALID_NOTE') setErrors({ note: err.message })
-      else setErrors({ form: err instanceof Error ? err.message : 'Có lỗi không xác định.' })
+      else setErrors({ form: err instanceof Error ? err.message : t('Có lỗi không xác định.') })
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Modal open title={mode === 'edit' ? 'Sửa thông tin bữa' : 'Tạo bữa mới'} onClose={onClose}>
+    <Modal open title={mode === 'edit' ? t('Sửa thông tin bữa') : t('Tạo bữa mới')} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3" noValidate>
         <div>
           <label htmlFor="meal-title" className="mb-1 block text-sm font-medium">
-            Tên bữa
+            {t('Tên bữa')}
           </label>
           <input
             id="meal-title"
@@ -75,7 +76,7 @@ export default function MealFormDialog({ mode, meal, initialDate, onClose, onSav
 
         <div>
           <label htmlFor="meal-date" className="mb-1 block text-sm font-medium">
-            Ngày diễn ra
+            {t('Ngày diễn ra')}
           </label>
           <input
             id="meal-date"
@@ -97,7 +98,7 @@ export default function MealFormDialog({ mode, meal, initialDate, onClose, onSav
 
         <div>
           <label htmlFor="meal-note" className="mb-1 block text-sm font-medium">
-            Ghi chú
+            {t('Ghi chú')}
           </label>
           <textarea
             id="meal-note"
@@ -124,7 +125,7 @@ export default function MealFormDialog({ mode, meal, initialDate, onClose, onSav
           </p>
         )}
 
-        <DialogActions onCancel={onClose} saveLabel={mode === 'edit' ? 'Lưu thay đổi' : 'Tạo bữa'} saving={saving} />
+        <DialogActions onCancel={onClose} saveLabel={mode === 'edit' ? t('Lưu thay đổi') : t('Tạo bữa')} saving={saving} />
       </form>
     </Modal>
   )

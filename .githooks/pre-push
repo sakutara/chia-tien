@@ -1,24 +1,13 @@
 #!/bin/sh
-# Build app vào docs/ (GitHub Pages phục vụ từ main + /docs).
-# Build lỗi thì push bị chặn. Nếu bản build thay đổi, hook tự commit docs/
-# rồi dừng push để commit đó nằm trong lần push kế tiếp: chạy lại git push.
+# Lưới an toàn trước khi đẩy lên: bảo đảm docs/ khớp mã nguồn của main.
+# Build lỗi thì chặn push. Nếu bản build đổi, hook tự commit docs/ rồi dừng push
+# để commit đó nằm trong lần push kế tiếp: chạy lại git push.
 # Bỏ qua bằng: SKIP_PAGES_BUILD=1 git push
-set -e
-
-[ -n "$SKIP_PAGES_BUILD" ] && exit 0
-
-root="$(git rev-parse --show-toplevel)"
-
-echo "[pre-push] Build app vào docs/ (base=/chia-tien/)..."
-(cd "$root/app" && npm run build -- --base=/chia-tien/ --outDir ../docs --emptyOutDir)
-touch "$root/docs/.nojekyll"
-
-git -C "$root" add -A docs
-if git -C "$root" diff --cached --quiet -- docs; then
-  echo "[pre-push] docs/ không đổi, tiếp tục push."
-  exit 0
+dir="$(dirname "$0")"
+"$dir/build-docs.sh"
+code=$?
+if [ "$code" -eq 10 ]; then
+  echo "[pre-push] Chạy lại 'git push' để đẩy kèm commit build docs."
+  exit 1
 fi
-
-git -C "$root" commit -q -m "Build docs ($(git -C "$root" rev-parse --short HEAD))" -- docs
-echo "[pre-push] Đã commit bản build mới trong docs/. Chạy lại 'git push' để đẩy kèm commit này."
-exit 1
+exit "$code"

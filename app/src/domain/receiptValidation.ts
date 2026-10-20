@@ -2,6 +2,7 @@ import { formatMoney } from '../lib/money'
 import { fold } from '../lib/textFold'
 import { computeAdjustment, computeBill, type Adjustment } from './billMath'
 import { trailingAmounts, type ParsedAdjustment, type ParsedItem, type ParsedReceipt } from './receiptParser'
+import { T, t } from '../i18n'
 
 /*
  * Kiểm tra kết quả OCR trước khi điền vào danh sách món (BR-4.8). Hàm thuần.
@@ -65,17 +66,17 @@ export function rowCandidates(item: ParsedItem): RowCandidate[] {
     if (!out.some((o) => o.quantity === c.quantity && o.unitPrice === c.unitPrice && o.rawAmount === c.rawAmount)) out.push(c)
   }
   if (isPositiveInt(q) && q * u > 0) {
-    add({ quantity: q, unitPrice: u, rawAmount: q * u, cost: 1, change: `thành tiền ${formatMoney(a)} → ${formatMoney(q * u)}` })
+    add({ quantity: q, unitPrice: u, rawAmount: q * u, cost: 1, change: t('thành tiền {v} → {v2}', { v: formatMoney(a), v2: formatMoney(q * u) }) })
   }
   if (u > 0 && a % u === 0 && isPositiveInt(a / u) && a / u <= 999) {
-    add({ quantity: a / u, unitPrice: u, rawAmount: a, cost: 1, change: `số lượng ${q} → ${a / u}` })
+    add({ quantity: a / u, unitPrice: u, rawAmount: a, cost: 1, change: t('số lượng {q} → {v}', { q, v: a / u }) })
   }
   // Hầu hết món có SL 1; OCR hay đọc "1" thành 4/7/l: thử SL = 1, đơn giá = thành tiền.
   if (q !== 1 && a > 0) {
-    add({ quantity: 1, unitPrice: a, rawAmount: a, cost: 1, change: `số lượng ${q} → 1, đơn giá ${formatMoney(u)} → ${formatMoney(a)}` })
+    add({ quantity: 1, unitPrice: a, rawAmount: a, cost: 1, change: t('số lượng {q} → 1, đơn giá {v} → {v2}', { q, v: formatMoney(u), v2: formatMoney(a) }) })
   }
   if (isPositiveInt(q) && a % q === 0 && a / q > 0) {
-    add({ quantity: q, unitPrice: a / q, rawAmount: a, cost: 1, change: `đơn giá ${formatMoney(u)} → ${formatMoney(a / q)}` })
+    add({ quantity: q, unitPrice: a / q, rawAmount: a, cost: 1, change: t('đơn giá {v} → {v2}', { v: formatMoney(u), v2: formatMoney(a / q) }) })
   }
   return out
 }
@@ -86,7 +87,7 @@ export function describeInconsistentRows(items: ParsedItem[]): string[] {
     .filter((item) => !isRowConsistent(item))
     .map(
       (item) =>
-        `"${item.name}": ${item.quantity} × ${formatMoney(item.unitPrice)} = ${formatMoney(item.quantity * item.unitPrice)}, nhưng bill ghi thành tiền ${formatMoney(item.rawAmount)}.`,
+        t('"{name}": {quantity} × {v} = {v2}, nhưng bill ghi thành tiền {v3}.', { name: item.name, quantity: item.quantity, v: formatMoney(item.unitPrice), v2: formatMoney(item.quantity * item.unitPrice), v3: formatMoney(item.rawAmount) }),
     )
 }
 
@@ -98,9 +99,9 @@ type Method = 'STANDARD' | 'SERVICE_ON_GROSS' | 'VAT_ON_NET' | 'DISCOUNT_LAST'
 
 const METHOD_NOTE: Record<Method, string> = {
   STANDARD: '',
-  SERVICE_ON_GROSS: 'Bill tính phí phục vụ trên tiền hàng trước giảm giá',
-  VAT_ON_NET: 'Bill tính VAT chỉ trên tiền hàng (không tính trên phí phục vụ)',
-  DISCOUNT_LAST: 'Bill trừ giảm giá sau khi đã cộng phí phục vụ và VAT',
+  SERVICE_ON_GROSS: T('Bill tính phí phục vụ trên tiền hàng trước giảm giá'),
+  VAT_ON_NET: T('Bill tính VAT chỉ trên tiền hàng (không tính trên phí phục vụ)'),
+  DISCOUNT_LAST: T('Bill trừ giảm giá sau khi đã cộng phí phục vụ và VAT'),
 }
 
 const METHODS: Method[] = ['STANDARD', 'SERVICE_ON_GROSS', 'VAT_ON_NET', 'DISCOUNT_LAST']
@@ -151,7 +152,7 @@ function computeBy(method: Method, subtotal: number, d: Adjustment, c: Adjustmen
 // ---------------------------------------------------------------------------
 
 type Kind = 'discount' | 'service' | 'vat'
-const KIND_LABEL: Record<Kind, string> = { discount: 'giảm giá', service: 'phí phục vụ', vat: 'VAT' }
+const KIND_LABEL: Record<Kind, string> = { discount: T('giảm giá'), service: T('phí phục vụ'), vat: 'VAT' }
 /** Mức phần trăm phổ biến, thử khi bill thiếu dòng hoặc OCR đọc sai số %. */
 const COMMON_PERCENT: Record<Kind, number[]> = { discount: [], service: [5, 10, 15], vat: [8, 10] }
 
@@ -166,9 +167,9 @@ function sameAdjustment(a: ParsedAdjustment | undefined, b: ParsedAdjustment | u
 }
 
 function adjustmentOptions(kind: Kind, parsed: ParsedAdjustment | undefined): AdjustmentOption[] {
-  const label = KIND_LABEL[kind]
+  const label = t(KIND_LABEL[kind])
   const options: AdjustmentOption[] = [{ value: parsed, cost: 0, note: '' }]
-  if (parsed) options.push({ value: undefined, cost: 2, note: `Bỏ ${label} đọc được (${describeAdjustment(parsed)}) vì không khớp tổng bill.` })
+  if (parsed) options.push({ value: undefined, cost: 2, note: t('Bỏ {label} đọc được ({v}) vì không khớp tổng bill.', { label, v: describeAdjustment(parsed) }) })
   for (const pct of COMMON_PERCENT[kind]) {
     const value: ParsedAdjustment = { mode: 'PERCENTAGE', value: pct }
     if (sameAdjustment(value, parsed)) continue
@@ -176,8 +177,8 @@ function adjustmentOptions(kind: Kind, parsed: ParsedAdjustment | undefined): Ad
       value,
       cost: 3,
       note: parsed
-        ? `Đổi ${label} ${describeAdjustment(parsed)} thành ${pct}%: chỉ khi đó tổng mới khớp bill.`
-        : `Bill không đọc được dòng ${label}, nhưng tổng chỉ khớp khi có ${label} ${pct}%: đã thêm vào.`,
+        ? t('Đổi {label} {v} thành {pct}%: chỉ khi đó tổng mới khớp bill.', { label, v: describeAdjustment(parsed), pct })
+        : t('Bill không đọc được dòng {label}, nhưng tổng chỉ khớp khi có {label} {pct}%: đã thêm vào.', { label, pct }),
     })
   }
   return options
@@ -325,13 +326,13 @@ function applyScenario(parsed: ParsedReceipt, scenario: Scenario): { receipt: Pa
   const notes: string[] = []
   if (scenario.removed !== undefined) {
     const row = parsed.items[scenario.removed]
-    notes.push(`Bỏ dòng "${row.name}" (${formatMoney(row.rawAmount)}) vì không phải một món (giống dòng tổng của bill hoặc là rác OCR) và bỏ nó thì tổng mới khớp.`)
+    notes.push(t('Bỏ dòng "{name}" ({v}) vì không phải một món (giống dòng tổng của bill hoặc là rác OCR) và bỏ nó thì tổng mới khớp.', { name: row.name, v: formatMoney(row.rawAmount) }))
   }
 
   const items = scenario.kept.map((item, i) => {
     const option = scenario.rowOptions[i][scenario.picks[i]]
     const changed = option.change !== ''
-    if (changed) notes.push(`"${item.name}": sửa ${option.change} để SL × đơn giá = thành tiền.`)
+    if (changed) notes.push(t('"{name}": sửa {change} để SL × đơn giá = thành tiền.', { name: item.name, change: option.change }))
     const consistent = option.quantity * option.unitPrice === option.rawAmount
     return {
       ...item,
@@ -364,7 +365,7 @@ function applyScenario(parsed: ParsedReceipt, scenario: Scenario): { receipt: Pa
       if (c) receipt.service = c
       if (v) receipt.vat = v
     }
-    notes.push(`${METHOD_NOTE[scenario.method]}: đã đổi giảm giá, phí phục vụ, VAT sang số tiền cụ thể để tổng khớp bill.`)
+    notes.push(t('{v}: đã đổi giảm giá, phí phục vụ, VAT sang số tiền cụ thể để tổng khớp bill.', { v: t(METHOD_NOTE[scenario.method]) }))
   }
   return { receipt, notes }
 }
@@ -425,10 +426,10 @@ export function validateReceipt(parsed: ParsedReceipt, rawText?: string): Receip
     const last = rawText === undefined ? [] : trailingAmounts(rawText, 1)
     const notes = [
       last.length > 0
-        ? `Không đọc được dòng "Tổng cộng", và số ở cuối bill (${formatMoney(last[0])}) không khớp tổng các món theo cách nào đã thử. Hãy tự so với ảnh bill.`
-        : 'Bill không có dòng tổng nên chưa đối chiếu được tổng tiền. Hãy tự so với ảnh bill.',
+        ? t('Không đọc được dòng "Tổng cộng", và số ở cuối bill ({v}) không khớp tổng các món theo cách nào đã thử. Hãy tự so với ảnh bill.', { v: formatMoney(last[0]) })
+        : t('Bill không có dòng tổng nên chưa đối chiếu được tổng tiền. Hãy tự so với ảnh bill.'),
     ]
-    if (inconsistent.length > 0) notes.push('Các dòng có SL × đơn giá không bằng thành tiền, cần xem lại:', ...inconsistent)
+    if (inconsistent.length > 0) notes.push(t('Các dòng có SL × đơn giá không bằng thành tiền, cần xem lại:'), ...inconsistent)
     return { status: 'UNVERIFIED', receipt: { ...parsed, items: flagInconsistent(items) }, notes }
   }
 
@@ -442,8 +443,8 @@ export function validateReceipt(parsed: ParsedReceipt, rawText?: string): Receip
       receipt.billTotal = attempt.total
       notes.unshift(
         billTotal === undefined
-          ? `Không đọc được dòng "Tổng cộng"; số ở cuối bill ${formatMoney(attempt.total)} khớp tổng tính được nên được dùng làm tổng bill.`
-          : `Tổng "${formatMoney(billTotal)}" đọc được không khớp; số ở cuối bill ${formatMoney(attempt.total)} khớp tổng tính được nên được dùng làm tổng bill.`,
+          ? t('Không đọc được dòng "Tổng cộng"; số ở cuối bill {v} khớp tổng tính được nên được dùng làm tổng bill.', { v: formatMoney(attempt.total) })
+          : t('Tổng "{v}" đọc được không khớp; số ở cuối bill {v2} khớp tổng tính được nên được dùng làm tổng bill.', { v: formatMoney(billTotal), v2: formatMoney(attempt.total) }),
       )
     }
     if (changes.length === 0) {
@@ -451,13 +452,13 @@ export function validateReceipt(parsed: ParsedReceipt, rawText?: string): Receip
       return {
         status: 'OK',
         receipt: { ...receipt, items: flagInconsistent(receipt.items) },
-        notes: [...(notes.length > 0 ? notes : ['Đã đối chiếu: tổng các món khớp tổng trên bill.']), ...inconsistent],
+        notes: [...(notes.length > 0 ? notes : [t('Đã đối chiếu: tổng các món khớp tổng trên bill.')]), ...inconsistent],
       }
     }
     return {
       status: 'CORRECTED',
       receipt,
-      notes: ['Số đọc từ ảnh chưa khớp tổng bill, đã tự sửa theo kịch bản khớp nhất. Hãy xem lại các dòng được đánh dấu:', ...notes],
+      notes: [t('Số đọc từ ảnh chưa khớp tổng bill, đã tự sửa theo kịch bản khớp nhất. Hãy xem lại các dòng được đánh dấu:'), ...notes],
     }
   }
 
@@ -465,13 +466,13 @@ export function validateReceipt(parsed: ParsedReceipt, rawText?: string): Receip
   const amounts = computeBy('STANDARD', subtotal, asAdjustment(parsed.discount), asAdjustment(parsed.service), asAdjustment(parsed.vat))
   const reading =
     billSubtotal !== undefined && subtotal !== billSubtotal
-      ? `Tổng các món ${formatMoney(subtotal)} lệch dòng tiền hàng trên bill ${formatMoney(billSubtotal)}`
+      ? t('Tổng các món {v} lệch dòng tiền hàng trên bill {v2}', { v: formatMoney(subtotal), v2: formatMoney(billSubtotal) })
       : amounts && billTotal !== undefined
-        ? `Tổng tính được ${formatMoney(amounts.total)} (sau giảm giá, phí phục vụ, VAT) lệch tổng trên bill ${formatMoney(billTotal)}`
-        : 'Số đọc được không khớp tổng trên bill'
+        ? t('Tổng tính được {v} (sau giảm giá, phí phục vụ, VAT) lệch tổng trên bill {v2}', { v: formatMoney(amounts.total), v2: formatMoney(billTotal) })
+        : t('Số đọc được không khớp tổng trên bill')
   const notes = [
-    `${reading}. Đã thử các cách đọc khác (sửa SL, đơn giá, thành tiền; bỏ dòng tổng; đổi giảm giá, phí phục vụ, VAT và cách tính) nhưng không cách nào khớp. Hãy đối chiếu từng món với ảnh bill và chỉnh tay.`,
+    t('{reading}. Đã thử các cách đọc khác (sửa SL, đơn giá, thành tiền; bỏ dòng tổng; đổi giảm giá, phí phục vụ, VAT và cách tính) nhưng không cách nào khớp. Hãy đối chiếu từng món với ảnh bill và chỉnh tay.', { reading }),
   ]
-  if (inconsistent.length > 0) notes.push('Các dòng có SL × đơn giá không bằng thành tiền:', ...inconsistent)
+  if (inconsistent.length > 0) notes.push(t('Các dòng có SL × đơn giá không bằng thành tiền:'), ...inconsistent)
   return { status: 'MISMATCH', receipt: { ...parsed, items: flagInconsistent(items) }, notes }
 }

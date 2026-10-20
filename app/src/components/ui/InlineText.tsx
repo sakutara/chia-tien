@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { PeopleError } from '../../services/peopleErrors'
+import { t } from '../../i18n'
 
 interface Props {
   value: string
@@ -68,7 +69,7 @@ export default function InlineText({
       setEditing(false)
       setError(null)
     } catch (err) {
-      setError(err instanceof PeopleError ? err.message : 'Có lỗi không xác định.')
+      setError(err instanceof PeopleError ? err.message : t('Có lỗi không xác định.'))
     }
   }
 
@@ -89,7 +90,7 @@ export default function InlineText({
       <button
         type="button"
         className={`editable break-words ${className}`}
-        title={`${label} — bấm để sửa`}
+        title={t('{label} — bấm để sửa', { label })}
         onClick={() => {
           setDraft(value)
           setEditing(true)

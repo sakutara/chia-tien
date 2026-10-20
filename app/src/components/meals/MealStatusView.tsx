@@ -2,6 +2,7 @@ import { useRef, useState, type KeyboardEvent } from 'react'
 import type { MealStatus, MealSummary } from '../../types'
 import MealCard from './MealCard'
 import { EmptyState } from './MealListView'
+import { T, t } from '../../i18n'
 
 interface Props {
   summaries: MealSummary[]
@@ -11,11 +12,11 @@ interface Props {
 }
 
 const TABS: ReadonlyArray<{ status: MealStatus; label: string; empty: string }> = [
-  { status: 'ACTIVE', label: 'Đang hoạt động', empty: 'Chưa có bữa nào đang hoạt động.' },
+  { status: 'ACTIVE', label: T('Đang hoạt động'), empty: T('Chưa có bữa nào đang hoạt động.') },
   {
     status: 'ARCHIVED',
-    label: 'Đã lưu trữ',
-    empty: 'Chưa có bữa nào được lưu trữ. Bữa chỉ lưu trữ được khi mọi khoản thanh toán đã hoàn tất.',
+    label: T('Đã lưu trữ'),
+    empty: T('Chưa có bữa nào được lưu trữ. Bữa chỉ lưu trữ được khi mọi khoản thanh toán đã hoàn tất.'),
   },
 ]
 
@@ -34,12 +35,12 @@ export default function MealStatusView({ summaries, onOpen, onDelete, onCreate }
     tabRefs.current[next]?.focus()
   }
 
-  const current = TABS.find((t) => t.status === active) ?? TABS[0]
+  const current = TABS.find((tab) => tab.status === active) ?? TABS[0]
   const shown = summaries.filter((s) => s.meal.status === active)
 
   return (
     <div className="space-y-2">
-      <div role="tablist" aria-label="Loại bữa" className="flex gap-2" onKeyDown={onKeyDown}>
+      <div role="tablist" aria-label={t('Loại bữa')} className="flex gap-2" onKeyDown={onKeyDown}>
         {TABS.map((tab) => {
           const count = summaries.filter((s) => s.meal.status === tab.status).length
           const selected = tab.status === active
@@ -62,7 +63,7 @@ export default function MealStatusView({ summaries, onOpen, onDelete, onCreate }
                   : 'border-usd-paper-200 bg-usd-paper-50 text-usd-green-900 hover:bg-usd-paper-200'
               }`}
             >
-              {tab.label} ({count})
+              {t(tab.label)} ({count})
             </button>
           )
         })}
@@ -70,7 +71,7 @@ export default function MealStatusView({ summaries, onOpen, onDelete, onCreate }
 
       <div role="tabpanel" id="status-panel" aria-labelledby={`status-tab-${active}`}>
         {shown.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-usd-paper-200 p-4 text-sm text-usd-green-700">{current.empty}</p>
+          <p className="rounded-lg border border-dashed border-usd-paper-200 p-4 text-sm text-usd-green-700">{t(current.empty)}</p>
         ) : (
           <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {shown.map((s) => (

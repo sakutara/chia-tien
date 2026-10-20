@@ -5,6 +5,7 @@ import type { Meal } from '../types';
 import { deleteFilesByMeal } from './fileStorageService';
 import { initMealPeople } from './mealPeopleService';
 import { PeopleError } from './peopleErrors';
+import { t } from '../i18n';
 
 export interface DeletePreview {
   sessions: number;
@@ -43,8 +44,8 @@ export async function updateMealInfo(mealId: string, draft: MealDraft, now: Date
 
   return db.transaction('rw', db.meals, async () => {
     const meal = await db.meals.get(mealId);
-    if (!meal) throw new PeopleError('MEAL_NOT_FOUND', 'Không tìm thấy bữa này.');
-    if (meal.status === 'ARCHIVED') throw new PeopleError('MEAL_ARCHIVED', 'Bữa đã lưu trữ không thể chỉnh sửa.');
+    if (!meal) throw new PeopleError('MEAL_NOT_FOUND', t('Không tìm thấy bữa này.'));
+    if (meal.status === 'ARCHIVED') throw new PeopleError('MEAL_ARCHIVED', t('Bữa đã lưu trữ không thể chỉnh sửa.'));
 
     const { note: _oldNote, ...rest } = meal;
     const updated: Meal = {
@@ -61,7 +62,7 @@ export async function updateMealInfo(mealId: string, draft: MealDraft, now: Date
 
 /** Số lượng sẽ mất khi xoá bữa, để hộp xác nhận nêu rõ (R-7). */
 export async function getDeletePreview(mealId: string): Promise<DeletePreview> {
-  if (!(await db.meals.get(mealId))) throw new PeopleError('MEAL_NOT_FOUND', 'Không tìm thấy bữa này.');
+  if (!(await db.meals.get(mealId))) throw new PeopleError('MEAL_NOT_FOUND', t('Không tìm thấy bữa này.'));
   const [sessions, invoices, items, files] = await Promise.all([
     db.sessions.where('mealId').equals(mealId).count(),
     db.invoices.where('mealId').equals(mealId).count(),
@@ -77,7 +78,7 @@ export async function getDeletePreview(mealId: string): Promise<DeletePreview> {
  * Thành viên trong danh bạ không bị đụng.
  */
 export async function deleteMeal(mealId: string): Promise<void> {
-  if (!(await db.meals.get(mealId))) throw new PeopleError('MEAL_NOT_FOUND', 'Không tìm thấy bữa này.');
+  if (!(await db.meals.get(mealId))) throw new PeopleError('MEAL_NOT_FOUND', t('Không tìm thấy bữa này.'));
 
   await deleteFilesByMeal(mealId);
 

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Sau mỗi lần merge/pull vào main (kể cả fast-forward): build lại docs/ và commit bản build.
+# Build lỗi chỉ cảnh báo (merge đã xong, không hoàn tác được); pre-push sẽ chặn đẩy lên nếu vẫn lỗi.
+dir="$(dirname "$0")"
+"$dir/build-docs.sh"
+code=$?
+if [ "$code" -ne 0 ] && [ "$code" -ne 10 ]; then
+  echo "[post-merge] Build docs lỗi (mã $code). Sửa lỗi rồi chạy .githooks/build-docs.sh." >&2
+fi
+exit 0

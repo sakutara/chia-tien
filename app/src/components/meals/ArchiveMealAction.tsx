@@ -4,6 +4,7 @@ import { checkArchiveEligibility } from '../../domain/archiveRules'
 import { useMealSettlement } from '../../hooks/useMealSettlement'
 import IconButton from '../ui/IconButton'
 import ArchiveMealDialog from './ArchiveMealDialog'
+import { t } from '../../i18n'
 
 interface Props {
   mealId: string
@@ -25,16 +26,16 @@ export default function ArchiveMealAction({ mealId, mealTitle, readOnly }: Props
     <>
       <IconButton
         icon={Lock}
-        label="Lưu trữ bữa"
+        label={t('Lưu trữ bữa')}
         tone="primary"
         disabled={!eligibility.canArchive}
-        title={eligibility.canArchive ? 'Lưu trữ bữa' : `Chưa thể lưu trữ: ${eligibility.message}`}
+        title={eligibility.canArchive ? t('Lưu trữ bữa') : t('Chưa thể lưu trữ: {message}', { message: eligibility.message ?? '' })}
         aria-describedby={eligibility.canArchive ? undefined : reasonId}
         onClick={() => setConfirming(true)}
       />
       {!eligibility.canArchive && (
         <p id={reasonId} className="sr-only">
-          Chưa thể lưu trữ: {eligibility.message}
+          {t('Chưa thể lưu trữ: {message}', { message: eligibility.message ?? '' })}
         </p>
       )}
       {confirming && (

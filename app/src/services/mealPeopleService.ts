@@ -5,6 +5,7 @@ import { defaultGroupName, shrinkGroups, validateGroupDraft } from '../domain/pa
 import type { Meal, Member, PaymentGroup } from '../types';
 import { getOrCreateMember } from './memberService';
 import { PeopleError } from './peopleErrors';
+import { t } from '../i18n';
 
 export const GROUP_NAME_MAX = 80;
 
@@ -13,9 +14,9 @@ const nowIso = () => new Date().toISOString();
 /** Đọc bữa và kiểm tra còn hoạt động (R-14). Gọi trong transaction có `db.meals`. */
 export async function loadActiveMeal(mealId: string): Promise<Meal> {
   const meal = await db.meals.get(mealId);
-  if (!meal) throw new PeopleError('MEAL_NOT_FOUND', 'Không tìm thấy bữa.', { mealId });
+  if (!meal) throw new PeopleError('MEAL_NOT_FOUND', t('Không tìm thấy bữa.'), { mealId });
   if (meal.status === 'ARCHIVED') {
-    throw new PeopleError('MEAL_ARCHIVED', 'Bữa đã lưu trữ, không thể chỉnh sửa.', { mealId });
+    throw new PeopleError('MEAL_ARCHIVED', t('Bữa đã lưu trữ, không thể chỉnh sửa.'), { mealId });
   }
   return meal;
 }
@@ -23,7 +24,7 @@ export async function loadActiveMeal(mealId: string): Promise<Meal> {
 /** Giá trị khởi tạo người trong bữa mới (R-8): chủ app là người chủ trì và người tham gia đầu tiên. */
 export async function initMealPeople(): Promise<{ participantIds: string[]; hostMemberId: string }> {
   const settings = await db.settings.get('default');
-  if (!settings) throw new Error('Chưa khởi tạo dữ liệu mặc định (ensureDefaultData).');
+  if (!settings) throw new Error(t('Chưa khởi tạo dữ liệu mặc định (ensureDefaultData).'));
   return {
     participantIds: [settings.defaultHostMemberId],
     hostMemberId: settings.defaultHostMemberId,
@@ -51,7 +52,7 @@ export async function addParticipant(mealId: string, memberId: string): Promise<
   await db.transaction('rw', db.meals, db.members, async () => {
     const meal = await loadActiveMeal(mealId);
     const member = await db.members.get(memberId);
-    if (!member) throw new PeopleError('MEMBER_NOT_FOUND', 'Không tìm thấy người này.', { memberId });
+    if (!member) throw new PeopleError('MEMBER_NOT_FOUND', t('Không tìm thấy người này.'), { memberId });
     if (meal.participantIds.includes(memberId)) return;
 
     const now = nowIso();
@@ -108,12 +109,12 @@ export async function removeParticipant(mealId: string, memberId: string): Promi
     const meal = await loadActiveMeal(mealId);
     if (!meal.participantIds.includes(memberId)) return;
     if (meal.hostMemberId === memberId) {
-      throw new PeopleError('HOST_REQUIRED', 'Đổi người chủ trì trước khi bỏ người này.', { memberId });
+      throw new PeopleError('HOST_REQUIRED', t('Đổi người chủ trì trước khi bỏ người này.'), { memberId });
     }
 
     const reasons = await memberUsages(mealId, memberId);
     if (reasons.length > 0) {
-      throw new PeopleError('MEMBER_IN_USE', 'Người này đang có trong hoá đơn hoặc món.', {
+      throw new PeopleError('MEMBER_IN_USE', t('Người này đang có trong hoá đơn hoặc món.'), {
         memberId,
         reasons,
       });
@@ -148,7 +149,7 @@ export async function setHost(mealId: string, memberId: string): Promise<void> {
   await db.transaction('rw', db.meals, async () => {
     const meal = await loadActiveMeal(mealId);
     if (!meal.participantIds.includes(memberId)) {
-      throw new PeopleError('NOT_PARTICIPANT', 'Chỉ có thể chọn chủ trì trong số người đã tham gia.', { memberId });
+      throw new PeopleError('NOT_PARTICIPANT', t('Chỉ có thể chọn chủ trì trong số người đã tham gia.'), { memberId });
     }
     await db.meals.put({ ...meal, hostMemberId: memberId, updatedAt: nowIso() });
   });
@@ -164,7 +165,7 @@ interface GroupInput {
 async function resolveGroupName(raw: string | undefined, memberIds: string[]): Promise<string> {
   const cleaned = raw === undefined ? '' : cleanName(raw);
   if ([...cleaned].length > GROUP_NAME_MAX) {
-    throw new PeopleError('INVALID_NAME', `Tên nhóm tối đa ${GROUP_NAME_MAX} ký tự.`);
+    throw new PeopleError('INVALID_NAME', t('Tên nhóm tối đa {GROUP_NAME_MAX} ký tự.', { GROUP_NAME_MAX }));
   }
   if (cleaned) return cleaned;
   const members = await db.members.bulkGet(memberIds);
@@ -190,7 +191,7 @@ export async function createGroup(mealId: string, input: GroupInput): Promise<Pa
 
     const representativeId = input.representativeId ?? input.memberIds[0];
     if (!input.memberIds.includes(representativeId)) {
-      throw new PeopleError('NOT_IN_GROUP', 'Đại diện phải thuộc nhóm.', { memberId: representativeId });
+      throw new PeopleError('NOT_IN_GROUP', t('Đại diện phải thuộc nhóm.'), { memberId: representativeId });
     }
 
     const group: PaymentGroup = {
@@ -221,7 +222,7 @@ export async function updateGroup(mealId: string, groupId: string, patch: GroupP
   return db.transaction('rw', db.meals, db.members, async () => {
     const meal = await loadActiveMeal(mealId);
     const current = meal.paymentGroups.find((g) => g.id === groupId);
-    if (!current) throw new PeopleError('GROUP_NOT_FOUND', 'Không tìm thấy nhóm.', { groupId });
+    if (!current) throw new PeopleError('GROUP_NOT_FOUND', t('Không tìm thấy nhóm.'), { groupId });
 
     const memberIds = patch.memberIds ?? current.memberIds;
     const names = await memberNameMap(memberIds);
@@ -239,7 +240,7 @@ export async function updateGroup(mealId: string, groupId: string, patch: GroupP
       : memberIds[0];
     const representativeId = patch.representativeId ?? keptRep;
     if (!memberIds.includes(representativeId)) {
-      throw new PeopleError('NOT_IN_GROUP', 'Đại diện phải thuộc nhóm.', { memberId: representativeId });
+      throw new PeopleError('NOT_IN_GROUP', t('Đại diện phải thuộc nhóm.'), { memberId: representativeId });
     }
 
     const updated: PaymentGroup = {
@@ -271,7 +272,7 @@ export async function dissolveGroup(mealId: string, groupId: string): Promise<vo
   await db.transaction('rw', db.meals, async () => {
     const meal = await loadActiveMeal(mealId);
     const current = meal.paymentGroups.find((g) => g.id === groupId);
-    if (!current) throw new PeopleError('GROUP_NOT_FOUND', 'Không tìm thấy nhóm.', { groupId });
+    if (!current) throw new PeopleError('GROUP_NOT_FOUND', t('Không tìm thấy nhóm.'), { groupId });
 
     await db.meals.put({
       ...meal,

@@ -2,6 +2,7 @@ import { isValidYmd } from '../lib/dates'
 import { PeopleError } from '../services/peopleErrors'
 import type { InvoiceInputMode, InvoiceItem, InvoiceSplitType, ItemShare } from '../types'
 import { allocateInvoiceItems, computeBill, type Adjustment, type BillTotals } from './billMath'
+import { t } from '../i18n'
 
 /*
  * Kiểm tra và tính toán một hoá đơn trước khi lưu (BR-4.4, BR-4.5, BR-4.9, BR-4.15, R-8…R-10).
@@ -66,12 +67,12 @@ function checkAdjustment(adj: Adjustment, code: 'INVALID_DISCOUNT' | 'INVALID_SE
   if (adj.mode === 'NONE') return
   if (adj.mode === 'PERCENTAGE') {
     if (!Number.isInteger(adj.value) || adj.value < 0 || adj.value > 100) {
-      throw new PeopleError(code, `${label} theo phần trăm phải từ 0 đến 100.`, { value: adj.value })
+      throw new PeopleError(code, t('{label} theo phần trăm phải từ 0 đến 100.', { label }), { value: adj.value })
     }
     return
   }
   if (!isNonNegativeInteger(adj.value)) {
-    throw new PeopleError(code, `${label} phải là số tiền không âm.`, { value: adj.value })
+    throw new PeopleError(code, t('{label} phải là số tiền không âm.', { label }), { value: adj.value })
   }
 }
 
@@ -79,15 +80,15 @@ function checkAdjustment(adj: Adjustment, code: 'INVALID_DISCOUNT' | 'INVALID_SE
 export function computeInvoice(draft: InvoiceRulesDraft): ComputedInvoice {
   const vendorName = cleanText(draft.vendorName)
   if (vendorName && vendorName.length > VENDOR_NAME_MAX) {
-    throw new PeopleError('INVALID_NAME', `Tên quán tối đa ${VENDOR_NAME_MAX} ký tự.`)
+    throw new PeopleError('INVALID_NAME', t('Tên quán tối đa {VENDOR_NAME_MAX} ký tự.', { VENDOR_NAME_MAX }))
   }
   const invoiceDate = draft.invoiceDate ? draft.invoiceDate.trim() : undefined
   if (invoiceDate && !isValidYmd(invoiceDate)) {
-    throw new PeopleError('INVALID_DATE', 'Ngày trên hoá đơn không hợp lệ.')
+    throw new PeopleError('INVALID_DATE', t('Ngày trên hoá đơn không hợp lệ.'))
   }
 
-  checkAdjustment(draft.discount, 'INVALID_DISCOUNT', 'Giảm giá')
-  checkAdjustment(draft.service, 'INVALID_SERVICE', 'Phí phục vụ')
+  checkAdjustment(draft.discount, 'INVALID_DISCOUNT', t('Giảm giá'))
+  checkAdjustment(draft.service, 'INVALID_SERVICE', t('Phí phục vụ'))
   checkAdjustment(draft.vat, 'INVALID_VAT', 'VAT')
 
   let subtotal: number
@@ -95,27 +96,27 @@ export function computeInvoice(draft: InvoiceRulesDraft): ComputedInvoice {
 
   if (draft.inputMode === 'TOTAL_ONLY') {
     if (draft.subtotalAmount === undefined || !isNonNegativeInteger(draft.subtotalAmount)) {
-      throw new PeopleError('INVALID_AMOUNT', 'Tiền hàng phải là số tiền hợp lệ.')
+      throw new PeopleError('INVALID_AMOUNT', t('Tiền hàng phải là số tiền hợp lệ.'))
     }
     subtotal = draft.subtotalAmount
   } else {
     if (draft.items.length === 0) {
-      throw new PeopleError('INVALID_ITEM', 'Hoá đơn có chi tiết món phải có ít nhất một món.')
+      throw new PeopleError('INVALID_ITEM', t('Hoá đơn có chi tiết món phải có ít nhất một món.'))
     }
     items = draft.items.map((it) => {
       const name = cleanText(it.name)
       if (!name || name.length > ITEM_NAME_MAX) {
-        throw new PeopleError('INVALID_ITEM', `Tên món là bắt buộc và tối đa ${ITEM_NAME_MAX} ký tự.`)
+        throw new PeopleError('INVALID_ITEM', t('Tên món là bắt buộc và tối đa {ITEM_NAME_MAX} ký tự.', { ITEM_NAME_MAX }))
       }
       if (!Number.isInteger(it.quantity) || it.quantity < 1) {
-        throw new PeopleError('INVALID_ITEM', `Số lượng của "${name}" phải là số nguyên từ 1.`)
+        throw new PeopleError('INVALID_ITEM', t('Số lượng của "{name}" phải là số nguyên từ 1.', { name }))
       }
       if (!isNonNegativeInteger(it.unitPrice)) {
-        throw new PeopleError('INVALID_AMOUNT', `Đơn giá của "${name}" phải là số tiền không âm.`)
+        throw new PeopleError('INVALID_AMOUNT', t('Đơn giá của "{name}" phải là số tiền không âm.', { name }))
       }
       const rawAmount = it.rawAmount ?? it.quantity * it.unitPrice
       if (!isNonNegativeInteger(rawAmount)) {
-        throw new PeopleError('INVALID_AMOUNT', `Thành tiền của "${name}" phải là số tiền không âm.`)
+        throw new PeopleError('INVALID_AMOUNT', t('Thành tiền của "{name}" phải là số tiền không âm.', { name }))
       }
       return {
         id: it.id,
@@ -133,15 +134,15 @@ export function computeInvoice(draft: InvoiceRulesDraft): ComputedInvoice {
   }
 
   if (subtotal <= 0) {
-    throw new PeopleError('INVALID_AMOUNT', 'Tiền hàng phải lớn hơn 0.')
+    throw new PeopleError('INVALID_AMOUNT', t('Tiền hàng phải lớn hơn 0.'))
   }
 
   const bill = computeBill({ subtotal, discount: draft.discount, service: draft.service, vat: draft.vat })
   if (bill.discountAmount >= subtotal) {
-    throw new PeopleError('INVALID_DISCOUNT', 'Giảm giá phải nhỏ hơn tiền hàng.')
+    throw new PeopleError('INVALID_DISCOUNT', t('Giảm giá phải nhỏ hơn tiền hàng.'))
   }
   if (bill.totalAmount <= 0) {
-    throw new PeopleError('INVALID_AMOUNT', 'Tổng thanh toán phải lớn hơn 0.')
+    throw new PeopleError('INVALID_AMOUNT', t('Tổng thanh toán phải lớn hơn 0.'))
   }
 
   if (items.length > 0) {
@@ -179,7 +180,7 @@ export const MAX_ITEM_SHARES = 999
 export function resolveSplitType(inputMode: InvoiceInputMode, requested?: InvoiceSplitType): InvoiceSplitType {
   if (inputMode === 'TOTAL_ONLY') {
     if (requested === 'BY_ITEM') {
-      throw new PeopleError('SPLIT_TYPE_LOCKED', 'Hoá đơn chỉ nhập tổng tiền chỉ được chia đều theo tổng.', { inputMode })
+      throw new PeopleError('SPLIT_TYPE_LOCKED', t('Hoá đơn chỉ nhập tổng tiền chỉ được chia đều theo tổng.'), { inputMode })
     }
     return 'EQUAL_TOTAL'
   }
@@ -191,10 +192,10 @@ export function validateEqualSplit(equalSplitIds: string[], sessionParticipantId
   const unique = [...new Set(equalSplitIds)]
   const outsider = unique.find((id) => !sessionParticipantIds.includes(id))
   if (outsider) {
-    throw new PeopleError('SPLIT_MEMBER_NOT_IN_SESSION', 'Chỉ chia được cho người tham gia kèo.', { memberId: outsider })
+    throw new PeopleError('SPLIT_MEMBER_NOT_IN_SESSION', t('Chỉ chia được cho người tham gia kèo.'), { memberId: outsider })
   }
   if (unique.length === 0) {
-    throw new PeopleError('EQUAL_SPLIT_EMPTY', 'Phải chọn ít nhất một người cùng chia hoá đơn.')
+    throw new PeopleError('EQUAL_SPLIT_EMPTY', t('Phải chọn ít nhất một người cùng chia hoá đơn.'))
   }
   return unique
 }
@@ -208,14 +209,14 @@ export function normalizeItemConsumers(consumers: ItemShare[], sessionParticipan
   const result: ItemShare[] = []
   for (const c of consumers) {
     if (!sessionParticipantIds.includes(c.memberId)) {
-      throw new PeopleError('CONSUMER_NOT_IN_SESSION', 'Chỉ chọn được người tham gia kèo làm người ăn.', { memberId: c.memberId })
+      throw new PeopleError('CONSUMER_NOT_IN_SESSION', t('Chỉ chọn được người tham gia kèo làm người ăn.'), { memberId: c.memberId })
     }
     if (c.shares === 0) continue
     if (!Number.isInteger(c.shares) || c.shares < 1 || c.shares > MAX_ITEM_SHARES) {
-      throw new PeopleError('INVALID_SHARES', `Số phần phải là số nguyên từ 1 đến ${MAX_ITEM_SHARES}.`, { shares: c.shares })
+      throw new PeopleError('INVALID_SHARES', t('Số phần phải là số nguyên từ 1 đến {MAX_ITEM_SHARES}.', { MAX_ITEM_SHARES }), { shares: c.shares })
     }
     if (seen.has(c.memberId)) {
-      throw new PeopleError('INVALID_SHARES', 'Một người không thể xuất hiện hai lần trong cùng một món.', { memberId: c.memberId })
+      throw new PeopleError('INVALID_SHARES', t('Một người không thể xuất hiện hai lần trong cùng một món.'), { memberId: c.memberId })
     }
     seen.add(c.memberId)
     result.push({ memberId: c.memberId, shares: c.shares })

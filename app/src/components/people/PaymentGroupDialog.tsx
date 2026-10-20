@@ -4,6 +4,7 @@ import { PeopleError } from '../../services/peopleErrors'
 import type { Meal, Member, PaymentGroup } from '../../types'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import DialogActions from '../ui/DialogActions'
+import { t } from '../../i18n'
 
 interface Props {
   meal: Meal
@@ -58,7 +59,7 @@ export default function PaymentGroupDialog({ meal, participants, group, onClose 
       }
       onClose()
     } catch (e) {
-      setError(e instanceof PeopleError ? e.message : 'Có lỗi không xác định.')
+      setError(e instanceof PeopleError ? e.message : t('Có lỗi không xác định.'))
     } finally {
       setSaving(false)
     }
@@ -71,23 +72,23 @@ export default function PaymentGroupDialog({ meal, participants, group, onClose 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="group-dialog-title" className="card space-y-3">
       <h3 id="group-dialog-title" className="text-base font-semibold">
-        {group ? 'Sửa nhóm' : 'Tạo nhóm'}
+        {group ? t('Sửa nhóm') : t('Tạo nhóm')}
       </h3>
 
       <input
         id="group-name"
-        aria-label="Tên nhóm"
+        aria-label={t('Tên nhóm')}
         value={name}
         maxLength={GROUP_NAME_MAX}
         onChange={(e) => setName(e.target.value)}
-        placeholder={chosen.map((c) => c.name).join(' + ') || 'Tên nhóm (tuỳ chọn)'}
+        placeholder={chosen.map((c) => c.name).join(' + ') || t('Tên nhóm (tuỳ chọn)')}
         className="field min-h-10"
       />
 
       <fieldset>
-        <legend className="mb-1 text-xs text-usd-green-700">Chọn ít nhất 2 người</legend>
+        <legend className="mb-1 text-xs text-usd-green-700">{t('Chọn ít nhất 2 người')}</legend>
         {available.length === 0 ? (
-          <p className="text-sm text-usd-green-700">Không còn ai để thêm vào nhóm.</p>
+          <p className="text-sm text-usd-green-700">{t('Không còn ai để thêm vào nhóm.')}</p>
         ) : (
           <ul className="flex flex-wrap gap-1.5">
             {available.map((p) => (
@@ -110,9 +111,9 @@ export default function PaymentGroupDialog({ meal, participants, group, onClose 
 
       <ConfirmDialog
         open={confirmingSave}
-        title="Đổi thành phần nhóm?"
-        message={'Có người trong nhóm đã được tick "Đã thanh toán". Đổi thành phần sẽ xoá các trạng thái đó.'}
-        confirmLabel="Vẫn đổi"
+        title={t('Đổi thành phần nhóm?')}
+        message={t('Có người trong nhóm đã được tick "Đã thanh toán". Đổi thành phần sẽ xoá các trạng thái đó.')}
+        confirmLabel={t('Vẫn đổi')}
         tone="danger"
         onCancel={() => setConfirmingSave(false)}
         onConfirm={async () => {
@@ -121,7 +122,7 @@ export default function PaymentGroupDialog({ meal, participants, group, onClose 
         }}
       />
 
-      <DialogActions onCancel={onClose} saveLabel={group ? 'Lưu thay đổi' : 'Tạo nhóm'} onSave={requestSave} saving={saving} saveDisabled={selected.length < 2} />
+      <DialogActions onCancel={onClose} saveLabel={group ? t('Lưu thay đổi') : t('Tạo nhóm')} onSave={requestSave} saving={saving} saveDisabled={selected.length < 2} />
     </div>
   )
 }

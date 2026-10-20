@@ -42,6 +42,7 @@ import {
   type ItemRow,
 } from './formState'
 import { fillFromReceipt, hasUserEntries, type ReceiptFill } from './receiptFormState'
+import { t } from '../../i18n'
 
 interface Props {
   session: SessionKeo
@@ -117,9 +118,9 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       vendorName: vendor,
       invoiceDate: date || undefined,
       items: inputMode === 'ITEMIZED' ? parseItemRows(rows) : [],
-      subtotalAmount: inputMode === 'TOTAL_ONLY' ? parseMoneyField(subtotal, 'Tiền hàng') : undefined,
-      discount: parseAdjustment(discount, 'Giảm giá'),
-      service: parseAdjustment(service, 'Phí phục vụ'),
+      subtotalAmount: inputMode === 'TOTAL_ONLY' ? parseMoneyField(subtotal, t('Tiền hàng')) : undefined,
+      discount: parseAdjustment(discount, t('Giảm giá')),
+      service: parseAdjustment(service, t('Phí phục vụ')),
       vat: parseAdjustment(vat, 'VAT'),
       autoNameSession: vendorFromOcr,
     }
@@ -161,14 +162,14 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
     setScanNotice(null)
     const files = await listFilesByInvoice(draftId)
     if (files.length === 0) {
-      setScanNotice('Chưa có ảnh để quét. Hãy chụp hoặc tải ảnh bill trước.')
+      setScanNotice(t('Chưa có ảnh để quét. Hãy chụp hoặc tải ảnh bill trước.'))
       return
     }
     const targets = force ? files : files.filter((f) => f.ocrRawText === undefined)
 
     const controller = new AbortController()
     scanRef.current = controller
-    setScan({ percent: 0, stage: 'Đang chuẩn bị…' })
+    setScan({ percent: 0, stage: t('Đang chuẩn bị…') })
     try {
       if (targets.length > 0) {
         const pairs: Array<{ id: string; blob: Blob }> = []
@@ -177,7 +178,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
           if (blob) pairs.push({ id: file.id, blob })
         }
         if (pairs.length === 0) {
-          throw new PeopleError('OCR_FAILED', 'Không đọc được dữ liệu ảnh đã lưu. Hãy xoá ảnh và chụp lại.')
+          throw new PeopleError('OCR_FAILED', t('Không đọc được dữ liệu ảnh đã lưu. Hãy xoá ảnh và chụp lại.'))
         }
         const texts = await runOcr(
           pairs.map((p) => p.blob),
@@ -203,7 +204,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       const check = validateReceipt(parseReceipt(rawText), rawText)
       const fill = fillFromReceipt(check.receipt)
       if (Object.keys(fill).length === 0) {
-        setScanNotice('Đã lưu ảnh nhưng không nhận ra chữ nào trên bill. Hãy chụp lại rõ hơn (đủ sáng, thẳng, không rung) hoặc nhập tay.')
+        setScanNotice(t('Đã lưu ảnh nhưng không nhận ra chữ nào trên bill. Hãy chụp lại rõ hơn (đủ sáng, thẳng, không rung) hoặc nhập tay.'))
         return
       }
       fill.check = { status: check.status, notes: check.notes }
@@ -212,8 +213,8 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       else applyFill(fill)
     } catch (err) {
       if (err instanceof PeopleError && err.code === 'OCR_CANCELLED') return
-      const reason = err instanceof PeopleError ? err.message : 'Không quét được ảnh.'
-      setScanNotice(`${reason} Ảnh vẫn được lưu; bạn có thể bấm "Quét lại bill" hoặc nhập tay.`)
+      const reason = err instanceof PeopleError ? err.message : t('Không quét được ảnh.')
+      setScanNotice(t('{reason} Ảnh vẫn được lưu; bạn có thể bấm "Quét lại bill" hoặc nhập tay.', { reason }))
     } finally {
       scanRef.current = null
       setScan(null)
@@ -225,7 +226,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       await removeInvoiceImage(file.id)
       setDuplicates((list) => list.filter((d) => d.file.id !== file.id))
     } catch (err) {
-      setError(err instanceof PeopleError ? err.message : 'Không xoá được ảnh.')
+      setError(err instanceof PeopleError ? err.message : t('Không xoá được ảnh.'))
     }
   }
 
@@ -244,7 +245,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       savedRef.current = true
       onSaved(result)
     } catch (err) {
-      setError(err instanceof PeopleError ? err.message : 'Có lỗi không xác định.')
+      setError(err instanceof PeopleError ? err.message : t('Có lỗi không xác định.'))
     } finally {
       setSaving(false)
     }
@@ -253,7 +254,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
   // Cảnh báo không chặn lưu khi tổng tính được khác tổng ghi trên bill (R-11).
   const billMismatch =
     preview && billTotal !== undefined && preview.bill.totalAmount !== billTotal
-      ? `Tổng tính được ${formatMoney(preview.bill.totalAmount)} lệch tổng ghi trên bill ${formatMoney(billTotal)}. Hãy kiểm tra giảm giá, phí phục vụ hoặc VAT.`
+      ? t('Tổng tính được {v} lệch tổng ghi trên bill {v2}. Hãy kiểm tra giảm giá, phí phục vụ hoặc VAT.', { v: formatMoney(preview.bill.totalAmount), v2: formatMoney(billTotal) })
       : null
 
   // Công tắc "chi tiết món" chỉ hiện khi hoá đơn nhập tay (chưa có ảnh); hoá đơn có ảnh luôn đọc ra món.
@@ -263,7 +264,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
 
   return (
     <>
-      <Modal open title={invoice ? 'Sửa hoá đơn' : 'Thêm hoá đơn'} onClose={onClose} size="lg">
+      <Modal open title={invoice ? t('Sửa hoá đơn') : t('Thêm hoá đơn')} onClose={onClose} size="lg">
         <form onSubmit={submit} className="space-y-3" noValidate>
           <InvoiceFilesStrip
             invoiceId={draftId}
@@ -274,7 +275,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
             actions={
               <IconButton
                 icon={ScanText}
-                label="Quét lại bill (OCR)"
+                label={t('Quét lại bill (OCR)')}
                 tone="outline"
                 disabled={scan !== null || imageCount === 0}
                 onClick={() => void scanImages(true)}
@@ -287,13 +288,13 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
           {liveDuplicates.map((d) => (
             <div key={d.file.id} role="alert" className="flex items-start gap-2 rounded-lg border border-amber-600 bg-amber-50 p-2 text-sm">
               <p className="min-w-0 flex-1 text-amber-900">
-                Ảnh <strong>{d.file.fileName}</strong> có vẻ trùng với ảnh <strong>{d.duplicateOf.fileName}</strong>{' '}
-                ({d.sameInvoice ? 'cùng hoá đơn này' : 'đã có ở hoá đơn khác trong bữa'}, giống {Math.round(d.similarity * 100)}%).
+                {t('Ảnh')} <strong>{d.file.fileName}</strong> {t('có vẻ trùng với ảnh')} <strong>{d.duplicateOf.fileName}</strong>{' '}
+                ({d.sameInvoice ? t('cùng hoá đơn này') : t('đã có ở hoá đơn khác trong bữa')}, {t('giống {pct}%', { pct: Math.round(d.similarity * 100) })}).
               </p>
-              <IconButton icon={Trash2} label="Xoá ảnh trùng" tone="danger" onClick={() => void removeDuplicate(d.file)} />
+              <IconButton icon={Trash2} label={t('Xoá ảnh trùng')} tone="danger" onClick={() => void removeDuplicate(d.file)} />
               <IconButton
                 icon={X}
-                label="Giữ lại"
+                label={t('Giữ lại')}
                 onClick={() => setDuplicates((list) => list.filter((x) => x.file.id !== d.file.id))}
               />
             </div>
@@ -321,7 +322,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
 
           <div className="grid gap-2 sm:grid-cols-3">
             <div>
-              <label htmlFor="invoice-vendor" className="mb-0.5 block text-xs font-medium text-usd-green-700">Quán</label>
+              <label htmlFor="invoice-vendor" className="mb-0.5 block text-xs font-medium text-usd-green-700">{t('Quán')}</label>
               <input
                 id="invoice-vendor"
                 data-autofocus
@@ -335,11 +336,11 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
               />
             </div>
             <div>
-              <label htmlFor="invoice-date" className="mb-0.5 block text-xs font-medium text-usd-green-700">Ngày</label>
+              <label htmlFor="invoice-date" className="mb-0.5 block text-xs font-medium text-usd-green-700">{t('Ngày')}</label>
               <input id="invoice-date" type="date" min={MIN_YMD} max={MAX_YMD} value={date} onChange={(e) => setDate(e.target.value)} className={INPUT} />
             </div>
             <div>
-              <label htmlFor="invoice-payer" className="mb-0.5 block text-xs font-medium text-usd-green-700">Ứng</label>
+              <label htmlFor="invoice-payer" className="mb-0.5 block text-xs font-medium text-usd-green-700">{t('Ứng')}</label>
               <select id="invoice-payer" value={payer} onChange={(e) => setPayer(e.target.value)} className={INPUT}>
                 {payerOptions.map((m) => (
                   <option key={m.id} value={m.id}>{m.name}</option>
@@ -350,67 +351,67 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
             {manual && (
-              <Switch label="Nhập chi tiết món" checked={itemized} onChange={(on) => setInputMode(on ? 'ITEMIZED' : 'TOTAL_ONLY')} />
+              <Switch label={t('Nhập chi tiết món')} checked={itemized} onChange={(on) => setInputMode(on ? 'ITEMIZED' : 'TOTAL_ONLY')} />
             )}
             {itemized ? (
-              <Switch label="Chia từng món" checked={splitType === 'BY_ITEM'} onChange={(on) => setSplitType(on ? 'BY_ITEM' : 'EQUAL_TOTAL')} />
+              <Switch label={t('Chia từng món')} checked={splitType === 'BY_ITEM'} onChange={(on) => setSplitType(on ? 'BY_ITEM' : 'EQUAL_TOTAL')} />
             ) : (
-              <span className="text-xs text-usd-green-700">Chỉ nhập tổng: luôn chia đều theo tổng.</span>
+              <span className="text-xs text-usd-green-700">{t('Chỉ nhập tổng: luôn chia đều theo tổng.')}</span>
             )}
           </div>
 
           {itemized ? (
-            <section aria-label="Danh sách món" className="space-y-1.5">
+            <section aria-label={t('Danh sách món')} className="space-y-1.5">
               <InvoiceItemsEditor rows={rows} onChange={setRows} />
             </section>
           ) : (
             <div>
               <label htmlFor="invoice-subtotal" className="mb-0.5 block text-xs font-medium text-usd-green-700">
-                Tiền hàng (trước giảm giá, phí, VAT)
+                {t('Tiền hàng (trước giảm giá, phí, VAT)')}
               </label>
-              <input id="invoice-subtotal" inputMode="numeric" value={subtotal} placeholder="VD: 1.620.000" onChange={(e) => setSubtotal(e.target.value)} className={INPUT} />
+              <input id="invoice-subtotal" inputMode="numeric" value={subtotal} placeholder={t('VD: 1.620.000')} onChange={(e) => setSubtotal(e.target.value)} className={INPUT} />
             </div>
           )}
 
-          <Collapse title={hasAdjustment ? 'Giảm giá, phí phục vụ, VAT (đã nhập)' : 'Giảm giá, phí phục vụ, VAT'} label="Điều chỉnh" defaultOpen={hasAdjustment}>
-            <section aria-label="Điều chỉnh" className="grid gap-2 md:grid-cols-3">
-              <InvoiceAdjustments label="Giảm giá" idBase="discount" value={discount} onChange={setDiscount} />
-              <InvoiceAdjustments label="Phí phục vụ" idBase="service" value={service} onChange={setService} />
+          <Collapse title={hasAdjustment ? t('Giảm giá, phí phục vụ, VAT (đã nhập)') : t('Giảm giá, phí phục vụ, VAT')} label={t('Điều chỉnh')} defaultOpen={hasAdjustment}>
+            <section aria-label={t('Điều chỉnh')} className="grid gap-2 md:grid-cols-3">
+              <InvoiceAdjustments label={t('Giảm giá')} idBase="discount" value={discount} onChange={setDiscount} />
+              <InvoiceAdjustments label={t('Phí phục vụ')} idBase="service" value={service} onChange={setService} />
               <InvoiceAdjustments label="VAT" idBase="vat" value={vat} onChange={setVat} />
             </section>
           </Collapse>
 
-          <section aria-label="Tổng hoá đơn" className="money space-y-0.5 rounded-lg bg-usd-paper-100 px-3 py-2 text-sm">
+          <section aria-label={t('Tổng hoá đơn')} className="money space-y-0.5 rounded-lg bg-usd-paper-100 px-3 py-2 text-sm">
             {preview ? (
               <>
                 {(preview.bill.discountAmount > 0 || preview.bill.serviceAmount > 0 || preview.bill.vatAmount > 0) && (
                   <p className="text-xs text-usd-green-700">
-                    Tiền hàng {formatMoney(preview.subtotalAmount)}
-                    {preview.bill.discountAmount > 0 && ` · Giảm −${formatMoney(preview.bill.discountAmount)}`}
-                    {preview.bill.serviceAmount > 0 && ` · Phí +${formatMoney(preview.bill.serviceAmount)}`}
-                    {preview.bill.vatAmount > 0 && ` · VAT +${formatMoney(preview.bill.vatAmount)}`}
+                    {t('Tiền hàng')} {formatMoney(preview.subtotalAmount)}
+                    {preview.bill.discountAmount > 0 && t(' · Giảm −{v}', { v: formatMoney(preview.bill.discountAmount) })}
+                    {preview.bill.serviceAmount > 0 && t(' · Phí +{v}', { v: formatMoney(preview.bill.serviceAmount) })}
+                    {preview.bill.vatAmount > 0 && t(' · VAT +{v}', { v: formatMoney(preview.bill.vatAmount) })}
                   </p>
                 )}
-                <p className="text-base font-bold">Tổng: {formatMoney(preview.bill.totalAmount)}</p>
-                {billTotal !== undefined && <p className="text-xs text-usd-green-700">Ghi trên bill: {formatMoney(billTotal)}</p>}
+                <p className="text-base font-bold">{t('Tổng: {amount}', { amount: formatMoney(preview.bill.totalAmount) })}</p>
+                {billTotal !== undefined && <p className="text-xs text-usd-green-700">{t('Ghi trên bill: {amount}', { amount: formatMoney(billTotal) })}</p>}
               </>
             ) : (
-              <p className="text-usd-green-700">{previewIssue ?? 'Nhập món hoặc tiền hàng để xem tổng.'}</p>
+              <p className="text-usd-green-700">{previewIssue ?? t('Nhập món hoặc tiền hàng để xem tổng.')}</p>
             )}
             {billMismatch && <p role="status" className="text-amber-800">{billMismatch}</p>}
           </section>
 
           {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
 
-          <DialogActions onCancel={onClose} saveLabel="Lưu hoá đơn" saving={saving} />
+          <DialogActions onCancel={onClose} saveLabel={t('Lưu hoá đơn')} saving={saving} />
         </form>
       </Modal>
 
       <ConfirmDialog
         open={pendingFill !== null}
-        title="Ghi đè dữ liệu đã nhập?"
-        message="Kết quả quét sẽ thay các ô đã nhập trong hoá đơn này. Bạn có chắc không?"
-        confirmLabel="Ghi đè"
+        title={t('Ghi đè dữ liệu đã nhập?')}
+        message={t('Kết quả quét sẽ thay các ô đã nhập trong hoá đơn này. Bạn có chắc không?')}
+        confirmLabel={t('Ghi đè')}
         tone="danger"
         onConfirm={() => {
           if (pendingFill) applyFill(pendingFill)

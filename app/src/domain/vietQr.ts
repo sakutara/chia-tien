@@ -1,4 +1,5 @@
-/*
+
+import { t } from '../i18n'/*
  * Dựng chuỗi VietQR (EMVCo, dịch vụ chuyển nhanh NAPAS 247 đến tài khoản). Hàm thuần.
  * Ứng dụng ngân hàng quét mã sẽ tự điền số tài khoản, số tiền và nội dung.
  */
@@ -29,7 +30,7 @@ export function sanitizeTransferContent(raw: string): string {
 
 /** Nội dung mặc định: "<người nợ> thanh toán <tên bữa>". */
 export function buildTransferContent(debtorName: string, mealTitle: string): string {
-  return sanitizeTransferContent(`${debtorName} thanh toán ${mealTitle}`)
+  return sanitizeTransferContent(t('{debtorName} thanh toán {mealTitle}', { debtorName, mealTitle }))
 }
 
 export interface VietQrInput {

@@ -1,6 +1,7 @@
 import { Camera } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import Modal from '../ui/Modal'
+import { t } from '../../i18n'
 
 interface Props {
   onCapture: (file: File) => void
@@ -36,7 +37,7 @@ export default function CameraCaptureDialog({ onCapture, onClose, onUnavailable 
         }
       })
       .catch(() => {
-        if (!cancelled) setError('Không mở được camera trong app (chưa cấp quyền?). Dùng camera của máy.')
+        if (!cancelled) setError(t('Không mở được camera trong app (chưa cấp quyền?). Dùng camera của máy.'))
       })
     return () => {
       cancelled = true
@@ -54,7 +55,7 @@ export default function CameraCaptureDialog({ onCapture, onClose, onUnavailable 
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          setError('Không chụp được ảnh. Hãy thử lại.')
+          setError(t('Không chụp được ảnh. Hãy thử lại.'))
           return
         }
         onCapture(new File([blob], `bill-${Date.now()}.jpg`, { type: 'image/jpeg' }))
@@ -65,7 +66,7 @@ export default function CameraCaptureDialog({ onCapture, onClose, onUnavailable 
   }
 
   return (
-    <Modal open title="Chụp ảnh hoá đơn" onClose={onClose}>
+    <Modal open title={t('Chụp ảnh hoá đơn')} onClose={onClose}>
       <div className="space-y-3">
         <video ref={videoRef} playsInline muted className="max-h-[60vh] w-full rounded-lg bg-black object-contain" />
         {error && (
@@ -75,16 +76,16 @@ export default function CameraCaptureDialog({ onCapture, onClose, onUnavailable 
         )}
         <div className="flex justify-end gap-2">
           <button type="button" className="btn-secondary min-h-11" onClick={onClose}>
-            Huỷ
+            {t('Huỷ')}
           </button>
           {error ? (
             <button type="button" className="btn-primary min-h-11" onClick={onUnavailable}>
-              Dùng camera của máy
+              {t('Dùng camera của máy')}
             </button>
           ) : (
             <button type="button" data-autofocus className="btn-primary min-h-11" disabled={!ready} onClick={snap}>
               <Camera className="h-4 w-4" aria-hidden="true" />
-              Chụp
+              {t('Chụp')}
             </button>
           )}
         </div>
