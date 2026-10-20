@@ -1,9 +1,10 @@
 import 'fake-indexeddb/auto'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
 import { db } from './db/db'
+import { loadStoredLang } from './db/languageStore'
 import { ensureDefaultData } from './db/seed'
 import { buildSnapshotPayload, buildSnapshotUrl, encodeSnapshotPayload } from './domain/shareSnapshot'
 import { setLang } from './i18n'
@@ -32,8 +33,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   cleanup()
-  setLang('vi', false)
-  window.localStorage.clear()
+  setLang('vi')
   window.location.hash = ''
 })
 
@@ -65,6 +65,16 @@ describe('Song ngữ (Epic 9)', () => {
     expect(screen.getByRole('status', { name: 'Snapshot view' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Back to my app home' })).toBeTruthy()
     expect(await db.meals.count()).toBe(0)
+    // Chỉ lựa chọn ngôn ngữ được ghi (vào settings), không có dữ liệu Snapshot nào.
+    await vi.waitFor(async () => expect((await db.settings.get('default'))?.language).toBe('en'))
+    expect(await db.invoices.count()).toBe(0)
+  })
+
+  it('ngôn ngữ đã lưu trong IndexedDB được nạp lại khi mở app (BR-9.4)', async () => {
+    await db.settings.update('default', { language: 'en' })
+    expect(await loadStoredLang()).toBe('en')
+    await db.settings.update('default', { language: undefined })
+    expect(await loadStoredLang()).toBeNull()
   })
 
   it('hồ sơ "Tôi" mặc định hiển thị theo ngôn ngữ, tên tự đặt giữ nguyên (AC-8)', async () => {
@@ -73,7 +83,7 @@ describe('Song ngữ (Epic 9)', () => {
     const { localizeMember } = await import('./db/localize')
     const me = (await db.members.toArray())[0]
     expect(localizeMember(me).name).toBe('Tôi')
-    setLang('en', false)
+    setLang('en')
     expect(localizeMember(me).name).toBe('Me')
     expect(localizeMember({ ...me, name: 'Leonard' }).name).toBe('Leonard')
   })

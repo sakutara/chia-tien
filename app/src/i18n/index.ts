@@ -11,8 +11,6 @@ import { en } from './en'
 export type Lang = 'vi' | 'en'
 export const LANGS: readonly Lang[] = ['vi', 'en']
 
-const STORAGE_KEY = 'fee-calculator.lang'
-
 let current: Lang = 'vi'
 const listeners = new Set<() => void>()
 
@@ -29,41 +27,25 @@ export function detectLanguage(input: { stored?: string | null; urlParam?: strin
   return (input.navigatorLang ?? '').toLowerCase().startsWith('vi') ? 'vi' : 'en'
 }
 
-export function readStoredLang(): Lang | null {
-  try {
-    const value = window.localStorage.getItem(STORAGE_KEY)
-    return isLang(value) ? value : null
-  } catch {
-    return null
-  }
-}
-
 function applyToDocument(): void {
   if (typeof document === 'undefined') return
   document.documentElement.lang = current
   document.title = t('Chia tiền')
 }
 
-/** Đặt ngôn ngữ. `persist` ghi nhớ lựa chọn của người dùng; khởi tạo từ link/trình duyệt thì không ghi. */
-export function setLang(next: Lang, persist = true): void {
-  if (persist) {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, next)
-    } catch {
-      /* trình duyệt chặn lưu trữ: chỉ mất khả năng ghi nhớ */
-    }
-  }
+/** Đặt ngôn ngữ hiển thị. Việc ghi nhớ vào IndexedDB do `db/languageStore` đảm nhiệm (công tắc gọi cả hai). */
+export function setLang(next: Lang): void {
   if (next === current) return
   current = next
   applyToDocument()
   listeners.forEach((fn) => fn())
 }
 
-/** Gọi một lần khi khởi động app: `urlLang` là tham số `l` của link Snapshot (nếu có). */
-export function initLanguage(urlLang?: string | null): Lang {
+/** Gọi một lần khi khởi động app: `stored` là lựa chọn đã lưu trong IndexedDB, `urlLang` là tham số `l` của link Snapshot. */
+export function initLanguage(input: { stored?: string | null; urlLang?: string | null } = {}): Lang {
   const lang = detectLanguage({
-    stored: readStoredLang(),
-    urlParam: urlLang,
+    stored: input.stored,
+    urlParam: input.urlLang,
     navigatorLang: typeof navigator === 'undefined' ? null : navigator.language,
   })
   current = lang

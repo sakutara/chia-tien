@@ -6,6 +6,7 @@ export interface AppSettings {
   id: 'default';
   defaultHostMemberId: string; // ID của hồ sơ "Tôi" mặc định
   currencySymbol: string;      // Mặc định: '₫' hoặc 'VNĐ'
+  language?: 'vi' | 'en';      // Ngôn ngữ giao diện đã chọn (Epic 9); vắng → theo trình duyệt
   createdAt: string;
 }
 

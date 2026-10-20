@@ -11,15 +11,16 @@ Tài liệu đi cùng: [BR](./BR.md) · [Epics & Roadmap](../04-epics-and-roadma
 - **Khoá dịch là câu tiếng Việt gốc**: `t('Chia tiền')` trả đúng câu đó khi `vi` và tra `en` khi `en`; thiếu bản dịch thì dùng câu gốc (R-2). Cách này giữ nguyên mọi test cũ (chạy ở `vi`) và không cần đặt tên khoá. Tham số `{name}`; số nhiều `{n|một|nhiều}` chọn vế đầu khi `n = 1`.
 - Ngôn ngữ nằm trong một biến toàn cục nên cả code thuần (domain, service) cũng dịch được; **`App` gọi `useLang()` để cả cây render lại** khi đổi ngôn ngữ, nên không component nào phải tự đăng ký.
 - Hằng số cấp module (nhãn tab, bảng lý do…) dùng `T('…')` (đánh dấu, trả nguyên chuỗi) rồi dịch lúc hiển thị bằng `t(x)`; nếu gọi `t()` ở cấp module thì chuỗi bị đóng băng ở `vi`.
-- Lưu lựa chọn: `localStorage` khoá `fee-calculator.lang` (bọc try/catch); Snapshot không ghi IndexedDB nên dùng cùng nơi lưu này.
+- Lưu lựa chọn: `AppSettings.language` trong IndexedDB. `db/languageStore.ts` có `loadStoredLang()` (đọc, lỗi thì trả `null`) và `saveStoredLang()` (`ensureDefaultData` rồi `settings.update`). `main.tsx` đọc trước lần render đầu rồi gọi `initLanguage({ stored, urlLang })`; `LanguageSwitch` gọi `setLang` rồi `saveStoredLang`. Cùng đường này cho app chính và trang Snapshot.
 
 ### B.2. Cấu trúc mã nguồn
 ```text
 app/src/i18n/
-├─ index.ts        # Lang, t, T, tIn, setLang, initLanguage, detectLanguage, useLang, interpolate
+├─ index.ts        # Lang, t, T, tIn, setLang, initLanguage, detectLanguage, useLang, interpolate (không biết gì về DB)
 ├─ en.ts           # Record<câu tiếng Việt, câu tiếng Anh>
 └─ i18n.test.ts    # quét mã nguồn: mọi t()/T() có bản dịch, không khoá thừa, đúng tham số; detect; đổi ngôn ngữ
 app/src/components/ui/LanguageSwitch.tsx   # công tắc role="switch" VI/EN, dùng ở app và Snapshot (cùng thanh đầu trang)
+app/src/db/languageStore.ts                 # đọc/ghi AppSettings.language
 app/src/db/localize.ts                     # localizeMember ("Tôi" → "Me"), localizeSession ("Kèo n" → "Venue n")
 app/src/App.i18n.test.tsx                  # công tắc, Snapshot, tên mặc định, tham số l
 ```
@@ -35,7 +36,7 @@ Sửa: `lib/money.ts` (`formatMoney(amount, lang?)`), `lib/dates.ts` (`formatDat
 | Domain thuần (`formatShareMessage`…) | **Không** import React/Context: nhận `lang` làm tham số (mặc định ngôn ngữ hiện tại) để test được cả hai ngôn ngữ. |
 
 ### B.4. Thiết kế dữ liệu
-- Không đổi schema IndexedDB và không đổi `MealSnapshotPayload`.
+- `AppSettings` thêm trường tuỳ chọn `language?: 'vi' | 'en'`; không cần nâng phiên bản schema Dexie (`settings` khoá theo `id`). `MealSnapshotPayload` không đổi.
 - **Giá trị mặc định do hệ thống sinh** (BR-9.9) vẫn lưu nguyên văn nhưng được *dịch lúc đọc*: `localizeMember` đổi hồ sơ chủ app còn tên mặc định `Tôi` thành `Me`; `localizeSession` đổi `Kèo n` / `Venue n` theo ngôn ngữ hiện tại. Áp dụng ở các hook (`useMembers`, `useMealPeople`, `useMealSessions`, `useMealSettlement`) và khi dựng Snapshot. Tên người dùng tự đặt giữ nguyên. `isDefaultSessionName` nhận cả `Kèo n` lẫn `Venue n`.
 - Hộp thoại "Hồ sơ của tôi" lưu lại `Tôi` (dạng gốc) nếu tên không đổi so với bản đang hiển thị, để tên mặc định không bị khoá cứng sang `Me`.
 - **Snapshot link**: thêm tham số `l` (`vi` | `en`) sau `s`: `…?s=<mã>&l=en`. Định dạng nén nhị phân `~` không đổi nên link cũ vẫn mở; link cũ không có `l` rơi về ngôn ngữ trình duyệt.
@@ -58,8 +59,9 @@ type Lang = 'vi' | 'en'
 t(source: string, params?: Record<string, string | number | undefined>): string   // theo ngôn ngữ hiện tại
 tIn(lang: Lang, source, params?): string                                            // theo ngôn ngữ chỉ định
 T(source: string): string                                                           // đánh dấu câu gốc ở hằng số cấp module
-setLang(lang: Lang, persist = true): void
-initLanguage(urlLang?: string | null): Lang      // gọi một lần ở main.tsx
+setLang(lang: Lang): void                        // chỉ đổi hiển thị; không ghi DB
+initLanguage({ stored?, urlLang? }): Lang        // gọi một lần ở main.tsx
+loadStoredLang(): Promise<Lang | null>; saveStoredLang(lang): Promise<void>   // db/languageStore
 detectLanguage({ stored, urlParam, navigatorLang }): Lang
 useLang(): Lang                                  // useSyncExternalStore; gọi ở App và ở hook có useLiveQuery
 formatMoney(amount, lang?), formatDate(ymd, lang?), weekdayLabels(lang?)
@@ -69,7 +71,7 @@ buildSnapshotUrl(payload | encoded, baseLocation?, lang?): string   // thêm &l=
 
 ### B.7. Yêu cầu phi chức năng
 - Bundle: từ điển `en` nạp tĩnh (khoảng 500 câu); nếu về sau thêm ngôn ngữ thì tách `import()` động. Link Snapshot chỉ dài thêm 4 ký tự (`&l=en`).
-- Không nháy giao diện khi khởi động: `initLanguage` chạy đồng bộ trong `main.tsx` trước lần render đầu.
+- Không nháy giao diện khi khởi động: `main.tsx` chờ `loadStoredLang()` (một lần đọc IndexedDB) rồi mới render lần đầu.
 - Hiển thị: chuỗi tiếng Anh dài hơn; mọi nút/chip phải co giãn, không cắt chữ ở 375 px.
 
 ### B.8. Rủi ro & hạn chế đã biết
@@ -85,8 +87,8 @@ buildSnapshotUrl(payload | encoded, baseLocation?, lang?): string   // thêm &l=
 | Kiểm thử | Phủ |
 | :--- | :--- |
 | `i18n.test`: mọi `t()`/`T()` có bản dịch `en`; không khoá thừa; bản dịch giữ đúng tham số | R-1, R-2, AC-9 |
-| `i18n.test`: `detectLanguage` đủ tổ hợp ưu tiên; `setLang` ghi nhớ, đổi `<html lang>` và `<title>`; số nhiều; `tIn` | BR-9.4, BR-9.8, AC-3, AC-7 |
-| `App.i18n.test`: công tắc đổi tiêu đề, nút, tên app; Snapshot đổi ngôn ngữ và IndexedDB trống; "Tôi" ↔ "Me"; link có `&l=` | BR-9.1, BR-9.2, BR-9.3, BR-9.7, BR-9.8, BR-9.9, AC-1, AC-2, AC-6, AC-7, AC-8 |
+| `i18n.test`: `detectLanguage` đủ tổ hợp ưu tiên; `setLang` đổi `<html lang>` và `<title>`; số nhiều; `tIn` | BR-9.4, BR-9.8, AC-3, AC-7 |
+| `App.i18n.test`: công tắc đổi tiêu đề, nút, tên app; Snapshot đổi ngôn ngữ, chỉ `settings.language` được ghi và không có dữ liệu bữa; nạp lại ngôn ngữ đã lưu; "Tôi" ↔ "Me"; link có `&l=` | BR-9.1, BR-9.2, BR-9.3, BR-9.7, BR-9.8, BR-9.9, AC-1, AC-2, AC-6, AC-7, AC-8 |
 | `shareSnapshot.test`: tin nhắn `en`, định dạng link | BR-9.6, AC-5 |
 | Toàn bộ test Epic 1–8 (chạy ở `vi`) | R-4, hồi quy |
 | Duyệt bốn bước của bữa ở `en` trên trình duyệt 375 px, quét ký tự tiếng Việt còn sót | AC-1, AC-9 |

@@ -26,7 +26,7 @@ function usedKeys(): string[] {
 
 const placeholders = (s: string) => [...new Set([...s.matchAll(/\{(\w+)/g)].map((m) => m[1]))].sort()
 
-afterEach(() => setLang('vi', false))
+afterEach(() => setLang('vi'))
 
 describe('từ điển en (R-1, R-2)', () => {
   it('mọi câu t()/T() trong mã nguồn đều có bản dịch', () => {
@@ -52,7 +52,7 @@ describe('t()', () => {
   })
 
   it('dịch sang en, nội suy tham số và số nhiều', () => {
-    setLang('en', false)
+    setLang('en')
     expect(t('Chia tiền')).toBe('Split Bill')
     expect(t('Ngày {date}', { date: '19/10' })).toBe('19/10')
     expect(t('{n} bữa', { n: 1 })).toBe('1 meal')
@@ -60,7 +60,7 @@ describe('t()', () => {
   })
 
   it('thiếu bản dịch thì dùng câu gốc', () => {
-    setLang('en', false)
+    setLang('en')
     expect(t('Câu chưa có bản dịch {x}', { x: 1 })).toBe('Câu chưa có bản dịch 1')
   })
 
@@ -86,12 +86,11 @@ describe('detectLanguage (BR-9.4, BR-9.8)', () => {
 })
 
 describe('đổi ngôn ngữ', () => {
-  it('ghi nhớ lựa chọn và cập nhật <html lang> và <title>', () => {
+  it('cập nhật <html lang> và <title>; initLanguage ưu tiên lựa chọn đã lưu', () => {
     setLang('en')
-    expect(window.localStorage.getItem('fee-calculator.lang')).toBe('en')
     expect(document.documentElement.lang).toBe('en')
     expect(document.title).toBe('Split Bill')
-    expect(initLanguage(null)).toBe('en')
-    window.localStorage.removeItem('fee-calculator.lang')
+    expect(initLanguage({ stored: 'vi', urlLang: 'en' })).toBe('vi')
+    expect(initLanguage({ urlLang: 'en' })).toBe('en')
   })
 })
