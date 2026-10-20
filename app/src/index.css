@@ -5,6 +5,12 @@
 @tailwind utilities;
 
 @layer base {
+  /* Khoá zoom bằng cử chỉ: chỉ cho cuộn dọc/ngang, không chụm hay chạm đúp để phóng to. */
+  html {
+    touch-action: pan-x pan-y;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-usd-paper-100 text-usd-green-950 font-sans antialiased;
   }
