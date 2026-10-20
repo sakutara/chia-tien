@@ -37,7 +37,7 @@ const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : 
 
 /** Một kèo trong Khu vực 2 (UI §4.2): tên, tổng chi, người tham gia, hoá đơn và thao tác. */
 export default function SessionCard({ view, isFirst, isLast, mealParticipants, hostMemberId, readOnly, archivedInvoiceCount, onError }: Props) {
-  const { session, invoices, total, hasCost } = view
+  const { session, invoices, total, hasCost, keptItems } = view
   const [open, setOpen] = useState(false)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<InvoiceRow | null>(null)
@@ -154,11 +154,24 @@ export default function SessionCard({ view, isFirst, isLast, mealParticipants, h
             <ul className="space-y-1">
               {(session.archivedPayerSummary ?? []).map((p) => (
                 <li key={p.memberId} className="flex flex-wrap justify-between gap-2">
-                  <span>Ứng: {memberName(p.memberId)}</span>
+                  <span>{t('Ứng:')} {memberName(p.memberId)}</span>
                   <span className="money">{formatMoney(p.paidAmount)}</span>
                 </li>
               ))}
             </ul>
+          )}
+          {keptItems.length > 0 && (
+            <>
+              <h4 className="pt-1 font-semibold">{t('Món ({n})', { n: keptItems.length })}</h4>
+              <ul className="space-y-1" aria-label={t('Món của {name}', { name: session.name })}>
+                {keptItems.map((it) => (
+                  <li key={it.id} className="flex flex-wrap justify-between gap-2">
+                    <span className="min-w-0 break-words">{it.name} · {it.quantity} × {formatMoney(it.unitPrice)}</span>
+                    <span className="money">{formatMoney(it.finalAmount)}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </section>
       ) : (

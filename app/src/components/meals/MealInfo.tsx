@@ -1,4 +1,4 @@
-import { CalendarDays, Lock, NotebookPen } from 'lucide-react'
+import { CalendarDays, NotebookPen } from 'lucide-react'
 import { MAX_YMD, MIN_YMD, formatDateVi } from '../../lib/dates'
 import { formatMoney } from '../../lib/money'
 import { updateMealInfo } from '../../services/mealService'
@@ -76,13 +76,6 @@ export default function MealInfo({ view, summary }: Props) {
           </dd>
         </div>
       </dl>
-
-      {archived && (
-        <p className="flex items-start gap-2 rounded-lg border border-usd-gold-600 p-2 text-xs">
-          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-usd-gold-600" aria-hidden="true" />
-          {t('Đã lưu trữ: ảnh và chi tiết món đã xoá, chỉ xem. Vẫn xoá được bữa.')}
-        </p>
-      )}
     </div>
   )
 }

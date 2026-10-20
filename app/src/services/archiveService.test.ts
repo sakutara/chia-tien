@@ -86,10 +86,14 @@ describe('archiveService (Epic 7: BR-7.1 → BR-7.3, R-1 → R-5)', () => {
     await expect(archiveMeal(meal.id)).rejects.toMatchObject({ code: 'ARCHIVE_EMPTY_MEAL' })
   })
 
-  it('lưu trữ thành công: xoá hoá đơn và món, giữ kèo đã chốt, khoá mọi thao tác', async () => {
+  it('lưu trữ thành công: xoá hoá đơn và ảnh, giữ món và kèo đã chốt, khoá mọi thao tác', async () => {
     const f = await settledMeal()
     const preview = await getArchivePreview(f.meal.id)
     expect(preview.invoiceCount).toBe(1)
+    await db.items.add({
+      id: 'kept-item', mealId: f.meal.id, sessionId: f.session.id, invoiceId: f.invoice.id, name: 'Lẩu', quantity: 1, unitPrice: 90_000,
+      rawAmount: 90_000, allocatedDiscountAmount: 0, allocatedServiceAmount: 0, allocatedVatAmount: 0, finalAmount: 90_000, consumers: [],
+    })
 
     await archiveMeal(f.meal.id, new Date('2026-10-19T12:00:00.000Z'))
 
@@ -100,7 +104,7 @@ describe('archiveService (Epic 7: BR-7.1 → BR-7.3, R-1 → R-5)', () => {
     expect(archived.archivedSummary!.entitiesSummary.every((e) => e.isPaid)).toBe(true)
 
     expect(await db.invoices.where('mealId').equals(f.meal.id).count()).toBe(0)
-    expect(await db.items.where('mealId').equals(f.meal.id).count()).toBe(0)
+    expect((await db.items.where('mealId').equals(f.meal.id).toArray()).map((i) => i.id)).toEqual(['kept-item'])
     expect(await db.invoice_files.where('mealId').equals(f.meal.id).count()).toBe(0)
 
     const kept = (await db.sessions.get(f.session.id))!
@@ -146,7 +150,7 @@ describe('archiveService (Epic 7: BR-7.1 → BR-7.3, R-1 → R-5)', () => {
     expect((await db.meals.get(f.meal.id))!.archivedSummary!.totalMealAmount).toBe(120_000)
   })
 
-  it('getArchivePreview đếm hoá đơn và món trước khi lưu trữ', async () => {
+  it('getArchivePreview đếm hoá đơn và file trước khi lưu trữ', async () => {
     const init = await initMealPeople()
     const meal = await makeMeal([init.hostMemberId])
     const session = await addSession(meal.id, 'Kèo 1')
@@ -156,6 +160,6 @@ describe('archiveService (Epic 7: BR-7.1 → BR-7.3, R-1 → R-5)', () => {
       discount: none, service: none, vat: none,
     })
     expect(items).toHaveLength(2)
-    expect(await getArchivePreview(meal.id)).toEqual({ invoiceCount: 1, itemCount: 2, fileCount: 0, totalFileBytes: 0 })
+    expect(await getArchivePreview(meal.id)).toEqual({ invoiceCount: 1, fileCount: 0, totalFileBytes: 0 })
   })
 })

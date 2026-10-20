@@ -14,28 +14,25 @@ const BLOCKER_CODE: Record<Exclude<ArchiveBlockerReason, 'ALREADY_ARCHIVED'>, Pe
 
 export interface ArchivePreview {
   invoiceCount: number;
-  itemCount: number;
   fileCount: number;
   totalFileBytes: number;
 }
 
-/** Đếm hoá đơn, món, file và dung lượng sẽ được dọn khi lưu trữ (BR-7.2). */
+/** Đếm hoá đơn, file và dung lượng sẽ được dọn khi lưu trữ (BR-7.2). Món được giữ lại. */
 export async function getArchivePreview(mealId: string): Promise<ArchivePreview> {
-  const [invoiceCount, itemCount, files] = await Promise.all([
+  const [invoiceCount, files] = await Promise.all([
     db.invoices.where('mealId').equals(mealId).count(),
-    db.items.where('mealId').equals(mealId).count(),
     db.invoice_files.where('mealId').equals(mealId).toArray(),
   ]);
   return {
     invoiceCount,
-    itemCount,
     fileCount: files.length,
     totalFileBytes: files.reduce((sum, f) => sum + f.sizeBytes, 0),
   };
 }
 
 /**
- * Lưu trữ bữa (BR-7.3, R-1…R-4). Kiểm tra điều kiện trước, xoá file trước rồi mới ghi DB trong một transaction.
+ * Lưu trữ bữa (BR-7.3, R-1…R-4). Kiểm tra điều kiện trước, xoá file trước rồi mới ghi DB trong một transaction. Chỉ hoá đơn và ảnh bị xoá; các món được giữ lại.
  * Bữa đã lưu trữ không thể mở lại (R-5).
  */
 export async function archiveMeal(mealId: string, now: Date = new Date()): Promise<void> {
@@ -64,9 +61,8 @@ export async function archiveMeal(mealId: string, now: Date = new Date()): Promi
   // File vật lý xoá trước; DB sau (R-4).
   await deleteFilesByMeal(mealId);
 
-  await db.transaction('rw', [db.meals, db.sessions, db.invoices, db.items, db.invoice_files], async () => {
+  await db.transaction('rw', [db.meals, db.sessions, db.invoices, db.invoice_files], async () => {
     await loadActiveMeal(mealId);
-    await db.items.where('mealId').equals(mealId).delete();
     await db.invoices.where('mealId').equals(mealId).delete();
     await db.invoice_files.where('mealId').equals(mealId).delete();
     await db.sessions.bulkPut(payload.archivedSessions);

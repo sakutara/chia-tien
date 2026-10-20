@@ -155,14 +155,14 @@ flowchart TD
 ---
 
 ### EPIC 7: Lưu trữ Bữa (Archive), Dọn dẹp Hoá đơn/Món & Khoá Chỉnh sửa
-**Mục tiêu**: Cho phép lưu trữ bữa sau khi mọi thanh toán đã hoàn tất, tự động xoá toàn bộ file hoá đơn và chi tiết món để chỉ giữ lại chi phí từng kèo, khoá chỉnh sửa bữa đã lưu trữ nhưng vẫn cho phép xoá.
+**Mục tiêu**: Cho phép lưu trữ bữa sau khi mọi thanh toán đã hoàn tất, tự động xoá toàn bộ file ảnh và hoá đơn (giữ lại các món) để giải phóng bộ nhớ, giữ chi phí từng kèo, khoá chỉnh sửa bữa đã lưu trữ nhưng vẫn cho phép xoá.
 
 #### Danh sách Tính năng / User Stories:
 - **US-7.1**: Kiểm tra điều kiện Lưu trữ bữa:
   - Chặn lưu trữ nếu còn bất kỳ cá nhân / nhóm thanh toán nào (có số dư khác 0) chưa được tick "Đã thanh toán".
 - **US-7.2**: Thực thi quy trình Lưu trữ (`Archive Meal`):
   - Lưu lại tổng chi phí của từng Kèo và bảng tổng kết thanh toán vào `Meal.archivedSummary`.
-  - Xoá toàn bộ các file ảnh hoá đơn (`invoice_files` / OPFS), bản ghi hoá đơn (`invoices`) và chi tiết từng món (`items`) của bữa đó.
+  - Xoá toàn bộ các file ảnh hoá đơn (`invoice_files` / OPFS), bản ghi hoá đơn (`invoices`) của bữa đó; **các món (`items`) được giữ lại**.
   - Chuyển trạng thái bữa sang `ARCHIVED`.
 - **US-7.3**: Giao diện chế độ **Bữa đã lưu trữ (Read-only)**:
   - Khoá toàn bộ thao tác chỉnh sửa (không thể sửa người, nhóm, kèo, hoá đơn, món hay trạng thái thanh toán).
@@ -171,7 +171,7 @@ flowchart TD
 
 #### Tiêu chí nghiệm thu (Acceptance Criteria):
 - [ ] Không thể bấm Lưu trữ nếu chưa tick đủ 100% các khoản thanh toán trong bữa.
-- [ ] Sau khi Lưu trữ, bữa hoàn toàn không thể chỉnh sửa được nữa; toàn bộ file ảnh hoá đơn và chi tiết món bị xoá sạch khỏi bộ nhớ, chỉ còn lại thông tin chi phí từng kèo.
+- [ ] Sau khi Lưu trữ, bữa hoàn toàn không thể chỉnh sửa được nữa; toàn bộ file ảnh và hoá đơn bị xoá sạch khỏi bộ nhớ, còn lại các món và thông tin chi phí từng kèo; không hiện nút chia sẻ thanh toán cho bữa đã lưu trữ.
 - [ ] Bữa đã lưu trữ vẫn có thể bị xoá hoàn toàn khi người dùng bấm Xoá.
 
 ---
@@ -241,7 +241,7 @@ flowchart TD
 | 14 | Toàn bộ hoá đơn lưu thành file, có thể thêm/xoá hoá đơn | `01-architecture-and-data-model.md` | Epic 1, 4 |
 | 15 | Có thể thêm hoặc xoá bữa, kèo, món... | `01-architecture-and-data-model.md` | Epic 3, 4, 5 |
 | 16 | Tick chọn đã thanh toán để ghi lại trạng thái thanh toán của cá nhân / nhóm | `02-business-logic-and-algorithms.md` | Epic 6 |
-| 17 | Lưu trữ bữa: không thể chỉnh sửa nữa, xoá hết hoá đơn & chi tiết món, chỉ lưu chi phí từng kèo; chỉ lưu trữ khi mọi thanh toán hoàn tất | `02-business-logic-and-algorithms.md` | Epic 7 |
+| 17 | Lưu trữ bữa: không thể chỉnh sửa nữa, xoá hoá đơn & ảnh (giữ món), lưu chi phí từng kèo; chỉ lưu trữ khi mọi thanh toán hoàn tất | `02-business-logic-and-algorithms.md` | Epic 7 |
 | 18 | Bữa đã lưu trữ vẫn có thể bị xoá | `02-business-logic-and-algorithms.md` | Epic 3, 7 |
 | 19 | Giao diện quản lý bữa có 3 dạng: Theo ngày/tháng/năm (dùng lịch), Theo danh sách (mới -> cũ), Theo loại (hoạt động / lưu trữ) | `03-ui-ux-and-design-system.md` | Epic 3 |
 | 20 | Chia sẻ qua ứng dụng khác để gửi thông báo thanh toán tiền dạng tin nhắn cho tất cả mọi người | `02-business-logic-and-algorithms.md` | Epic 8 |

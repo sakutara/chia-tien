@@ -32,7 +32,7 @@
 
 5. **Lưu trữ Bữa (Archive) & Tối ưu dung lượng**:
    - Chỉ cho phép **Lưu trữ bữa** khi **100% các khoản thanh toán trong bữa đã hoàn tất**.
-   - Sau khi lưu trữ: Bữa bị **khoá chỉnh sửa**, hệ thống tự động **xoá toàn bộ file ảnh hoá đơn và chi tiết từng món**, chỉ giữ lại thông tin tổng chi phí của từng kèo và lịch sử quyết toán.
+   - Sau khi lưu trữ: Bữa bị **khoá chỉnh sửa**, hệ thống tự động **xoá toàn bộ file ảnh và hoá đơn** (các món được giữ lại), chỉ giữ thêm tổng chi phí của từng kèo và lịch sử quyết toán; bữa đã lưu trữ không còn nút chia sẻ thanh toán.
    - Bữa đã lưu trữ vẫn có thể xem lại hoặc xoá vĩnh viễn.
 
 6. **Ba chế độ Quản lý & Xem danh sách Bữa**:

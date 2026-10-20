@@ -1,4 +1,4 @@
-import { Check, Lock } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { useState } from 'react'
 import { useMealSettlement } from '../../hooks/useMealSettlement'
 import { formatMoney } from '../../lib/money'
@@ -56,10 +56,6 @@ export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) 
 
   return (
     <section className="card space-y-3" aria-label={t('Quyết toán')}>
-      {readOnly && (
-        <Lock className="h-3 w-3 text-usd-green-700" aria-label={t('Chỉ xem')} />
-      )}
-
       {!hasCost ? (
         <p className="text-sm text-usd-green-700">{t('Chưa có chi phí để quyết toán. Hãy thêm hoá đơn ở bước 3.')}</p>
       ) : (

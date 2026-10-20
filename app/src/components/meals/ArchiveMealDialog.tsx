@@ -36,17 +36,16 @@ export default function ArchiveMealDialog({ mealId, mealTitle, onClose, onArchiv
           {t('Lưu trữ')} <strong>{mealTitle}</strong> {t('sẽ khoá chỉnh sửa vĩnh viễn và xoá')}{' '}
           {preview ? (
             <strong>
-              {t('{invoices} hoá đơn, {items} chi tiết món cùng {files} file ảnh', {
+              {t('{invoices} hoá đơn cùng {files} file ảnh', {
                 invoices: preview.invoiceCount,
-                items: preview.itemCount,
                 files: preview.fileCount,
               })}{' '}
               ({formatBytes(preview.totalFileBytes)})
             </strong>
           ) : (
-            t('hoá đơn, món và ảnh')
+            t('hoá đơn và ảnh')
           )}{' '}
-          {t('để giải phóng bộ nhớ. Chỉ giữ lại chi phí từng kèo và lịch sử quyết toán. Không hoàn tác được.')}
+          {t('để giải phóng bộ nhớ. Vẫn giữ lại chi phí từng kèo, các món và lịch sử quyết toán. Không hoàn tác được.')}
         </>
       }
       onConfirm={async () => {

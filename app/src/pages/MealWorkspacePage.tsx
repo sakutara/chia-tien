@@ -123,7 +123,6 @@ export default function MealWorkspacePage({ mealId, onBack }: Props) {
                 creatingGroup={creatingGroup}
                 onCloseCreate={() => setCreatingGroup(false)}
               />
-              {archived && <p className="text-xs text-usd-green-700">{t('Bữa đã lưu trữ: không sửa được thành viên.')}</p>}
             </section>
           )}
 
@@ -135,7 +134,7 @@ export default function MealWorkspacePage({ mealId, onBack }: Props) {
               readOnly={archived}
               actionsSlot={
                 <>
-                  <ShareMealAction mealId={meal.id} />
+                  {!archived && <ShareMealAction mealId={meal.id} />}
                   <ArchiveMealAction mealId={meal.id} mealTitle={meal.title} readOnly={archived} />
                 </>
               }

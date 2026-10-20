@@ -151,7 +151,6 @@ export function buildArchivedPayload(input: {
 ```ts
 export interface ArchivePreview {
   invoiceCount: number;
-  itemCount: number;
   fileCount: number;
   totalFileBytes: number;
 }
@@ -167,7 +166,7 @@ export function archiveMeal(mealId: string, now?: Date): Promise<Meal>;
 
 | Component | Props chính | Hành vi |
 | :--- | :--- | :--- |
-| `ArchiveMealDialog` | `mealId: string`, `mealTitle: string`, `onClose: () => void`, `onArchived: () => void` | Tải `getArchivePreview(mealId)` và hiển thị trong `ConfirmDialog`: *"Lưu trữ bữa **{mealTitle}** sẽ khoá chỉnh sửa vĩnh viễn và xoá {invoiceCount} hoá đơn, {itemCount} chi tiết món cùng {fileCount} file ảnh ({formatBytes(totalFileBytes)}) để giải phóng bộ nhớ. Chỉ giữ lại chi phí từng kèo và lịch sử quyết toán."* |
+| `ArchiveMealDialog` | `mealId: string`, `mealTitle: string`, `onClose: () => void`, `onArchived: () => void` | Tải `getArchivePreview(mealId)` và hiển thị trong `ConfirmDialog`: *"Lưu trữ bữa **{mealTitle}** sẽ khoá chỉnh sửa vĩnh viễn và xoá {invoiceCount} hoá đơn cùng {fileCount} file ảnh ({formatBytes(totalFileBytes)}) để giải phóng bộ nhớ. Vẫn giữ lại chi phí từng kèo, các món và lịch sử quyết toán."* |
 
 ### B.7. Yêu cầu phi chức năng
 

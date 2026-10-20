@@ -276,7 +276,7 @@ export interface InvoiceFileRecord {
 
 ### 3.6. Snapshot Dữ liệu khi Bữa đã Lưu trữ (`ArchivedMealSummary`)
 
-Khi một Bữa chuyển sang trạng thái `ARCHIVED`, chi tiết món và hoá đơn bị xoá bỏ, nhưng người dùng vẫn xem lại được chi phí từng kèo và kết quả thanh toán của bữa đó:
+Khi một Bữa chuyển sang trạng thái `ARCHIVED`, hoá đơn và ảnh bị xoá bỏ (các món vẫn được giữ), và người dùng vẫn xem lại được chi phí từng kèo và kết quả thanh toán của bữa đó:
 
 ```typescript
 export interface ArchivedMealSummary {

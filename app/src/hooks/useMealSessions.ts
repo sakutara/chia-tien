@@ -13,6 +13,8 @@ export interface SessionView {
   session: SessionKeo
   /** Hoá đơn của kèo, cũ nhất trước. */
   invoices: InvoiceRow[]
+  /** Món còn lại sau khi lưu trữ (hoá đơn đã xoá, món được giữ); rỗng khi bữa còn hoạt động. */
+  keptItems: InvoiceItem[]
   /** Tổng chi của kèo; bữa đã lưu trữ dùng số đã chốt (BR-4.11). */
   total: number
   hasCost: boolean
@@ -34,6 +36,7 @@ export function useMealSessions(mealId: string): SessionView[] | undefined {
       itemsByInvoice.set(it.invoiceId, list)
     }
 
+    const invoiceIds = new Set(invoices.map((inv) => inv.id))
     return sessions
       .sort((a, b) => a.orderIndex - b.orderIndex)
       .map((session) => {
@@ -48,6 +51,9 @@ export function useMealSessions(mealId: string): SessionView[] | undefined {
         const archived = session.archivedTotalAmount
         return {
           session: localizeSession(session),
+          keptItems: items
+            .filter((it) => it.sessionId === session.id && !invoiceIds.has(it.invoiceId))
+            .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)),
           invoices: mine,
           total: archived ?? liveTotal,
           hasCost: archived !== undefined || mine.length > 0,

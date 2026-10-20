@@ -103,11 +103,36 @@ describe('MealWorkspacePage (BR-3.9, AC-9, AC-10)', () => {
     await step(/Người/)
     expect((screen.queryByRole('combobox') as HTMLInputElement | null)).toBeNull()
     expect(screen.queryByRole('button', { name: /Bỏ .* khỏi bữa/ })).toBeNull()
+    expect(screen.queryByText(/không sửa được|chỉ xem/i)).toBeNull()
 
     await userEvent.click(screen.getByRole('button', { name: 'Xoá bữa' }))
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Xoá bữa' }))
     await waitFor(() => expect(onBack).toHaveBeenCalled())
     expect(await db.meals.get(meal.id)).toBeUndefined()
+  })
+
+  it('bữa đã lưu trữ: giữ và hiện các món, không có nút chia sẻ thanh toán, không có thông báo khoá', async () => {
+    const meal = await createMeal({ title: 'Đã chốt', date: '2026-01-10' })
+    const now = '2026-01-10T00:00:00.000Z'
+    await db.sessions.add({ id: 's1', mealId: meal.id, name: 'Kèo 1', orderIndex: 0, participantIds: meal.participantIds, createdAt: now, archivedTotalAmount: 90_000, archivedPayerSummary: [] })
+    await db.items.add({
+      id: 'i1', mealId: meal.id, sessionId: 's1', invoiceId: 'gone', name: 'Lẩu bò', quantity: 1, unitPrice: 90_000, rawAmount: 90_000,
+      allocatedDiscountAmount: 0, allocatedServiceAmount: 0, allocatedVatAmount: 0, finalAmount: 90_000, consumers: [],
+    })
+    await db.meals.update(meal.id, {
+      status: 'ARCHIVED',
+      archivedSummary: { totalMealAmount: 90_000, sessionsSummary: [{ sessionId: 's1', sessionName: 'Kèo 1', totalAmount: 90_000, invoiceCount: 1 }], entitiesSummary: [], transfers: [] },
+    } as Partial<Meal>)
+    render(<MealWorkspacePage mealId={meal.id} onBack={() => {}} />)
+
+    await userEvent.click(await screen.findByRole('tab', { name: /Hoá đơn/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Mở Kèo 1$/ }))
+    expect(await screen.findByText(/Lẩu bò/)).toBeTruthy()
+
+    await step(/Chia tiền/)
+    expect(await screen.findByRole('region', { name: 'Quyết toán' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Chia sẻ thông báo thanh toán' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Lưu trữ bữa' })).toBeNull()
   })
 
   it('shows a clear message for a missing meal instead of a blank page (R-17)', async () => {
