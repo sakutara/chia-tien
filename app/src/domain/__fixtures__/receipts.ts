@@ -189,4 +189,63 @@ Thanh toán 105.000`,
       billTotal: 105_000,
     },
   },
+  {
+    // Ảnh chụp màn hình hoá đơn điện tử (PDF) có bảng kẻ ô: cột STT, đơn vị tính, đường kẻ "|", chữ ký số ở cuối,
+    // dòng "Đã giảm" (giảm thuế theo nghị quyết) là khoản giảm bằng số tiền chứ không phải VAT, mã số thuế không phải VAT.
+    name: 'hoá đơn điện tử dạng bảng, có cột STT/đơn vị tính, khoản "Đã giảm" và chữ ký số',
+    text: `HÓA ĐƠN BÁN HÀNG
+(BILL OF SALE)                                       Ký hiệu (Serinal):
+Bản thể hiện của hóa đơn điện tử                           2C26TTN
+— a                                              (Electronic invoice display)                                                  :
+= 77 —                              Ngày (date) Í 3 tháng (month) 10 năm (ear/2026                             số (voy: 0001075
+Mé của cơ quan thué:006B42C75C4B7647388FEDC3E225E99BBD
+Don vị bán hàng /Campam): \` NHÀ KHÁCH THANG LỢI
+Mã số thuế (Tax code): 1600852713
+Địa chỉ (Address) — Số 01 Lê Hồng Phong, Phường Long Xuyên, Tinh An Giang, Việt Nam
+Điện thoại (Tel): 02963852637 - Fax: - Website: nhakhachthangloi.vn
+Số tải khoản (Account No): 7010057388 Ngân hàng (Bunk): Ngân hàng đầu tư và phát triển Việt Nam
+BIDV - CN An Giang
+Họ tên người mua hàng (Customer's name):
+Tên đơn vị (Company’s name): CÔNG TY CO PHAN RAU QUÁ THỰC PHAM AN GIANG —
+Mã số thuế (Tax code): — 1600230014
+Mã QHNS:
+Địa chi (Address): Số 69-71-73 Nguyễn Huệ, Phường Long Xuyên, Tinh An Giang, Việt Nam
+Số tài khoản (Account No): Ngân hàng (Bank)
+Hình thức thanh toán:               Tiên mặt
+STT      Tén hàng hóa, dịch vụ       Don vị tính | Số lượng   Đơn giá     Thanh tiên
+(No)                        (Description)                             (Unio        (Quantity)        (Unit price)              (Amount)
+a)                                              2)                                                     3)                    (4)                         (5)                             (6=4x5)
+1 |Canh chua cá điêu hồng                                       Lau                       2              250.000                    500.000
+2 | Thịt kho trứng                                                 Dia                     2             280.000                   560.000
+3 | Cai ngọt xào thịt bò                                    Dia                  2           320.000                640.000
+4 | Trai cây                      Dia        2      71.187       142.374
+5 |Com tring                                                     Tho                     2               55.000                   110.000
+6 | Trứng chiên gia vị                 Dia        2      55.000       110.000
+Cộng tiền hàng hóa, dich vy (Total amount)              2.050.000
+Dã giảm 12.37400 tương img 20% mức ty ie % để tính thuê git trị gia tầng theo Nghị quyết số 204/2025QH15
+Số tiền viết bằng chil (Amount in words):          Hai triệu, không trăm năm mươi nghìn đồng.
+Người mua hàng                               Cơ quan thuế                                        Người bán hàng
+(Ký. ghi rd họ tên)                            (Ky, đóng dau)                                   (KY, ghi rd họ tên)
+Siguarury Vail                                 Sagnature Valud
+epreetbgert hs Ay ae Hh NOL VN       ky bok NHÀ KHACH THÁNPT AI
+Ký quà 11/10 2028 12106
+Tra cứu hóa đơn: https ://1600852713-tt78.vnpt-invoice.com.vn/
+Mã tra cứu hóa đơn: 169942001C26TTN1075244518
+Don vị cung cắp giải pháp hóa đơn điện tử: TRUNG TAM KINH DOANH VNPT AN GIANG MST: 0106869738-033, Điện thoại: 18001261
+=]`,
+    expected: {
+      invoiceDate: '2026-10-13',
+      vendorName: 'NHÀ KHÁCH THANG LỢI',
+      items: [
+        { name: 'Canh chua cá điêu hồng', quantity: 2, unitPrice: 250_000, rawAmount: 500_000, uncertain: false },
+        { name: 'Thịt kho trứng', quantity: 2, unitPrice: 280_000, rawAmount: 560_000, uncertain: false },
+        { name: 'Cai ngọt xào thịt bò', quantity: 2, unitPrice: 320_000, rawAmount: 640_000, uncertain: false },
+        { name: 'Trai cây', quantity: 2, unitPrice: 71_187, rawAmount: 142_374, uncertain: false },
+        { name: 'Com tring', quantity: 2, unitPrice: 55_000, rawAmount: 110_000, uncertain: false },
+        { name: 'Trứng chiên gia vị', quantity: 2, unitPrice: 55_000, rawAmount: 110_000, uncertain: false },
+      ],
+      discount: { mode: 'FIXED_AMOUNT', value: 12_374 },
+      billTotal: 2_050_000,
+    },
+  },
 ]

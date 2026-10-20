@@ -102,7 +102,7 @@ export async function runOcr(
       const { data } = await worker.recognize(prepared)
       texts.push(data.text)
     }
-    onProgress?.(100, 'Xong')
+    onProgress?.(100, t('Xong'))
     return texts
   } catch (err) {
     if (aborted()) throw cancelled()
