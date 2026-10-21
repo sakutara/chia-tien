@@ -31,6 +31,8 @@ export interface ReceiptCheck {
   receipt: ParsedReceipt
   /** Thông báo cho người dùng, mỗi dòng một ý. */
   notes: string[]
+  /** Dòng của bảng hàng hoá đếm được trên bill nhưng không đọc được: có thể thiếu món. */
+  missingRows?: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -413,8 +415,35 @@ function findBestAttempt(parsed: ParsedReceipt, rawText: string | undefined): At
   return best
 }
 
-/** Kiểm tra kết quả OCR của một bill; xem mô tả đầu tệp. `rawText` là văn bản OCR gốc, để thử dòng cuối làm tổng. */
+/**
+ * Kiểm tra kết quả OCR của một bill; xem mô tả đầu tệp. `rawText` là văn bản OCR gốc, để thử dòng cuối làm tổng.
+ * Ngoài ra đếm số dòng của bảng hàng hoá: bill đánh số N dòng mà đọc được ít hơn thì báo có thể thiếu món.
+ */
 export function validateReceipt(parsed: ParsedReceipt, rawText?: string): ReceiptCheck {
+  const check = validateTotals(parsed, rawText)
+  const rows = parsed.tableRows
+  if (!rows) return check
+  const missing = rows.unread
+  if (missing.length === 0 && rows.read >= rows.expected) {
+    return { ...check, notes: [t('Đã đếm: bill có {n} dòng hàng, đọc đủ {n} dòng.', { n: rows.expected }), ...check.notes] }
+  }
+  return {
+    ...check,
+    missingRows: missing,
+    notes: [
+      t('Bill có {expected} dòng hàng nhưng mới đọc được {read} dòng, có thể thiếu món. Các dòng chưa đọc được:', { expected: rows.expected, read: rows.read }),
+      ...missing,
+      ...check.notes,
+    ],
+  }
+}
+
+/** Kết quả đọc còn đáng ngờ (lệch tổng, không có tổng để đối chiếu, không có món, thiếu dòng): nên gợi ý đọc lại bằng AI. */
+export function needsBetterRead(check: Pick<ReceiptCheck, 'status' | 'receipt' | 'missingRows'>): boolean {
+  return check.status === 'MISMATCH' || check.status === 'UNVERIFIED' || check.receipt.items.length === 0 || (check.missingRows?.length ?? 0) > 0
+}
+
+function validateTotals(parsed: ParsedReceipt, rawText?: string): ReceiptCheck {
   const { billTotal, billSubtotal, items } = parsed
   const inconsistent = describeInconsistentRows(items)
 

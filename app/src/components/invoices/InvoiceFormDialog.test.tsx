@@ -77,4 +77,19 @@ describe('InvoiceFormDialog — giao diện gọn', () => {
     await userEvent.click(toggle)
     expect(screen.getByLabelText('VAT')).toBeTruthy()
   })
+
+  it('cài đặt AI: nhập khoá Gemini được lưu; nút đọc bằng AI tắt khi chưa có ảnh', async () => {
+    localStorage.clear()
+    const f = await fixture()
+    render(<InvoiceFormDialog session={f.session} participants={f.participants} defaultPayerId={f.host} onClose={() => {}} onSaved={() => {}} />)
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm hoá đơn' })
+    expect((within(dialog).getByRole('button', { name: 'Đọc bill bằng AI' }) as HTMLButtonElement).disabled).toBe(true)
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cài đặt AI (khoá Gemini)' }))
+    const settings = await screen.findByRole('dialog', { name: 'Đọc hoá đơn bằng AI (Gemini)' })
+    await userEvent.type(within(settings).getByLabelText('Khoá Gemini API'), 'abc123')
+    await userEvent.click(within(settings).getByRole('button', { name: 'Lưu cài đặt AI' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Đọc hoá đơn bằng AI (Gemini)' })).toBeNull())
+    expect(localStorage.getItem('fee-calculator.geminiApiKey')).toBe('abc123')
+  })
 })

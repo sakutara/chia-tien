@@ -236,6 +236,7 @@ Don vị cung cắp giải pháp hóa đơn điện tử: TRUNG TAM KINH DOANH V
     expected: {
       invoiceDate: '2026-10-13',
       vendorName: 'NHÀ KHÁCH THANG LỢI',
+      tableRows: { expected: 6, read: 6, unread: [] },
       items: [
         { name: 'Canh chua cá điêu hồng', quantity: 2, unitPrice: 250_000, rawAmount: 500_000, uncertain: false },
         { name: 'Thịt kho trứng', quantity: 2, unitPrice: 280_000, rawAmount: 560_000, uncertain: false },

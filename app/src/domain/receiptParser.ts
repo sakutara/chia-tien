@@ -1,6 +1,7 @@
 import { isValidYmd, isYmdInRange } from '../lib/dates'
 import { parseMoney } from '../lib/money'
 import { fold } from '../lib/textFold'
+import { t } from '../i18n'
 
 /*
  * Bộ phân tích văn bản OCR của hoá đơn (02 §3, BR-4.7, BR-4.14). Hàm thuần: văn bản vào, dữ liệu gợi ý ra.
@@ -32,6 +33,10 @@ export interface ParsedReceipt {
   billTotal?: number
   /** Dòng "Tổng tiền hàng" / "Tạm tính" ghi trên bill (trước giảm giá, phí, VAT), để đối chiếu tổng các món. */
   billSubtotal?: number
+  /** Đơn giá / thành tiền từng dòng đã gồm VAT (hoá đơn GTGT ghi cột "Thành tiền" sau thuế): không cộng VAT lần nữa. */
+  vatIncluded?: boolean
+  /** Đếm số dòng của bảng hàng hoá để phát hiện thiếu món: `expected` dòng đánh số trên bill, `read` dòng đọc được. */
+  tableRows?: { expected: number; read: number; unread: string[] }
 }
 
 const PERCENT_RE = /(\d{1,2}(?:[.,]\d)?)\s*%/g
@@ -61,7 +66,7 @@ const NOTE_RE = /chu ky|signature|ky boi|ky ngay|tra cuu|ma cua co quan|co quan 
 const REDUCTION_RE = /^\W*da giam\b|\bgiam\s+\d[\d.,]*\s+tuong ung/
 /** Dòng tổng của hoá đơn điện tử: "Cộng tiền hàng hoá, dịch vụ (Total amount) 2.050.000" là số phải trả, đã trừ khoản giảm bên dưới. */
 const TOTAL_AMOUNT_RE = /total amount/
-const UNIT_COLUMN_RE = /don vi tinh|\(unit\)/
+const UNIT_COLUMN_RE = /don vi tinh|\(unit\)|\bdvt\b/
 /** Đơn vị tính hay gặp (đã bỏ dấu, kể cả dạng OCR đọc hỏng) ở cột "Đơn vị tính" của hoá đơn điện tử. */
 const UNIT_WORDS = new Set(['lau', 'dia', 'di', 'die', 'tho', 'chai', 'ly', 'phan', 'to', 'cai', 'kg', 'bat', 'suat', 'lon', 'hop', 'goi', 'chiec', 'con', 'lit', 'thung', 'ket', 'cay', 'mieng', 'cuon', 'cu', 'qua'])
 /** Dòng "Đơn vị bán hàng (Company): TÊN" của hoá đơn điện tử: tên quán chính là phần sau dấu hai chấm. */
@@ -97,9 +102,13 @@ function fixDigitLookalikes(token: string): string {
 }
 
 /** Các số tiền (≥ 100 đồng) trên dòng, sau khi bỏ phần trăm. */
+/** "12.374,00" (hoá đơn điện tử ghi đồng kèm phần thập phân 00): bỏ phần thập phân để đọc ra 12.374. */
+function dropZeroDecimals(line: string): string {
+  return line.replace(/(\d{1,3}(?:[.,]\d{3})+)[.,]?00(?!\d)/g, '$1').replace(/(\d)[.,]00(?!\d)/g, '$1')
+}
+
 function moneyValues(line: string): number[] {
-  // "12.374,00" (hoá đơn điện tử ghi đồng kèm phần thập phân 00): bỏ phần thập phân để đọc ra 12.374.
-  const withoutPercent = line.replace(PERCENT_RE, ' ').replace(/(\d{1,3}(?:[.,]\d{3})+)[.,]?00(?!\d)/g, '$1').replace(/(\d)[.,]00(?!\d)/g, '$1')
+  const withoutPercent = dropZeroDecimals(line.replace(PERCENT_RE, ' '))
   const tokens = withoutPercent.match(MONEY_TOKEN_RE) ?? []
   return tokens
     .map((t) => parseMoney(t))
@@ -456,6 +465,183 @@ function parseItems(lines: string[], vendorName: string | undefined): ParsedItem
   return items
 }
 
+// ---------------------------------------------------------------------------
+// Bảng hàng hoá của hoá đơn GTGT (Grab, khách sạn, nhà hàng xuất hoá đơn đỏ)
+// ---------------------------------------------------------------------------
+
+const TABLE_HEAD_RE = /\bstt\b/
+const TABLE_HEAD_NAME_RE = /ten hang|ten dich vu|description|dien giai|noi dung/
+/** Dòng kết thúc bảng: tổng cộng, thuế, số tiền bằng chữ, chữ ký. */
+const TABLE_END_RE = /^\W*(?:tong\b|cong tien|so tien viet bang chu|thue suat|nguoi mua|nguoi ban)|\btotal\b|amount in words/
+/** Tên dòng là khoản giảm trừ: chiết khấu, giảm giá, khuyến mại. */
+const TABLE_DISCOUNT_RE = /chiet khau|giam gia|khuyen mai|discount|\bgiam\b/
+/** Mã chuyến / mã đơn đứng riêng một dòng (xuống dòng của tên hàng): "9TCF6T2GW6FDAV". */
+const CODE_LINE_RE = /^[A-Z0-9][A-Z0-9-]{7,}$/
+const STT_ROW_RE = /^[|_\s]*(\d{1,3})(?:\s*[|.)]+\s*|\s+)(.*)$/u
+const MIN_TABLE_AMOUNT = 100
+/** Cột thuế suất ghi chữ thay vì số: "KCT", "KKKNT". */
+const TAX_WORD_TOKEN_RE = /^(?:kct|kkknt|ko|\d+%)$/i
+
+interface TableRow {
+  quantity: number
+  unitPrice: number
+  amount: number
+  /** Giá trị cột "Thành tiền" đã gồm thuế (có cột tiền thuế = thành tiền − trước thuế). */
+  inclusive: boolean
+  uncertain: boolean
+  /** Phần chữ của dòng (tên hàng và đơn vị tính, chưa tách). */
+  text: string
+  negative: boolean
+}
+
+/** (SL, đơn giá, thành tiền) thoả SL × đơn giá = thành tiền; thành tiền xét từ trái sang phải để lấy cột "trước thuế" trước cột "sau thuế". */
+function findTriple(values: number[]): { iq: number; iu: number; ia: number } | null {
+  for (let ia = 2; ia < values.length; ia++) {
+    if (values[ia] < MIN_TABLE_AMOUNT) continue
+    for (let iu = 1; iu < ia; iu++) {
+      for (let iq = 0; iq < iu; iq++) {
+        const q = values[iq]
+        if (Number.isInteger(q) && q >= 1 && q <= 999 && q * values[iu] === values[ia]) return { iq, iu, ia }
+      }
+    }
+  }
+  return null
+}
+
+function parseTableRow(rest: string): TableRow | null {
+  let text = dropZeroDecimals(rest)
+  const negative = /(?:^|\s)[-–−]\s?\d[\d.,]*(?:\s*[₫đ])?\s*$/.test(text) || /\(\s*\d[\d.,]*\s*\)\s*$/.test(text)
+  text = text.replace(PERCENT_RE, ' ').replace(/(^|\s)[-–−]\s?(?=\d)/g, '$1').replace(/[()]/g, ' ').replace(/(?<=\d)[₫đ]|(?<=\s)[₫đ](?=\s|$)/g, ' ')
+  const tokens = mergeThousandGroups(text.split(/\s+/).filter(Boolean))
+  let end = tokens.length
+  const numbers: string[] = []
+  while (end > 0) {
+    const token = tokens[end - 1]
+    if (NUMBER_TOKEN_RE.test(token)) numbers.unshift(token)
+    else if (!(TAX_WORD_TOKEN_RE.test(token) || PUNCT_ONLY_RE.test(token))) break
+    end--
+  }
+  if (numbers.length === 0) return null
+  const values = numbers.map((n) => parseMoney(n))
+  if (values.some((v) => v === null)) return null
+  const vals = values as number[]
+  const head = tokens.slice(0, end)
+
+  const triple = findTriple(vals)
+  if (triple) {
+    const { iq, iu, ia } = triple
+    const after = vals.slice(ia + 1)
+    const gross = after[after.length - 1]
+    const taxIndex = after.findIndex((v, i) => i < after.length - 1 && vals[ia] + v === gross)
+    const inclusive = gross !== undefined && taxIndex >= 0
+    const quantity = vals[iq]
+    const amount = inclusive ? gross : vals[ia]
+    const exact = amount % quantity === 0
+    return {
+      quantity,
+      unitPrice: exact ? amount / quantity : vals[iu],
+      amount,
+      inclusive,
+      uncertain: !exact,
+      text: [...head, ...numbers.slice(0, iq)].join(' '),
+      negative,
+    }
+  }
+
+  const tail = interpretTail(numbers)
+  if (!tail) return null
+  return { quantity: tail.quantity, unitPrice: tail.unitPrice, amount: tail.amount, inclusive: false, uncertain: true, text: [...head, ...tail.extra].join(' '), negative }
+}
+
+export interface TableParse {
+  items: ParsedItem[]
+  /** Tổng các dòng giảm trừ (chiết khấu, giảm giá) trong bảng. */
+  discount: number
+  vatIncluded: boolean
+  /** Chỉ số các dòng đã dùng (dòng món và dòng tên xuống dòng) để các bước khác không đọc lại. */
+  consumed: Set<number>
+  rows: { expected: number; read: number; unread: string[] }
+}
+
+/** Bỏ mã chuyến / mã đơn dính sau tên ("Cước phí vận chuyển mã A-") rồi làm sạch. */
+function tableItemName(raw: string): string | undefined {
+  const stripped = raw.replace(/\s+m[aã]\s+[A-Za-z0-9]{0,3}-?\s*$/iu, '').replace(/\s+[-–]\s*$/, '')
+  return cleanItemName(stripped)
+}
+
+/**
+ * Đọc bảng hàng hoá có cột STT: mỗi dòng số thứ tự là một món. Tên hàng có thể xuống dòng trước hoặc sau dòng số
+ * (bố cục Grab), cột "Đơn vị tính" nằm giữa tên và số lượng. Dòng đánh số bị bỏ sót được đếm lại (`rows`) để cảnh báo thiếu món.
+ * Trả `null` khi bill không có bảng như vậy (bill quán ăn thường).
+ */
+export function parseVatTable(lines: string[]): TableParse | null {
+  const head = lines.findIndex((l, i) => hit(TABLE_HEAD_RE, l) && lines.slice(i, i + 3).some((x) => hit(TABLE_HEAD_NAME_RE, x)))
+  if (head < 0) return null
+  const unitCol = lines.some((l) => hit(UNIT_COLUMN_RE, l))
+
+  const items: ParsedItem[] = []
+  const consumed = new Set<number>()
+  const unread: string[] = []
+  let discount = 0
+  let vatIncluded = false
+  let expected = 0
+  let read = 0
+  let pending: Array<{ index: number; text: string }> = []
+
+  for (let i = head + 1; i < lines.length; i++) {
+    const line = lines[i]
+    if (read + unread.length > 0 && hit(TABLE_END_RE, line)) break
+    const stt = hit(COLUMN_INDEX_RE, line) ? null : STT_ROW_RE.exec(line)
+    const sttNumber = stt ? Number(stt[1]) : 0
+    // Cho phép nhảy tối đa 2 số (một dòng đánh số bị OCR đọc hỏng) thay vì mất hết các dòng sau nó.
+    let row = stt !== null && sttNumber > expected && sttNumber <= expected + 3 ? parseTableRow(stt[2]) : null
+    // Dòng đánh số cột ("1 2 3 4 5") không có chữ và không có số tiền thật: không phải một dòng hàng.
+    if (stt && !/\p{L}/u.test(stt[2]) && pending.length === 0 && (!row || row.amount < 1000)) row = null
+    const isRowNumber = stt !== null && sttNumber > expected && sttNumber <= expected + 3 && (row !== null || /\p{L}/u.test(stt[2]) || pending.length > 0)
+
+    if (!isRowNumber) {
+      // Dòng không có STT: tên xuống dòng (trước dòng số), mã chuyến (sau dòng số), hoặc rác.
+      if (hit(HEADER_RE, line) || hit(NOTE_RE, line) || hit(ADDRESS_RE, line) || hit(COLUMN_INDEX_RE, line)) pending = []
+      else if (CODE_LINE_RE.test(line) && /\d/.test(line)) consumed.add(i)
+      // Dòng có ngoặc đóng thừa ("VAT)") là phần cuối của tiêu đề cột bị xuống dòng, không phải tên hàng.
+      else if (isNameOnly(line) && !line.startsWith('(') && !/:\s*\S/.test(line) && (line.match(/\)/g) ?? []).length <= (line.match(/\(/g) ?? []).length) pending.push({ index: i, text: line })
+      continue
+    }
+
+    for (let missing = expected + 1; missing < sttNumber; missing++) unread.push(t('STT {n}: không đọc được dòng này', { n: missing }))
+    expected = sttNumber
+    if (!row || row.amount < MIN_TABLE_AMOUNT) {
+      unread.push(t('STT {n}: {text}', { n: sttNumber, text: stt[2] }))
+      pending = []
+      continue
+    }
+
+    const segment = row.text.split(/\s+/).filter(Boolean)
+    const prefix = pending.slice(-2).map((p) => p.text).join(' ')
+    // Có tên xuống dòng phía trên thì phần chữ trên dòng số chỉ là đơn vị tính ("Chuyến"); không thì tên nằm trên dòng số.
+    const ownTokens = prefix !== '' && segment.length <= 2 ? [] : unitCol && segment.length >= 2 ? segment.slice(0, -1) : segment
+    const name = tableItemName([prefix, ...ownTokens].filter((x) => x !== '').join(' '))
+    pending.forEach((p) => consumed.add(p.index))
+    consumed.add(i)
+    pending = []
+    if (!name) {
+      unread.push(t('STT {n}: {text}', { n: sttNumber, text: stt[2] }))
+      continue
+    }
+
+    read++
+    if (row.inclusive) vatIncluded = true
+    if (row.negative || TABLE_DISCOUNT_RE.test(fold(name))) {
+      discount += row.amount
+      continue
+    }
+    items.push({ name, quantity: row.quantity, unitPrice: row.unitPrice, rawAmount: row.amount, uncertain: row.uncertain })
+  }
+
+  if (expected === 0) return null
+  return { items, discount, vatIncluded, consumed, rows: { expected, read, unread } }
+}
+
 /**
  * Bỏ "món" thực ra là dòng tổng bị đọc lệch chữ ("Tông Cộng", "Téng tiền"): số tiền bằng đúng tổng hoặc tiền hàng ghi
  * trên bill trong khi còn món khác. Một món duy nhất bằng tổng bill thì giữ (bill chỉ có một món).
@@ -484,6 +670,21 @@ export function trailingAmounts(rawText: string, count: number): number[] {
   return out
 }
 
+const PRETAX_RE = /truoc thue|chua thue|chua co thue|chua gom thue|exc\.? ?vat|excl|before tax/
+/** Dòng tổng đã gồm thuế: "Tổng cộng số tiền đã có thuế GTGT", "Tổng thanh toán (đã gồm VAT)". */
+const TAX_INCLUDED_TOTAL_RE = /(?:da|gom|bao gom|co) (?:co |gom )?(?:thue|vat|gtgt)|vat included|tax included|incl\.? ?vat/
+/** Dòng chỉ có số tiền (nhãn song ngữ xuống dòng: "Tổng cộng ...:" rồi "60.000" ở dòng sau). */
+const MONEY_ONLY_RE = /^\d[\d.,]*\s*(?:[₫đ]|vnd)?$/i
+
+/** Số tiền của dòng; nhãn không có số thì lấy dòng ngay sau nếu dòng đó chỉ có số tiền. */
+function totalValue(lines: string[], index: number): number | undefined {
+  const values = moneyValues(lines[index])
+  if (values.length > 0) return values[values.length - 1]
+  const next = lines[index + 1]
+  if (next !== undefined && MONEY_ONLY_RE.test(next)) return moneyValues(next)[0]
+  return undefined
+}
+
 /** Phân tích văn bản OCR của một hoá đơn. Không ném lỗi: thứ không đọc được thì bỏ trống. */
 export function parseReceipt(rawText: string): ParsedReceipt {
   const lines = rawText
@@ -492,20 +693,37 @@ export function parseReceipt(rawText: string): ParsedReceipt {
     .filter((line) => line.length > 0)
 
   const vendorName = findVendor(lines)
-  const result: ParsedReceipt = { items: parseItems(lines, vendorName) }
+  const table = parseVatTable(lines)
+  const useTable = table !== null && (table.items.length > 0 || table.rows.unread.length > 0)
+  const result: ParsedReceipt = { items: useTable ? table.items : parseItems(lines, vendorName) }
+  if (useTable) {
+    result.tableRows = table.rows
+    if (table.discount > 0) result.discount = { mode: 'FIXED_AMOUNT', value: table.discount }
+    if (table.vatIncluded) result.vatIncluded = true
+  }
 
   const invoiceDate = findDate(lines)
   if (invoiceDate) result.invoiceDate = invoiceDate
 
   if (vendorName) result.vendorName = vendorName
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (useTable && table.consumed.has(i)) continue
     if (hit(REDUCTION_RE, line)) {
       const values = moneyValues(line)
       if (values.length > 0) result.discount = { mode: 'FIXED_AMOUNT', value: values[0] }
     } else if (hit(TOTAL_AMOUNT_RE, line)) {
       const values = moneyValues(line)
       if (values.length > 0) result.billTotal = values[values.length - 1]
+    } else if (hit(PRETAX_RE, line) && (hit(TOTAL_RE, line) || hit(VAT_RE, line) || hit(SUBTOTAL_RE, line))) {
+      // "Tổng cộng tiền chưa thuế 55.555  Tiền thuế GTGT 4.445": tiền hàng trước thuế, không phải tổng thanh toán.
+      const values = moneyValues(line)
+      if (values.length > 0 && result.billSubtotal === undefined) result.billSubtotal = values[0]
+      if (values.length > 1 && hit(VAT_RE, line)) result.vat = { mode: 'FIXED_AMOUNT', value: values[values.length - 1] }
+    } else if (hit(TAX_INCLUDED_TOTAL_RE, line) && hit(/tong|total|thanh toan/, line)) {
+      const value = totalValue(lines, i)
+      if (value !== undefined) result.billTotal = value
     } else if (hit(VAT_RE, line)) {
       if (hit(TAX_ID_RE, line)) continue
       const adj = adjustmentOf(line)
@@ -517,12 +735,18 @@ export function parseReceipt(rawText: string): ParsedReceipt {
       const adj = adjustmentOf(line)
       if (adj) result.discount = adj
     } else if (isTotalLine(line)) {
-      const values = moneyValues(line)
-      if (values.length > 0) result.billTotal = values[values.length - 1]
+      const value = totalValue(lines, i)
+      if (value !== undefined) result.billTotal = value
     } else if (hit(SUBTOTAL_RE, line)) {
       const values = moneyValues(line)
       if (values.length > 0) result.billSubtotal = values[values.length - 1]
     }
+  }
+
+  // Giá từng dòng đã gồm thuế: VAT ghi ở chân bill là phần nằm sẵn trong giá, không cộng thêm; tiền hàng trước thuế cũng không dùng để so.
+  if (result.vatIncluded) {
+    delete result.vat
+    delete result.billSubtotal
   }
 
   result.items = dropTotalRows(result.items, result.billTotal, result.billSubtotal)
