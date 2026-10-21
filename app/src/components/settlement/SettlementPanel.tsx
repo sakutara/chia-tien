@@ -1,12 +1,13 @@
 import { Check } from 'lucide-react'
 import { useState } from 'react'
+import { useMealPaymentSlides } from '../../hooks/useMealPaymentSlides'
 import { useMealSettlement } from '../../hooks/useMealSettlement'
 import { formatMoney } from '../../lib/money'
 import { setSettlementMode, setTransfersPaid, toggleTransferPaid } from '../../services/settlementService'
 import { PeopleError } from '../../services/peopleErrors'
 import type { Meal, SettlementMode } from '../../types'
 import Collapse from '../ui/Collapse'
-import Switch from '../ui/Switch'
+import ToggleButton from '../ui/ToggleButton'
 import EntityGroupList from './EntityGroupList'
 import TransferInstructionList from './TransferInstructionList'
 import { t } from '../../i18n'
@@ -27,6 +28,7 @@ const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : 
  */
 export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) {
   const result = useMealSettlement(meal.id)
+  const slides = useMealPaymentSlides(meal.id)
   const [error, setError] = useState<string | null>(null)
 
   if (!result) {
@@ -60,8 +62,9 @@ export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) 
         <p className="text-sm text-usd-green-700">{t('Chưa có chi phí để quyết toán. Hãy thêm hoá đơn ở bước 3.')}</p>
       ) : (
         <>
-          <Switch
+          <ToggleButton
             label={t('Nhờ chủ trì thu chi ({name})', { name: hostName })}
+            uncheckedLabel={t('Mỗi người tự chuyển trực tiếp')}
             checked={result.settlementMode === 'HOST_MEDIATED'}
             disabled={readOnly}
             onChange={(on) => changeMode(on ? 'HOST_MEDIATED' : 'SELF_SETTLEMENT')}
@@ -92,6 +95,7 @@ export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) 
               </span>
             }
             actions={actionsSlot}
+            slides={slides}
           />
 
           <Collapse title={t('Chi tiết quyết toán')} label={t('Chi tiết quyết toán')}>

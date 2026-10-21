@@ -78,12 +78,12 @@ describe('InvoiceFormDialog — giao diện gọn', () => {
     expect(screen.getByLabelText('VAT')).toBeTruthy()
   })
 
-  it('cài đặt AI: nhập khoá Gemini được lưu; nút đọc bằng AI tắt khi chưa có ảnh', async () => {
+  it('cài đặt AI: nhập khoá Gemini được lưu; nút đọc bằng AI luôn dùng được (chưa có ảnh thì hỏi chụp hay tải)', async () => {
     localStorage.clear()
     const f = await fixture()
     render(<InvoiceFormDialog session={f.session} participants={f.participants} defaultPayerId={f.host} onClose={() => {}} onSaved={() => {}} />)
     const dialog = await screen.findByRole('dialog', { name: 'Thêm hoá đơn' })
-    expect((within(dialog).getByRole('button', { name: 'Đọc bill bằng AI' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((within(dialog).getByRole('button', { name: 'Đọc bill bằng AI' }) as HTMLButtonElement).disabled).toBe(false)
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cài đặt AI (khoá Gemini)' }))
     const settings = await screen.findByRole('dialog', { name: 'Đọc hoá đơn bằng AI (Gemini)' })
@@ -91,5 +91,17 @@ describe('InvoiceFormDialog — giao diện gọn', () => {
     await userEvent.click(within(settings).getByRole('button', { name: 'Lưu cài đặt AI' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Đọc hoá đơn bằng AI (Gemini)' })).toBeNull())
     expect(localStorage.getItem('fee-calculator.geminiApiKey')).toBe('abc123')
+  })
+
+  it('bấm Đọc bill bằng AI khi chưa có ảnh thì hỏi chụp hay tải ảnh', async () => {
+    localStorage.setItem('fee-calculator.geminiApiKey', 'abc123')
+    const f = await fixture()
+    render(<InvoiceFormDialog session={f.session} participants={f.participants} defaultPayerId={f.host} onClose={() => {}} onSaved={() => {}} />)
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm hoá đơn' })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Đọc bill bằng AI' }))
+    const choice = await screen.findByRole('dialog', { name: 'Chọn cách thêm ảnh bill' })
+    expect(within(choice).getByRole('button', { name: 'Chụp ảnh' })).toBeTruthy()
+    expect(within(choice).getByRole('button', { name: 'Tải ảnh hoặc PDF lên' })).toBeTruthy()
+    localStorage.clear()
   })
 })

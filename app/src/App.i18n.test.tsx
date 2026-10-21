@@ -43,14 +43,14 @@ describe('Song ngữ (Epic 9)', () => {
     expect(await screen.findByRole('heading', { name: 'Chia tiền', level: 1 })).toBeTruthy()
     expect(await screen.findByRole('heading', { name: 'Bữa ăn' })).toBeTruthy()
 
-    await userEvent.click(screen.getByRole('switch', { name: /Ngôn ngữ|Language/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'EN' }))
     expect(screen.getByRole('heading', { name: 'Split Bill', level: 1 })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Meals' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'My profile' })).toBeTruthy()
     expect(document.documentElement.lang).toBe('en')
     expect(document.title).toBe('Split Bill')
 
-    await userEvent.click(screen.getByRole('switch'))
+    await userEvent.click(screen.getByRole('button', { name: 'VI' }))
     expect(screen.getByRole('heading', { name: 'Chia tiền', level: 1 })).toBeTruthy()
   })
 
@@ -60,7 +60,7 @@ describe('Song ngữ (Epic 9)', () => {
     expect(await screen.findByRole('listitem', { name: 'Thanh toán Bình cho An' })).toBeTruthy()
     expect(screen.getByRole('status', { name: 'Chế độ xem Snapshot' })).toBeTruthy()
 
-    await userEvent.click(screen.getByRole('switch'))
+    await userEvent.click(screen.getByRole('button', { name: 'EN' }))
     expect(screen.getByRole('listitem', { name: 'Payment Bình to An' })).toBeTruthy()
     expect(screen.getByRole('status', { name: 'Snapshot view' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Back to my app home' })).toBeTruthy()

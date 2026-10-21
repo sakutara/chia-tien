@@ -101,6 +101,41 @@ function encodeJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | 
   return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality))
 }
 
+/** Dung lượng mục tiêu của ảnh hoá đơn đã lưu (~1 MB). */
+export const TARGET_IMAGE_BYTES = 1_000_000
+/** Cạnh dài nhỏ nhất khi phải thu nhỏ thêm để đạt dung lượng mục tiêu: dưới mức này chữ nhỏ trên bill khó đọc. */
+const MIN_LONG_EDGE_FOR_TARGET = 1400
+const JPEG_QUALITY_STEPS = [0.85, 0.75, 0.65, 0.55]
+
+/**
+ * Mã hoá canvas thành JPEG không vượt `maxBytes`: hạ chất lượng dần, vẫn quá thì thu nhỏ canvas (giữ cạnh dài ≥ 1400 px).
+ * Hết cách thì trả bản nhỏ nhất đã thử. Canvas truyền vào có thể bị đổi kích thước.
+ */
+export async function encodeJpegWithin(canvas: HTMLCanvasElement, maxBytes: number = TARGET_IMAGE_BYTES): Promise<Blob | null> {
+  let smallest: Blob | null = null
+  for (;;) {
+    for (const quality of JPEG_QUALITY_STEPS) {
+      const blob = await encodeJpeg(canvas, quality)
+      if (!blob) return smallest
+      if (blob.size <= maxBytes) return blob
+      if (!smallest || blob.size < smallest.size) smallest = blob
+    }
+    const longEdge = Math.max(canvas.width, canvas.height)
+    const nextEdge = Math.round(longEdge * 0.8)
+    if (nextEdge < MIN_LONG_EDGE_FOR_TARGET) return smallest
+    const copy = document.createElement('canvas')
+    copy.width = Math.round(canvas.width * 0.8)
+    copy.height = Math.round(canvas.height * 0.8)
+    const ctx = copy.getContext('2d')
+    if (!ctx) return smallest
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(canvas, 0, 0, copy.width, copy.height)
+    canvas.width = copy.width
+    canvas.height = copy.height
+    canvas.getContext('2d')?.drawImage(copy, 0, 0)
+  }
+}
+
 export async function compressImage(file: File, preset: CompressionPreset): Promise<CompressResult> {
   const bitmap = await decodeBounded(file)
   try {
@@ -121,7 +156,8 @@ export async function compressImage(file: File, preset: CompressionPreset): Prom
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
 
-    const blob = await encodeJpeg(canvas, plan.quality)
+    let blob = await encodeJpeg(canvas, plan.quality)
+    if (blob && blob.size > TARGET_IMAGE_BYTES) blob = (await encodeJpegWithin(canvas)) ?? blob
     if (!blob || blob.size >= file.size) return keep()
 
     const name = file.name.replace(/\.[^.]+$/, '') + '.jpg'

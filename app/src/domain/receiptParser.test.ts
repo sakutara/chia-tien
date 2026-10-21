@@ -160,3 +160,61 @@ describe('parseReceipt — hoá đơn điện tử dạng bảng', () => {
     expect(parseReceipt('HÓA ĐƠN BÁN HÀNG\nĐơn vị bán hàng (Con       NHÀ KHACH THANG LỢI\nMã số thuế: 1600852713').vendorName).toBe('NHÀ KHACH THANG LỢI')
   })
 })
+
+describe('bill tính riêng đồ uống và đồ ăn', () => {
+  it('giữ hai dòng tổng nhóm làm hai món và không nhầm với tổng bill', () => {
+    const r = parseReceipt(['Quán ABC', 'Tổng giá đồ uống: 120.000', 'Tổng giá đồ ăn: 300.000', 'Tổng cộng 420.000'].join('\n'))
+    expect(r.items.map((i) => [i.name, i.rawAmount])).toEqual([
+      ['Tổng đồ uống', 120000],
+      ['Tổng đồ ăn', 300000],
+    ])
+    expect(r.billTotal).toBe(420000)
+  })
+
+  it('bill liệt kê món lẻ khớp tổng nhóm thì giữ món lẻ, không tính trùng', () => {
+    const r = parseReceipt(['Cà phê 2 x 30.000 = 60.000', 'Phở bò 1 x 60.000 = 60.000', 'Tổng đồ uống 60.000', 'Tổng đồ ăn 60.000', 'Tổng cộng 120.000'].join('\n'))
+    expect(r.items.map((i) => i.name)).toEqual(['Cà phê', 'Phở bò'])
+  })
+})
+
+describe('bill nhóm Food / Drink', () => {
+  it('nhận tiêu đề tiếng Anh, "Soft drink" là món thường không phải nhóm', () => {
+    const r = parseReceipt(['Drink 120.000đ', 'Food 300.000đ', 'Tổng cộng 420.000đ'].join('\n'))
+    expect(r.items.map((i) => [i.name, i.rawAmount])).toEqual([['Tổng đồ uống', 120000], ['Tổng đồ ăn', 300000]])
+    const soft = parseReceipt('Soft drink 2 x 20.000 = 40.000')
+    expect(soft.items.map((i) => i.name)).toEqual(['Soft drink'])
+  })
+})
+
+describe('đơn từ app giao đồ ăn (ảnh chụp màn hình)', () => {
+  const OCR = [
+    '8:34 0 @@ 4 ta ull ull É 531%',
+    '<— Chi tiết đơn hang @)',
+    'Tom tat don hang',
+    '-. 1x Cà phê sữa 25.000đ',
+    '© Ghi chú: Thảo',
+    '-. 1x Cà phê sữa 33.000đ',
+    'Size L',
+    '© Ghi chú: Ít sữa - Tuyển',
+    'là. 1x Sữa tươi cà phê 26.000đ',
+    'Pi 1x Cacao sữa kem muối 35.000đ',
+    '© Ghi chú: C.Trâm',
+    'Thu gọn',
+    'Phí giao hàng (2.5 km) 16.000đ',
+    'Phí áp dụng @ 3.000đ',
+    'Giảm giá -35.910đ',
+    '172.090đ',
+  ].join('\n')
+
+  it('đọc món có hậu tố đ và tiền tố "1x", bỏ ghi chú/size, gộp phí giao hàng vào phí', () => {
+    const r = parseReceipt(OCR)
+    expect(r.items.map((i) => [i.name, i.quantity, i.rawAmount])).toEqual([
+      ['Cà phê sữa', 1, 25000],
+      ['Cà phê sữa', 1, 33000],
+      ['Sữa tươi cà phê', 1, 26000],
+      ['Cacao sữa kem muối', 1, 35000],
+    ])
+    expect(r.service).toEqual({ mode: 'FIXED_AMOUNT', value: 19000 })
+    expect(r.discount).toEqual({ mode: 'FIXED_AMOUNT', value: 35910 })
+  })
+})

@@ -61,7 +61,9 @@ Rules:
 5. VAT: if row amounts already include VAT (the grand total equals the sum of rows minus discounts), set "vatIncludedInPrices" true and "vatAmount" null. If VAT is added on top at the bottom of the invoice, put it in "vatAmount".
 6. "total" is the final amount payable as printed. "subtotal" is the pre-discount goods total if printed.
 7. CHECK YOUR WORK before answering: sum(items.amount) - discountAmount + serviceAmount + vatAmount must equal "total". If it does not, re-read the image, fix the misread number, and mention any remaining difference in "notes".
-8. Use the OCR hints only as a guide for where the text is; the image is the truth. Do not invent rows or numbers that are not on the invoice. invoiceDate is YYYY-MM-DD (the invoice issue date), or null.`
+8. Use the OCR hints only as a guide for where the text is; the image is the truth. Do not invent rows or numbers that are not on the invoice.
+9. If the bill charges drinks and food separately and shows only a total line for each group (titled "Food" / "Drink" most often, or "Đồ ăn" / "Đồ uống", possibly with "Tổng"/"Total"), return exactly those two lines as items (quantity 1, name "Tổng đồ uống" / "Tổng đồ ăn", amount = the group total), even though they are not dishes. If the individual dishes are listed too, list the dishes only.
+10. invoiceDate is YYYY-MM-DD (the invoice issue date), or null.`
 
 /** Gợi ý OCR gửi kèm ảnh. */
 export interface AiHints {

@@ -47,15 +47,22 @@ const VAT_RE = /\b(vat|gtgt|thue)\b/
 const TAX_ID_RE = /ma so thue|\bmst\b|tax code|tax id|co quan thue/
 const SERVICE_RE = /phi phuc vu|phuc vu|phi dv|service/
 const DISCOUNT_RE = /giam gia|chiet khau|khuyen mai|discount|\bck\b/
+/** Phí giao hàng và các phụ phí của app giao đồ ăn (không phải món): cộng dồn vào phí phục vụ. */
+const EXTRA_FEE_RE = /phi giao hang|phi van chuyen|phi ap dung|phi nen tang|phi ship|delivery fee|shipping/
+/** Dòng ghi chú / tuỳ chọn của một món trên đơn app ("Ghi chú: Ít đá", "Size L"): không phải tên món, cũng không ghép vào tên món sau. */
+const ITEM_NOTE_RE = /^\W*(?:ghi chu|note)\b|^\W*size\b/
+/** Số lượng đứng trước tên món: "1x Cà phê sữa". */
+/** Cho phép tối đa hai token rác ngắn đứng trước (ảnh món bị OCR đọc thành "là.", "Pi"). */
+const LEADING_QTY_RE = /^(?:\S{1,3}\s+){0,2}?\W*(\d{1,2})\s*[xX×]\s+(?=\p{L})/u
 const TOTAL_RE = /tong cong|tong thanh toan|tong tien|can thanh toan|thanh toan|total/
 /** Dòng tiền hàng / tạm tính: tổng các món, chưa gồm giảm giá, phí phục vụ, VAT. */
-const SUBTOTAL_RE = /tien hang|tong tam tinh|tam tinh|sub ?total|cong tien/
+const SUBTOTAL_RE = /tong \(\d+ mon\)|tien hang|tong tam tinh|tam tinh|sub ?total|cong tien/
 const TOTAL_EXCLUDE_RE = /tien hang|tam tinh|tien mat|tien thua|tien thoi|\bthe\b|card|cash/
 
 /** Dòng địa chỉ, điện thoại, mã số thuế: không phải tên quán cũng không phải món. */
 const ADDRESS_RE = /^\W*dc\b|d\/c|dia chi|sdt|\btel\b|hotline|phone|\bmst\b|ma so|website|www\./
 /** Tiêu đề và chân trang của bill. */
-const HEADER_RE = /hoa don|phieu|receipt|ten mon|ten hang|don gia|thanh tien|^sl\b|\bban\b|table|cam on|hen gap|thank|nhan vien|thu ngan|gio vao|gio ra|gio in|\bin:|\bstt\b|description|quantity|unit price|\bamount\b|bill of sale|ky hieu|serial|so\s*\(no|\(\d\s*=\s*\d\s*x\s*\d\)/
+const HEADER_RE = /tom tat don|chi tiet don hang|hoa don|phieu|receipt|ten mon|ten hang|don gia|thanh tien|^sl\b|\bban\b|table|cam on|hen gap|thank|nhan vien|thu ngan|gio vao|gio ra|gio in|\bin:|\bstt\b|description|quantity|unit price|\bamount\b|bill of sale|ky hieu|serial|so\s*\(no|\(\d\s*=\s*\d\s*x\s*\d\)/
 /** Dòng đánh số cột của bảng hoá đơn điện tử: "(1) (2) (3) (4) (5) (6=4x5)" (OCR hay đọc hỏng ngoặc: "a) 2) t3)"). */
 const COLUMN_INDEX_RE = /6\s*=\s*4\s*x\s*5|^(?:\W{0,2}\w{1,2}\)\s*){3,}/
 const FOOTER_RE = /^\W*t[oe0]ng\b|\bsub ?total\b|\bgrand\b|tong|tam tinh|tien mat|tien thua|tien thoi|thanh toan|tien hang|\bthe\b|card|cash|change/
@@ -85,6 +92,8 @@ function hit(re: RegExp, line: string): boolean {
 /** Chuẩn hoá một dòng OCR: sửa lỗi O/l thành số ở chỗ dính với chữ số, gọn khoảng trắng. */
 function normalizeLine(raw: string): string {
   return raw
+    // Đơn vị tiền dính sau số: 25.000đ, 25,000₫, 25.000 VND.
+    .replace(/(\d)\s*(?:đ|₫|vnđ|vnd)(?![\p{L}\d])/giu, '$1')
     .replace(/(?<=\d)[Oo]|[Oo](?=\d)/g, '0')
     .replace(/(^|\s)[lI|](?=\d)/g, (_match, space: string) => `${space}1`)
     // OCR đọc dấu phân cách nghìn thành "/" hoặc dấu nháy: 85/000, 49'000.
@@ -132,7 +141,7 @@ function adjustmentOf(line: string): ParsedAdjustment | undefined {
 }
 
 function isAdjustmentLine(line: string): boolean {
-  return (hit(VAT_RE, line) && !hit(TAX_ID_RE, line)) || hit(SERVICE_RE, line) || hit(DISCOUNT_RE, line)
+  return (hit(VAT_RE, line) && !hit(TAX_ID_RE, line)) || hit(SERVICE_RE, line) || hit(DISCOUNT_RE, line) || hit(EXTRA_FEE_RE, line)
 }
 
 /** Dòng có ngày (dd/mm/yyyy hoặc "Ngày d tháng m năm yyyy") không phải món. */
@@ -416,7 +425,7 @@ function parseItems(lines: string[], vendorName: string | undefined): ParsedItem
     const line = lines[i]
     if (tableMode && items.length > 0 && (hit(TOTAL_AMOUNT_RE, line) || hit(/^\W*cong tien/, line))) break
     const isClassified =
-      isAdjustmentLine(line) || isTotalLine(line) || isDateLine(line) || hit(ADDRESS_RE, line) || hit(HEADER_RE, line) || hit(FOOTER_RE, line) || hit(COLUMN_INDEX_RE, line) || hit(NOTE_RE, line)
+      isAdjustmentLine(line) || isTotalLine(line) || isDateLine(line) || hit(ADDRESS_RE, line) || hit(HEADER_RE, line) || hit(FOOTER_RE, line) || hit(COLUMN_INDEX_RE, line) || hit(NOTE_RE, line) || hit(ITEM_NOTE_RE, line)
     if (isClassified) {
       pending = []
       continue
@@ -451,11 +460,21 @@ function parseItems(lines: string[], vendorName: string | undefined): ParsedItem
     if (line.includes('=')) continue
 
     // Một dòng: đếm các số ở đuôi (cột tiền) trước, rồi suy ra đơn giá / SL / thành tiền, phần còn lại là tên.
-    const tail = splitTail(line)
+    const leading = LEADING_QTY_RE.exec(line)
+    const tail = splitTail(leading ? line.slice(leading[0].length) : line)
     const tailItem = tail ? interpretTail(tail.numbers) : null
     if (tail && tailItem) {
       const name = [tail.name, ...tailItem.extra].join(' ')
-      push(name, tailItem.quantity, tailItem.unitPrice, tailItem.amount, tailItem.uncertain)
+      let { quantity, unitPrice, uncertain } = tailItem
+      // "1x Cà phê sữa 25.000": một số tiền duy nhất là thành tiền của cả dòng.
+      if (leading && tail.numbers.length === 1) {
+        const q = Number(leading[1])
+        if (q >= 1 && tailItem.amount % q === 0) {
+          quantity = q
+          unitPrice = tailItem.amount / q
+        } else uncertain = true
+      }
+      push(name, quantity, unitPrice, tailItem.amount, uncertain)
       pending = []
       continue
     }
@@ -685,6 +704,41 @@ function totalValue(lines: string[], index: number): number | undefined {
   return undefined
 }
 
+/** Dòng tổng của nhóm đồ uống / đồ ăn khi bill tính riêng hai nhóm: "Tổng giá đồ uống 120.000", "Đồ ăn: 300.000". */
+const DRINK_GROUP_RE = /^(?:drinks?|beverages?|do uong|nuoc uong|thuc uong)$/
+const FOOD_GROUP_RE = /^(?:foods?|do an|mon an|thuc an)$/
+/** Từ đệm trước/sau tên nhóm: "Tổng giá đồ uống", "Total food", "Food total", "Subtotal drinks". */
+const GROUP_FILLER_RE = /\b(?:tong|total|subtotal|sub|gia|tien|cong|sum|cac|all|of)\b/g
+
+/** Nhãn nhóm của một dòng: bỏ số tiền và từ đệm, phần còn lại phải đúng là tên nhóm (món "Soft drink 2 x 20.000" không tính). */
+function groupKind(line: string): 'drink' | 'food' | null {
+  if (line.includes('=')) return null
+  const label = fold(line).replace(/[\d.,]+k?/g, ' ').replace(GROUP_FILLER_RE, ' ').replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim()
+  return DRINK_GROUP_RE.test(label) ? 'drink' : FOOD_GROUP_RE.test(label) ? 'food' : null
+}
+
+/**
+ * Bill tính riêng đồ uống và đồ ăn: mỗi nhóm một dòng tổng (có số tiền). Hai dòng này được giữ làm hai "món" dù không phải món ăn.
+ * Trả về các dòng nhóm (đồ uống trước) và vị trí của chúng trong `lines`; dòng không có số tiền (tiêu đề nhóm) bị bỏ qua.
+ */
+function findGroupRows(lines: string[]): { rows: ParsedItem[]; indexes: Set<number> } {
+  const found = new Map<'drink' | 'food', { name: string; amount: number }>()
+  const indexes = new Set<number>()
+  lines.forEach((line, i) => {
+    const kind = groupKind(line)
+    if (!kind || hit(ADDRESS_RE, line) || isDateLine(line)) return
+    const values = moneyValues(line)
+    if (values.length === 0) return
+    indexes.add(i)
+    if (!found.has(kind)) found.set(kind, { name: kind === 'drink' ? t('Tổng đồ uống') : t('Tổng đồ ăn'), amount: values[values.length - 1] })
+  })
+  const rows = (['drink', 'food'] as const).flatMap((k) => {
+    const g = found.get(k)
+    return g ? [{ name: g.name, quantity: 1, unitPrice: g.amount, rawAmount: g.amount, uncertain: false }] : []
+  })
+  return { rows, indexes }
+}
+
 /** Phân tích văn bản OCR của một hoá đơn. Không ném lỗi: thứ không đọc được thì bỏ trống. */
 export function parseReceipt(rawText: string): ParsedReceipt {
   const lines = rawText
@@ -707,9 +761,12 @@ export function parseReceipt(rawText: string): ParsedReceipt {
 
   if (vendorName) result.vendorName = vendorName
 
+  const groups = findGroupRows(lines)
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (useTable && table.consumed.has(i)) continue
+    if (groups.indexes.has(i)) continue
     if (hit(REDUCTION_RE, line)) {
       const values = moneyValues(line)
       if (values.length > 0) result.discount = { mode: 'FIXED_AMOUNT', value: values[0] }
@@ -728,6 +785,12 @@ export function parseReceipt(rawText: string): ParsedReceipt {
       if (hit(TAX_ID_RE, line)) continue
       const adj = adjustmentOf(line)
       if (adj) result.vat = adj
+    } else if (hit(EXTRA_FEE_RE, line)) {
+      const values = moneyValues(line)
+      if (values.length > 0) {
+        const prev = result.service?.mode === 'FIXED_AMOUNT' ? result.service.value : 0
+        result.service = { mode: 'FIXED_AMOUNT', value: prev + values[values.length - 1] }
+      }
     } else if (hit(SERVICE_RE, line)) {
       const adj = adjustmentOf(line)
       if (adj) result.service = adj
@@ -750,6 +813,16 @@ export function parseReceipt(rawText: string): ParsedReceipt {
   }
 
   result.items = dropTotalRows(result.items, result.billTotal, result.billSubtotal)
+
+  if (groups.rows.length > 0) {
+    // Các dòng đọc được từ chính dòng nhóm ("Đồ uống 120.000") đã được thay bằng dòng nhóm chuẩn hoá.
+    const others = result.items.filter((item) => groupKind(item.name) === null)
+    const groupSum = groups.rows.reduce((s, r) => s + r.rawAmount, 0)
+    const othersSum = others.reduce((s, r) => s + r.rawAmount, 0)
+    // Bill đã liệt kê từng món và tổng nhóm chỉ là tổng phụ của chúng: giữ các món, thêm hai dòng nhóm sẽ tính trùng.
+    // Còn lại (bill chỉ có hai dòng nhóm, hoặc các món đọc ra không khớp tổng nhóm): hai dòng nhóm là số liệu đáng tin.
+    result.items = others.length > 0 && othersSum === groupSum ? others : groups.rows
+  }
 
   return result
 }

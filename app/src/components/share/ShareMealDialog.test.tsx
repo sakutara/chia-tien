@@ -8,7 +8,6 @@ import { createInvoice } from '../../services/invoiceService'
 import { initMealPeople } from '../../services/mealPeopleService'
 import { addSession } from '../../services/sessionService'
 import { createMeal } from '../../services/mealService'
-import { payAllTransfers } from '../../services/settlementTestUtils'
 import ShareMealDialog from './ShareMealDialog'
 
 afterEach(() => {
@@ -51,14 +50,22 @@ describe('ShareMealDialog (Epic 8: BR-8.5, BR-8.6, R-4, R-5)', () => {
     expect(lines.at(-1)).toMatch(/\?s=/)
   })
 
-  it('bật "Chỉ liệt kê khoản chưa thanh toán" thì người đã tick biến khỏi tin nhắn', async () => {
+  it('gửi nhanh chỉ có Facebook và Zalo, dùng đúng link snapshot', async () => {
     const mealId = await fixture()
-    await payAllTransfers(mealId)
     render(<ShareMealDialog mealId={mealId} onClose={() => {}} />)
     await screen.findByLabelText('Nội dung tin nhắn')
-    await userEvent.click(screen.getByRole('switch', { name: 'Chỉ khoản chưa trả' }))
-    const text = screen.getByLabelText('Nội dung tin nhắn').textContent!
-    expect(text).toContain('Tất cả các khoản thanh toán đã hoàn tất.')
+    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Facebook', 'Zalo'])
+    expect(screen.getByRole('link', { name: 'Facebook' }).getAttribute('href')).toContain(encodeURIComponent('?s='))
+  })
+
+  it('ô tích Gửi link / Gửi QR đổi nhãn và chuyển sang chế độ ảnh QR', async () => {
+    const mealId = await fixture()
+    render(<ShareMealDialog mealId={mealId} onClose={() => {}} />)
+    await screen.findByLabelText('Nội dung tin nhắn')
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi QR' }))
+    expect(screen.getByRole('button', { name: 'Gửi link' })).toBeTruthy()
+    expect(screen.queryByLabelText('Nội dung tin nhắn')).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Facebook' })).toBeNull()
   })
 
   it('sao chép riêng link và báo "Đã sao chép"', async () => {

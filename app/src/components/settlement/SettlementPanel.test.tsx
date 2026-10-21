@@ -94,7 +94,7 @@ describe('SettlementPanel (Epic 6: BR-6.4, BR-6.5, BR-6.6, BR-6.7)', () => {
   it('công tắc nhờ người chủ trì lưu chế độ vào bữa', async () => {
     const f = await fixture()
     render(<SettlementPanel meal={f.meal} readOnly={false} />)
-    await userEvent.click(await screen.findByRole('switch', { name: /Nhờ chủ trì/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Nhờ chủ trì/ }))
     await waitFor(async () => expect((await db.meals.get(f.meal.id))!.settlementMode).toBe('HOST_MEDIATED'))
   })
 
@@ -102,6 +102,6 @@ describe('SettlementPanel (Epic 6: BR-6.4, BR-6.5, BR-6.6, BR-6.7)', () => {
     const f = await fixture()
     render(<SettlementPanel meal={{ ...f.meal, status: 'ARCHIVED' }} readOnly />)
     expect((await screen.findByRole('button', { name: `Đã chuyển: ${f.bob.name} cho ${f.host.name}` })).hasAttribute('disabled')).toBe(true)
-    expect(screen.getByRole('switch', { name: /Nhờ chủ trì/ }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: /Nhờ chủ trì|Mỗi người tự chuyển/ }).hasAttribute('disabled')).toBe(true)
   })
 })

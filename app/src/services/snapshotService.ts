@@ -145,15 +145,44 @@ export interface ShareTarget {
 }
 
 /**
- * Liên kết mở thẳng app khác (không cần Web Share API, vốn chỉ có trên HTTPS).
- * Hoạt động cả khi chạy qua http trong mạng LAN hoặc trình duyệt không hỗ trợ `navigator.share`.
+ * Liên kết mở thẳng Facebook / Zalo để chia sẻ link snapshot (không cần Web Share API, vốn chỉ có trên HTTPS).
+ * Cả hai chỉ nhận đường dẫn; phần chữ của tin nhắn người dùng dán thêm bằng nút sao chép.
  */
-export function buildShareTargets(text: string): ShareTarget[] {
-  const q = encodeURIComponent(text);
+export function buildShareTargets(url: string): ShareTarget[] {
+  const q = encodeURIComponent(url);
   return [
-    { id: 'sms', label: t('Tin nhắn SMS'), href: `sms:?&body=${q}` },
-    { id: 'telegram', label: 'Telegram', href: `https://t.me/share/url?url=%20&text=${q}` },
-    { id: 'whatsapp', label: 'WhatsApp', href: `https://wa.me/?text=${q}` },
-    { id: 'email', label: 'Email', href: `mailto:?body=${q}` },
+    { id: 'facebook', label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${q}` },
+    { id: 'zalo', label: 'Zalo', href: `https://zalo.me/share?url=${q}` },
   ];
+}
+
+/** Thiết bị có chia sẻ được tệp ảnh qua menu hệ thống không. */
+export function canShareFile(file: File): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
+}
+
+/** Mở menu chia sẻ của thiết bị kèm tệp ảnh. Trả `false` khi người dùng tự đóng menu. */
+export async function shareFileViaOs(data: { title: string; file: File }): Promise<boolean> {
+  if (!canShareFile(data.file)) {
+    throw new PeopleError('SHARE_FAILED', t('Thiết bị này không hỗ trợ chia sẻ trực tiếp. Hãy sao chép tin nhắn.'));
+  }
+  try {
+    await navigator.share({ title: data.title, files: [data.file] });
+    return true;
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') return false;
+    throw new PeopleError('SHARE_FAILED', t('Không mở được menu chia sẻ.'));
+  }
+}
+
+/** Tải một tệp về máy qua thẻ <a download>. */
+export function downloadBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

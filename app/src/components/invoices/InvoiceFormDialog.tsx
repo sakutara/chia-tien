@@ -29,7 +29,7 @@ import Switch from '../ui/Switch'
 import Modal from '../ui/Modal'
 import GeminiSettingsDialog from './GeminiSettingsDialog'
 import InvoiceAdjustments from './InvoiceAdjustments'
-import InvoiceFilesStrip from './InvoiceFilesStrip'
+import InvoiceFilesStrip, { type FilesStripControl } from './InvoiceFilesStrip'
 import InvoiceItemsEditor from './InvoiceItemsEditor'
 import OcrProgress from './OcrProgress'
 import {
@@ -70,6 +70,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
   const [draftId] = useState(() => invoice?.id ?? generateId())
   const savedRef = useRef(false)
   const scanRef = useRef<AbortController | null>(null)
+  const stripRef = useRef<FilesStripControl>(null)
 
   const [inputMode, setInputMode] = useState<InvoiceInputMode>(invoice?.inputMode ?? 'ITEMIZED')
   // Cách chia (Epic 5): chỉ có ý nghĩa với ITEMIZED; TOTAL_ONLY luôn ép về EQUAL_TOTAL (BR-5.2).
@@ -96,6 +97,8 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
   const [pendingFill, setPendingFill] = useState<ReceiptFill | null>(null)
   // OCR đọc chưa chuẩn → gợi ý đọc lại bằng AI. `aiSettings` mở hộp nhập khoá; `readAfterSave` đọc ngay sau khi lưu khoá.
   const [aiSuggested, setAiSuggested] = useState(false)
+  // Bấm "Đọc bill bằng AI" khi chưa có ảnh: hỏi chụp hay tải ảnh.
+  const [aiChoice, setAiChoice] = useState(false)
   const [aiSettings, setAiSettings] = useState<{ readAfterSave: boolean } | null>(null)
   const images = useLiveQuery(() => listFilesByInvoice(draftId), [draftId])
   const imageCount = images?.length ?? 0
@@ -163,8 +166,8 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
    * Chỉ quét ảnh chưa có văn bản OCR (kết quả đã lưu được dùng lại); `force` quét lại tất cả.
    * Sau khi quét, báo ảnh trùng với ảnh đã có trong bữa (BR-4.18).
    */
-  async function scanImages(force = false) {
-    setScanNotice(null)
+  async function scanImages(force = false, notice: string | null = null) {
+    setScanNotice(notice)
     const files = await listFilesByInvoice(draftId)
     if (files.length === 0) {
       setScanNotice(t('Chưa có ảnh để quét. Hãy chụp hoặc tải ảnh bill trước.'))
@@ -232,6 +235,17 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
    * Đọc lại hoá đơn bằng AI (Gemini): gửi ảnh kèm văn bản OCR và kết quả phân tích làm gợi ý; AI tự đối chiếu tổng tiền.
    * Chưa có khoá API thì mở hộp nhập khoá trước.
    */
+  async function startAi() {
+    setScanNotice(null)
+    if (!hasGeminiKey()) {
+      setAiSettings({ readAfterSave: true })
+      return
+    }
+    if ((await listFilesByInvoice(draftId)).length === 0) setAiChoice(true)
+    else await readWithAi()
+  }
+
+  /** Đọc bằng AI; AI không đọc được (mất mạng, hết hạn mức, kết quả hỏng…) thì tự chuyển sang OCR. */
   async function readWithAi() {
     setScanNotice(null)
     if (!hasGeminiKey()) {
@@ -246,6 +260,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
     const controller = new AbortController()
     scanRef.current = controller
     setScan({ percent: 5, stage: t('Đang chuẩn bị…') })
+    let fallbackReason: string | null = null
     try {
       const blobs: Blob[] = []
       for (const file of files) {
@@ -270,11 +285,12 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
         setAiSettings({ readAfterSave: true })
         return
       }
-      setScanNotice(err instanceof PeopleError ? err.message : t('Không đọc được hoá đơn bằng AI.'))
+      fallbackReason = err instanceof PeopleError ? err.message : t('Không đọc được hoá đơn bằng AI.')
     } finally {
       scanRef.current = null
       setScan(null)
     }
+    if (fallbackReason !== null) await scanImages(false, t('AI chưa đọc được ({reason}) nên chuyển sang OCR.', { reason: fallbackReason }))
   }
 
   async function removeDuplicate(file: InvoiceFileRecord) {
@@ -327,7 +343,8 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
             mealId={session.mealId}
             sessionId={session.id}
             disabled={scan !== null}
-            onAdded={() => void scanImages()}
+            controlRef={stripRef}
+            onAdded={(_ids, via) => void (via === 'ai' ? readWithAi() : scanImages())}
             actions={
               <>
                 <IconButton
@@ -341,8 +358,8 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
                   icon={Sparkles}
                   label={t('Đọc bill bằng AI')}
                   tone="outline"
-                  disabled={scan !== null || imageCount === 0}
-                  onClick={() => void readWithAi()}
+                  disabled={scan !== null}
+                  onClick={() => void startAi()}
                 />
                 <IconButton icon={KeyRound} label={t('Cài đặt AI (khoá Gemini)')} tone="outline" onClick={() => setAiSettings({ readAfterSave: false })} />
               </>
@@ -489,10 +506,24 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
           onSaved={(hasKey) => {
             const read = aiSettings.readAfterSave && hasKey
             setAiSettings(null)
-            if (read) void readWithAi()
+            if (read) void startAi()
           }}
         />
       )}
+
+      <Modal open={aiChoice} title={t('Chọn cách thêm ảnh bill')} onClose={() => setAiChoice(false)}>
+        <div className="space-y-3">
+          <p className="text-sm text-usd-green-700">{t('Ảnh sẽ được AI đọc trực tiếp, không qua OCR. OCR chỉ chạy khi AI không đọc được.')}</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-primary" onClick={() => { setAiChoice(false); stripRef.current?.pickForAi('camera') }}>
+              {t('Chụp ảnh')}
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => { setAiChoice(false); stripRef.current?.pickForAi('gallery') }}>
+              {t('Tải ảnh hoặc PDF lên')}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <ConfirmDialog
         open={pendingFill !== null}

@@ -1,7 +1,11 @@
-import { ArrowRight, Check, CheckCheck } from 'lucide-react'
+import { ArrowRight, Check, CheckCheck, QrCode } from 'lucide-react'
+import { useState } from 'react'
+import type { PaymentSlide } from '../../domain/paymentSlides'
 import { formatMoney } from '../../lib/money'
 import type { SettlementMode, SettlementTransfer } from '../../types'
+import PaymentSlides from '../share/PaymentSlides'
 import IconButton from '../ui/IconButton'
+import Modal from '../ui/Modal'
 import { t } from '../../i18n'
 
 interface Props {
@@ -17,14 +21,19 @@ interface Props {
   actions?: React.ReactNode
   /** Tiến độ thanh toán, đặt cạnh tiêu đề. */
   progress?: React.ReactNode
+  /** Dữ liệu QR chuyển tiền của từng khoản; có thì mỗi khoản có nút mở nhanh QR. */
+  slides?: ReadonlyArray<PaymentSlide>
 }
 
 /**
  * Hướng dẫn chuyển tiền: ai chuyển cho ai bao nhiêu (BR-6.4, BR-6.5). Mỗi khoản có ô tick "Đã chuyển";
  * tiến độ thanh toán đếm theo số khoản này.
  */
-export default function TransferInstructionList({ transfers, hasCost, readOnly, onToggle, onMarkAll, actions, progress }: Props) {
+export default function TransferInstructionList({ transfers, hasCost, readOnly, onToggle, onMarkAll, actions, progress, slides }: Props) {
+  const [qrKey, setQrKey] = useState<string | null>(null)
   if (!hasCost) return null
+  const qrOf = slides?.find((s) => s.key === qrKey)
+  const slideOf = (tr: SettlementTransfer) => slides?.find((s) => s.fromEntityId === tr.fromEntityId && s.toEntityId === tr.toEntityId)
 
   return (
     <div className="space-y-1.5" aria-label={t('Hướng dẫn chuyển tiền')}>
@@ -71,9 +80,22 @@ export default function TransferInstructionList({ transfers, hasCost, readOnly, 
                 </span>
                 <span className="money block text-sm font-semibold">{formatMoney(tr.amount)}</span>
               </span>
+              {slideOf(tr) && (
+                <IconButton
+                  icon={QrCode}
+                  label={t('Mở QR: {from} cho {to}', { from: tr.fromEntityName, to: tr.toEntityName })}
+                  className="!h-7 !w-7 shrink-0"
+                  onClick={() => setQrKey(slideOf(tr)?.key ?? null)}
+                />
+              )}
             </li>
           ))}
         </ul>
+      )}
+      {qrOf && (
+        <Modal open title={t('QR chuyển tiền')} onClose={() => setQrKey(null)}>
+          <PaymentSlides slides={[qrOf]} />
+        </Modal>
       )}
     </div>
   )

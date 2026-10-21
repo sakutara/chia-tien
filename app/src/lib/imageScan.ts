@@ -1,4 +1,4 @@
-import { decodeBounded } from './imageCompress'
+import { decodeBounded, encodeJpegWithin, TARGET_IMAGE_BYTES } from './imageCompress'
 import { scanDocument, type GrayImage } from './documentScan'
 import { t } from '../i18n'
 
@@ -56,8 +56,11 @@ export async function scanReceiptImage(file: File): Promise<ScannedImage | null>
     out.data[p + 3] = 255
   }
   ctx.putImageData(out, 0, 0)
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-  if (!blob) return null
-  const name = file.name.replace(/\.[^.]+$/, '') + '-scan.png'
-  return { file: new File([blob], name, { type: 'image/png' }), cropped: result.cropped }
+  // Giữ bộ lọc (đen trắng, chữ dày) nhưng lưu gọn ~1 MB: PNG đen trắng nếu đã đủ nhẹ, không thì JPEG hạ chất lượng/thu nhỏ dần.
+  const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+  const base = file.name.replace(/\.[^.]+$/, '') + '-scan'
+  if (png && png.size <= TARGET_IMAGE_BYTES) return { file: new File([png], `${base}.png`, { type: 'image/png' }), cropped: result.cropped }
+  const jpeg = await encodeJpegWithin(canvas)
+  if (jpeg) return { file: new File([jpeg], `${base}.jpg`, { type: 'image/jpeg' }), cropped: result.cropped }
+  return png ? { file: new File([png], `${base}.png`, { type: 'image/png' }), cropped: result.cropped } : null
 }
