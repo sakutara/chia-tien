@@ -1,10 +1,10 @@
-import { ScanText, Trash2, X } from 'lucide-react'
+import { KeyRound, ScanText, Sparkles, Trash2, X } from 'lucide-react'
 import { generateId } from '../../lib/id'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { computeInvoice, VENDOR_NAME_MAX, type ComputedInvoice } from '../../domain/invoiceRules'
 import { parseReceipt } from '../../domain/receiptParser'
-import { validateReceipt } from '../../domain/receiptValidation'
+import { needsBetterRead, validateReceipt } from '../../domain/receiptValidation'
 import type { InvoiceRow } from '../../hooks/useMealSessions'
 import { MAX_YMD, MIN_YMD } from '../../lib/dates'
 import { formatMoney } from '../../lib/money'
@@ -17,6 +17,7 @@ import {
   type DuplicateImage,
 } from '../../services/invoiceFileService'
 import { createInvoice, updateInvoice, type InvoiceDraft, type InvoiceResult } from '../../services/invoiceService'
+import { hasGeminiKey, readReceiptWithGemini } from '../../services/geminiService'
 import { runOcr } from '../../services/ocrService'
 import { PeopleError } from '../../services/peopleErrors'
 import type { InvoiceFileRecord, InvoiceInputMode, InvoiceSplitType, Member, SessionKeo } from '../../types'
@@ -26,6 +27,7 @@ import DialogActions from '../ui/DialogActions'
 import IconButton from '../ui/IconButton'
 import Switch from '../ui/Switch'
 import Modal from '../ui/Modal'
+import GeminiSettingsDialog from './GeminiSettingsDialog'
 import InvoiceAdjustments from './InvoiceAdjustments'
 import InvoiceFilesStrip from './InvoiceFilesStrip'
 import InvoiceItemsEditor from './InvoiceItemsEditor'
@@ -92,6 +94,9 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
   const [billTotal, setBillTotal] = useState<number | undefined>(undefined)
   const [ocrCheck, setOcrCheck] = useState<ReceiptFill['check'] | null>(null)
   const [pendingFill, setPendingFill] = useState<ReceiptFill | null>(null)
+  // OCR đọc chưa chuẩn → gợi ý đọc lại bằng AI. `aiSettings` mở hộp nhập khoá; `readAfterSave` đọc ngay sau khi lưu khoá.
+  const [aiSuggested, setAiSuggested] = useState(false)
+  const [aiSettings, setAiSettings] = useState<{ readAfterSave: boolean } | null>(null)
   const images = useLiveQuery(() => listFilesByInvoice(draftId), [draftId])
   const imageCount = images?.length ?? 0
   const [duplicates, setDuplicates] = useState<Array<DuplicateImage & { file: InvoiceFileRecord }>>([])
@@ -204,10 +209,12 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       const check = validateReceipt(parseReceipt(rawText), rawText)
       const fill = fillFromReceipt(check.receipt)
       if (Object.keys(fill).length === 0) {
+        setAiSuggested(true)
         setScanNotice(t('Đã lưu ảnh nhưng không nhận ra chữ nào trên bill. Hãy chụp lại rõ hơn (đủ sáng, thẳng, không rung) hoặc nhập tay.'))
         return
       }
       fill.check = { status: check.status, notes: check.notes }
+      setAiSuggested(needsBetterRead(check))
       const hasData = hasUserEntries({ vendorName: vendor, invoiceDate: date, rows, subtotal, discount, service, vat })
       if (hasData) setPendingFill(fill)
       else applyFill(fill)
@@ -215,6 +222,55 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       if (err instanceof PeopleError && err.code === 'OCR_CANCELLED') return
       const reason = err instanceof PeopleError ? err.message : t('Không quét được ảnh.')
       setScanNotice(t('{reason} Ảnh vẫn được lưu; bạn có thể bấm "Quét lại bill" hoặc nhập tay.', { reason }))
+    } finally {
+      scanRef.current = null
+      setScan(null)
+    }
+  }
+
+  /**
+   * Đọc lại hoá đơn bằng AI (Gemini): gửi ảnh kèm văn bản OCR và kết quả phân tích làm gợi ý; AI tự đối chiếu tổng tiền.
+   * Chưa có khoá API thì mở hộp nhập khoá trước.
+   */
+  async function readWithAi() {
+    setScanNotice(null)
+    if (!hasGeminiKey()) {
+      setAiSettings({ readAfterSave: true })
+      return
+    }
+    const files = await listFilesByInvoice(draftId)
+    if (files.length === 0) {
+      setScanNotice(t('Chưa có ảnh để quét. Hãy chụp hoặc tải ảnh bill trước.'))
+      return
+    }
+    const controller = new AbortController()
+    scanRef.current = controller
+    setScan({ percent: 5, stage: t('Đang chuẩn bị…') })
+    try {
+      const blobs: Blob[] = []
+      for (const file of files) {
+        const blob = await getFileBlob(file.id)
+        if (blob) blobs.push(blob)
+      }
+      const rawText = files.map((f) => f.ocrRawText ?? '').join('\n')
+      const ocr = rawText.trim() === '' ? undefined : validateReceipt(parseReceipt(rawText), rawText)
+      const result = await readReceiptWithGemini(
+        blobs,
+        { ocrText: rawText, parsed: ocr?.receipt, notes: ocr?.notes },
+        { signal: controller.signal, onStage: (stage) => setScan((s) => ({ percent: Math.min(90, (s?.percent ?? 0) + 30), stage })) },
+      )
+      const fill = fillFromReceipt(result.receipt)
+      fill.check = result.check
+      setAiSuggested(false)
+      if (hasUserEntries({ vendorName: vendor, invoiceDate: date, rows, subtotal, discount, service, vat })) setPendingFill(fill)
+      else applyFill(fill)
+    } catch (err) {
+      if (err instanceof PeopleError && err.code === 'OCR_CANCELLED') return
+      if (err instanceof PeopleError && err.code === 'AI_NO_KEY') {
+        setAiSettings({ readAfterSave: true })
+        return
+      }
+      setScanNotice(err instanceof PeopleError ? err.message : t('Không đọc được hoá đơn bằng AI.'))
     } finally {
       scanRef.current = null
       setScan(null)
@@ -273,13 +329,23 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
             disabled={scan !== null}
             onAdded={() => void scanImages()}
             actions={
-              <IconButton
-                icon={ScanText}
-                label={t('Quét lại bill (OCR)')}
-                tone="outline"
-                disabled={scan !== null || imageCount === 0}
-                onClick={() => void scanImages(true)}
-              />
+              <>
+                <IconButton
+                  icon={ScanText}
+                  label={t('Quét lại bill (OCR)')}
+                  tone="outline"
+                  disabled={scan !== null || imageCount === 0}
+                  onClick={() => void scanImages(true)}
+                />
+                <IconButton
+                  icon={Sparkles}
+                  label={t('Đọc bill bằng AI')}
+                  tone="outline"
+                  disabled={scan !== null || imageCount === 0}
+                  onClick={() => void readWithAi()}
+                />
+                <IconButton icon={KeyRound} label={t('Cài đặt AI (khoá Gemini)')} tone="outline" onClick={() => setAiSettings({ readAfterSave: false })} />
+              </>
             }
           />
 
@@ -317,6 +383,16 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
               {ocrCheck.notes.map((note, i) => (
                 <p key={i}>{note}</p>
               ))}
+            </div>
+          )}
+
+          {aiSuggested && scan === null && (
+            <div role="status" className="flex items-start gap-2 rounded-lg border border-usd-green-700 bg-usd-paper-100 p-2 text-sm">
+              <p className="min-w-0 flex-1">
+                {t('OCR đọc chưa chuẩn (lệch tổng hoặc có thể thiếu món). Đọc lại bằng AI Gemini để chính xác hơn: ảnh và gợi ý OCR sẽ được gửi tới Google.')}
+              </p>
+              <IconButton icon={Sparkles} label={t('Đọc lại bằng AI')} tone="primary" onClick={() => void readWithAi()} />
+              <IconButton icon={X} label={t('Bỏ qua')} onClick={() => setAiSuggested(false)} />
             </div>
           )}
 
@@ -406,6 +482,17 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
           <DialogActions onCancel={onClose} saveLabel={t('Lưu hoá đơn')} saving={saving} />
         </form>
       </Modal>
+
+      {aiSettings && (
+        <GeminiSettingsDialog
+          onClose={() => setAiSettings(null)}
+          onSaved={(hasKey) => {
+            const read = aiSettings.readAfterSave && hasKey
+            setAiSettings(null)
+            if (read) void readWithAi()
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={pendingFill !== null}

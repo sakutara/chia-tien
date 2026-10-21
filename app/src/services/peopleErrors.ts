@@ -28,6 +28,8 @@ export type PeopleErrorCode =
   | 'TOO_MANY_FILES'
   | 'OCR_FAILED'
   | 'OCR_CANCELLED'
+  | 'AI_NO_KEY'
+  | 'AI_FAILED'
   | 'PAYER_NOT_IN_SESSION'
   | 'INVALID_ITEM'
   | 'INVALID_SESSION_NAME'
