@@ -15,8 +15,8 @@ if [ ! -d "$root/app/node_modules" ]; then
   exit 0
 fi
 
-echo "[docs] Build app vào docs/ (base=/chia-tien/)..."
-(cd "$root/app" && npm run build -- --base=/chia-tien/ --outDir ../docs --emptyOutDir >/dev/null)
+echo "[docs] Build app vào docs/ (base=./, đường dẫn tương đối)..."
+(cd "$root/app" && npm run build -- --base=./ --outDir ../docs --emptyOutDir >/dev/null)
 touch "$root/docs/.nojekyll"
 
 git -C "$root" add -A docs

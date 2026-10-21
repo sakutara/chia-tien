@@ -89,8 +89,8 @@ describe('Song ngữ (Epic 9)', () => {
   })
 
   it('link Snapshot mang ngôn ngữ người gửi qua tham số l (BR-9.8)', () => {
-    const base = { origin: 'https://x.test', pathname: '/chia-tien/' }
-    expect(buildSnapshotUrl('abc', base, 'en')).toBe('https://x.test/chia-tien/?s=abc&l=en')
-    expect(buildSnapshotUrl('abc', base, 'vi')).toBe('https://x.test/chia-tien/?s=abc&l=vi')
+    const base = { origin: 'https://x.test', pathname: '/' }
+    expect(buildSnapshotUrl('abc', base, 'en')).toBe('https://x.test/?s=abc&l=en')
+    expect(buildSnapshotUrl('abc', base, 'vi')).toBe('https://x.test/?s=abc&l=vi')
   })
 })

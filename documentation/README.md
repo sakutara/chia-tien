@@ -149,7 +149,7 @@ documentation/epic-<n>/
 
 ## 6. Build GitHub Pages (`docs/`) tự động
 
-GitHub Pages phục vụ từ nhánh `main`, thư mục `/docs` (bản build prod, base `/chia-tien/`). Hook trong `.githooks/` giữ thư mục này luôn khớp mã nguồn:
+GitHub Pages phục vụ từ nhánh `main`, thư mục `/docs` (bản build prod, base `./` để asset dùng đường dẫn tương đối, không chốt cứng tên repo). Hook trong `.githooks/` giữ thư mục này luôn khớp mã nguồn:
 
 - **`post-merge`**: sau mỗi `git merge` / `git pull` vào `main` (kể cả fast-forward), tự build và commit `Build docs (<sha>)` nếu bản build đổi. Gồm cả trường hợp merge PR trên GitHub rồi `git pull` về máy.
 - **`pre-push`**: lưới an toàn; build lỗi thì chặn push, bản build đổi thì commit rồi dừng để chạy lại `git push`.
