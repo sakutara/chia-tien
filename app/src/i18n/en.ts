@@ -557,4 +557,13 @@ export const en: Record<string, string> = {
   'AI chưa đọc được ({reason}) nên chuyển sang OCR.': 'The AI could not read it ({reason}), so switching to OCR.',
   'Dòng "{name}" ({v}) là {label} bị đọc thành món; đã chuyển thành {label} của bill.': 'Line "{name}" ({v}) is {label} that was read as an item; it has been moved to the bill\'s {label}.',
   'Tổng các món thiếu {v} so với bill: đã thêm dòng "{name}" với số tiền đó, hãy tìm đúng món.': 'The items are short {v} compared with the bill: added a line "{name}" for that amount, please find the missing item.',
+  'đồ uống': 'drinks',
+  'đồ ăn': 'food',
+  'đồ uống và đồ ăn': 'drinks and food',
+  'Món chưa đọc được': 'Unread item',
+  'Nhóm {name}: các món cộng được {read}, dòng nhóm ghi {expected}, thiếu {gap}. Đã thêm dòng "{item}" cho phần thiếu.': 'Group {name}: the items add up to {read}, the group line says {expected}, short by {gap}. Added a "{item}" line for the missing amount.',
+  'Nhóm {name}: các món cộng được {read}, nhiều hơn dòng nhóm ghi {expected}. Hãy xem lại các món trong nhóm.': 'Group {name}: the items add up to {read}, more than the group line ({expected}). Please review the items in the group.',
+  'Đang đọc lại số…': 'Re-reading numbers…',
+  'Tổng "{v}" đọc được không khớp tổng các món; đọc lại 1 ↔ 4 thành {v2} thì khớp nên được dùng làm tổng bill.': 'The total read "{v}" does not match the items; re-reading 1 ↔ 4 gives {v2}, which matches, so it is used as the bill total.',
+  'đọc lại số: {q} × {v} = {v2}': 'number re-read: {q} × {v} = {v2}',
 }
