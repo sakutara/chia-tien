@@ -218,3 +218,15 @@ describe('đơn từ app giao đồ ăn (ảnh chụp màn hình)', () => {
     expect(r.discount).toEqual({ mode: 'FIXED_AMOUNT', value: 35910 })
   })
 })
+
+describe('parseReceipt — tên món chỉ giữ tối đa 4 chữ số ở cuối', () => {
+  it('số tối đa 4 chữ số ở cuối tên được giữ', () => {
+    const [item] = parseReceipt('QUÁN TEST\nBia 1964 1 x 25.000 = 25.000').items
+    expect(item.name).toBe('Bia 1964')
+  })
+
+  it('số hơn 4 chữ số ở cuối tên bị bỏ hết, không cắt bớt', () => {
+    const [item] = parseReceipt('QUÁN TEST\nBia 123456 1 x 25.000 = 25.000').items
+    expect(item.name).toBe('Bia')
+  })
+})

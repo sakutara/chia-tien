@@ -443,6 +443,66 @@ export function needsBetterRead(check: Pick<ReceiptCheck, 'status' | 'receipt' |
   return check.status === 'MISMATCH' || check.status === 'UNVERIFIED' || check.receipt.items.length === 0 || (check.missingRows?.length ?? 0) > 0
 }
 
+/** Dòng đọc thành món nhưng là khoản điều chỉnh bị mất/đổi nhãn: lấy từ khoá còn sót trong tên (OCR đọc hỏng nhãn). */
+const DISCOUNT_LOOSE_RE = /gi\w?m|chi\w*t kh|\bck\b|khuyen|disc/
+const VAT_LOOSE_RE = /\bvat\b|gtgt|\bthue\b/
+const SERVICE_LOOSE_RE = /phuc vu|service|phi dv/
+const NEAR_END_ITEMS = 3
+/** Lệch "một chút" so với tổng bill (trong 10%). */
+const SMALL_GAP_RATIO = 0.1
+const MISSING_ITEM_NAME = 'Món chưa đọc được'
+
+function adjustmentKeyOf(name: string): 'discount' | 'service' | 'vat' | undefined {
+  const folded = fold(name)
+  if (DISCOUNT_LOOSE_RE.test(folded)) return 'discount'
+  if (SERVICE_LOOSE_RE.test(folded)) return 'service'
+  if (VAT_LOOSE_RE.test(folded)) return 'vat'
+  return undefined
+}
+
+/**
+ * Khi tổng tính được lệch tổng bill một chút và không kịch bản nào khớp (02 §3 bước 7, 8):
+ * - tính được lớn hơn: một giảm giá / thuế / phí bị đọc thành món gần cuối (giảm giá bị cộng nên giá = nửa phần chênh) → chuyển đúng khoản;
+ * - tính được nhỏ hơn: thiếu một món → thêm dòng "Món chưa đọc được" với thành tiền bằng phần thiếu, đánh dấu để tìm đúng món.
+ * Chỉ nhận khi kết quả khớp đúng tổng bill; không thì trả về `null`.
+ */
+function fixMisreadOrMissing(parsed: ParsedReceipt, billTotal: number): { receipt: ParsedReceipt; note: string } | null {
+  const totalOf = (items: ParsedItem[], adj: Pick<ParsedReceipt, 'discount' | 'service' | 'vat'>): number | undefined => {
+    const subtotal = items.reduce((sum, item) => sum + item.rawAmount, 0)
+    return computeBy('STANDARD', subtotal, asAdjustment(adj.discount), asAdjustment(adj.service), asAdjustment(adj.vat))?.total
+  }
+  const total = totalOf(parsed.items, parsed)
+  if (total === undefined || total === billTotal) return null
+  const gap = total - billTotal
+  const from = Math.max(0, parsed.items.length - NEAR_END_ITEMS)
+
+  if (gap > 0 && gap <= billTotal * SMALL_GAP_RATIO) {
+    for (let i = parsed.items.length - 1; i >= from; i--) {
+      const item = parsed.items[i]
+      const key = adjustmentKeyOf(item.name)
+      if (!key || parsed[key] !== undefined) continue
+      const value = key === 'discount' ? gap / 2 : gap
+      if (item.rawAmount !== value) continue
+      const items = parsed.items.filter((_, j) => j !== i)
+      const adjustment: ParsedAdjustment = { mode: 'FIXED_AMOUNT', value }
+      const next: ParsedReceipt = { ...parsed, items }
+      next[key] = adjustment
+      if (totalOf(items, next) !== billTotal) continue
+      const label = { discount: t('giảm giá'), service: t('phí phục vụ'), vat: 'VAT' }[key]
+      return { receipt: next, note: t('Dòng "{name}" ({v}) là {label} bị đọc thành món; đã chuyển thành {label} của bill.', { name: item.name, v: formatMoney(item.rawAmount), label }) }
+    }
+    return null
+  }
+
+  if (gap < 0 && -gap <= billTotal * SMALL_GAP_RATIO) {
+    const amount = -gap
+    const items: ParsedItem[] = [...parsed.items, { name: t(MISSING_ITEM_NAME), quantity: 1, unitPrice: amount, rawAmount: amount, uncertain: true }]
+    if (totalOf(items, parsed) !== billTotal) return null
+    return { receipt: { ...parsed, items }, note: t('Tổng các món thiếu {v} so với bill: đã thêm dòng "{name}" với số tiền đó, hãy tìm đúng món.', { v: formatMoney(amount), name: t(MISSING_ITEM_NAME) }) }
+  }
+  return null
+}
+
 function validateTotals(parsed: ParsedReceipt, rawText?: string): ReceiptCheck {
   const { billTotal, billSubtotal, items } = parsed
   const inconsistent = describeInconsistentRows(items)
@@ -488,6 +548,17 @@ function validateTotals(parsed: ParsedReceipt, rawText?: string): ReceiptCheck {
       status: 'CORRECTED',
       receipt,
       notes: [t('Số đọc từ ảnh chưa khớp tổng bill, đã tự sửa theo kịch bản khớp nhất. Hãy xem lại các dòng được đánh dấu:'), ...notes],
+    }
+  }
+
+  if (billTotal !== undefined) {
+    const fixed = fixMisreadOrMissing(parsed, billTotal)
+    if (fixed) {
+      return {
+        status: 'CORRECTED',
+        receipt: fixed.receipt,
+        notes: [t('Số đọc từ ảnh chưa khớp tổng bill, đã tự sửa theo kịch bản khớp nhất. Hãy xem lại các dòng được đánh dấu:'), fixed.note, ...inconsistent],
+      }
     }
   }
 
