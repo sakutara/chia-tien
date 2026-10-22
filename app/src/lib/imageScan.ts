@@ -1,5 +1,5 @@
 import { decodeBounded, encodeJpegWithin, TARGET_IMAGE_BYTES } from './imageCompress'
-import { scanDocument, type GrayImage } from './documentScan'
+import { RECEIPT_SCAN_CONTRAST, scanDocument, type GrayImage } from './documentScan'
 import { t } from '../i18n'
 
 /*
@@ -23,6 +23,11 @@ function toGray(bitmap: ImageBitmap): GrayImage {
   return { data, width: canvas.width, height: canvas.height }
 }
 
+/** PNG nếu bản PNG đủ nhẹ (≤ `limit` byte), không thì JPEG hạ dần. */
+export function pickScanEncoding(pngBytes: number | null, limit: number = TARGET_IMAGE_BYTES): 'png' | 'jpeg' {
+  return pngBytes !== null && pngBytes <= limit ? 'png' : 'jpeg'
+}
+
 export interface ScannedImage {
   file: File
   /** Đã cắt theo 4 góc tờ hoá đơn (false: không thấy tờ giấy rõ, chỉ nhị phân hoá cả ảnh). */
@@ -41,7 +46,8 @@ export async function scanReceiptImage(file: File): Promise<ScannedImage | null>
   } finally {
     bitmap.close()
   }
-  const result = scanDocument(gray)
+  // Nhị phân thích nghi contrast 0,25, không làm dày chữ trừ khi nét đứt (02 §3 bước 1).
+  const result = scanDocument(gray, { contrast: RECEIPT_SCAN_CONTRAST })
   if (!result) return null
 
   const { image } = result
@@ -56,10 +62,10 @@ export async function scanReceiptImage(file: File): Promise<ScannedImage | null>
     out.data[p + 3] = 255
   }
   ctx.putImageData(out, 0, 0)
-  // Giữ bộ lọc (đen trắng, chữ dày) nhưng lưu gọn ~1 MB: PNG đen trắng nếu đã đủ nhẹ, không thì JPEG hạ chất lượng/thu nhỏ dần.
-  const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
   const base = file.name.replace(/\.[^.]+$/, '') + '-scan'
-  if (png && png.size <= TARGET_IMAGE_BYTES) return { file: new File([png], `${base}.png`, { type: 'image/png' }), cropped: result.cropped }
+  // PNG giữ nét chữ đen trắng không mất chi tiết (thường 200–500 KB); quá ~1 MB (ảnh xám của tài liệu sạch) thì JPEG hạ dần (BR-4.16).
+  const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+  if (png && pickScanEncoding(png.size) === 'png') return { file: new File([png], `${base}.png`, { type: 'image/png' }), cropped: result.cropped }
   const jpeg = await encodeJpegWithin(canvas)
   if (jpeg) return { file: new File([jpeg], `${base}.jpg`, { type: 'image/jpeg' }), cropped: result.cropped }
   return png ? { file: new File([png], `${base}.png`, { type: 'image/png' }), cropped: result.cropped } : null

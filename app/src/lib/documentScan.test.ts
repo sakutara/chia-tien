@@ -7,6 +7,7 @@ import {
   medianStrokeWidth,
   otsuThreshold,
   quadSize,
+  RECEIPT_SCAN_CONTRAST,
   isCleanDocument,
   scanDocument,
   thicken,
@@ -203,5 +204,37 @@ describe('isCleanDocument — tài liệu điện tử giữ ảnh xám', () => 
     expect(new Set(kept.image.data).size).toBeGreaterThanOrEqual(1)
     const forced = scanDocument(img, { targetLongEdge: 800, maxUpscale: 1, keepGray: 'never' })!
     expect(forced.binarized).toBe(true)
+  })
+})
+
+describe('quét hoá đơn: nhị phân thích nghi contrast 0,25 (02 §3 bước 1)', () => {
+  it('ngưỡng quét là 0,25', () => {
+    expect(RECEIPT_SCAN_CONTRAST).toBe(0.25)
+  })
+
+  it('ảnh có bóng đổ ra ảnh trắng đen, nền trắng hoàn toàn, nét chữ không bị làm dày', () => {
+    const paper: Quad = [pt(60, 40), pt(400, 50), pt(390, 600), pt(50, 590)]
+    const result = scanDocument(receiptPhoto(450, 640, paper, { stroke: 3, dash: 4, shade: true }), { targetLongEdge: 600, contrast: RECEIPT_SCAN_CONTRAST })!
+    expect(result.binarized).toBe(true)
+    expect(result.thickened).toBe(false)
+    expect(new Set(result.image.data)).toEqual(new Set([0, 255]))
+    // Góc trên trái của tờ giấy (sau khi cắt) là nền: phải trắng dù ánh sáng giảm dần.
+    expect(result.image.data[5 * result.image.width + 5]).toBe(255)
+  })
+
+  it('ngưỡng 0,25 cho nét mảnh hơn 0,12: viền mờ quanh nét chữ không bị tô đen', () => {
+    // Một hàng: nền 215, lõi nét 25 (7 px), viền mờ 130 (3 px mỗi bên).
+    const width = 80
+    const height = 40
+    const bar = makeImage(width, height, 215)
+    for (let y = 0; y < height; y++) {
+      for (let x = 30; x < 50; x++) bar.data[y * width + x] = x >= 33 && x < 40 ? 25 : 130
+    }
+    const blackRun = (img: GrayImage): number => {
+      let n = 0
+      for (let x = 0; x < width; x++) if (img.data[20 * width + x] === 0) n++
+      return n
+    }
+    expect(blackRun(binarize(bar, { contrast: 0.12 }))).toBeGreaterThan(blackRun(binarize(bar, { contrast: RECEIPT_SCAN_CONTRAST })))
   })
 })

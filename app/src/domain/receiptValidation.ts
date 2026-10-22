@@ -61,11 +61,22 @@ const isPositiveInt = (n: number): boolean => Number.isSafeInteger(n) && n >= 1
  */
 export function rowCandidates(item: ParsedItem): RowCandidate[] {
   const { quantity: q, unitPrice: u, rawAmount: a } = item
-  if (isRowConsistent(item)) return [{ quantity: q, unitPrice: u, rawAmount: a, cost: 0, change: '' }]
-
-  const out: RowCandidate[] = [{ quantity: q, unitPrice: u, rawAmount: a, cost: 2, change: '' }]
+  const out: RowCandidate[] = [{ quantity: q, unitPrice: u, rawAmount: a, cost: isRowConsistent(item) ? 0 : 2, change: '' }]
   const add = (c: RowCandidate): void => {
     if (!out.some((o) => o.quantity === c.quantity && o.unitPrice === c.unitPrice && o.rawAmount === c.rawAmount)) out.push(c)
+  }
+  // Dòng đã khớp vẫn có thể đọc sai 1 ↔ 4 mà vẫn khớp (ví dụ "11.000" → "41.000"): để kịch bản tổng chọn (02 §3 bước 8).
+  if (isRowConsistent(item)) {
+    for (const qq of [q, ...oneFourVariants(q)]) {
+      for (const uu of [u, ...oneFourVariants(u)]) {
+        for (const aa of [a, ...oneFourVariants(a)]) {
+          if (qq === q && uu === u && aa === a) continue
+          if (!isPositiveInt(qq) || uu <= 0 || qq * uu !== aa) continue
+          add({ quantity: qq, unitPrice: uu, rawAmount: aa, cost: 1, change: t('đọc lại số: {q} × {v} = {v2}', { q: qq, v: formatMoney(uu), v2: formatMoney(aa) }) })
+        }
+      }
+    }
+    return out
   }
   if (isPositiveInt(q) && q * u > 0) {
     add({ quantity: q, unitPrice: u, rawAmount: q * u, cost: 1, change: t('thành tiền {v} → {v2}', { v: formatMoney(a), v2: formatMoney(q * u) }) })
@@ -79,6 +90,37 @@ export function rowCandidates(item: ParsedItem): RowCandidate[] {
   }
   if (isPositiveInt(q) && a % q === 0 && a / q > 0) {
     add({ quantity: q, unitPrice: a / q, rawAmount: a, cost: 1, change: t('đơn giá {v} → {v2}', { v: formatMoney(u), v2: formatMoney(a / q) }) })
+  }
+  // OCR nhầm 1 ↔ 4 ở SL, đơn giá hoặc thành tiền: chỉ nhận cách đọc làm SL × đơn giá = thành tiền.
+  for (const qq of [q, ...oneFourVariants(q)]) {
+    for (const uu of [u, ...oneFourVariants(u)]) {
+      for (const aa of [a, ...oneFourVariants(a)]) {
+        if (qq === q && uu === u && aa === a) continue
+        if (!isPositiveInt(qq) || uu <= 0 || qq * uu !== aa) continue
+        add({ quantity: qq, unitPrice: uu, rawAmount: aa, cost: 1, change: t('đọc lại số: {q} × {v} = {v2}', { q: qq, v: formatMoney(uu), v2: formatMoney(aa) }) })
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * Các số có thể đúng khi OCR nhầm `1` ↔ `4` (02 §3 bước 10): đổi 1 hoặc 2 chữ số `1`/`4` trong số, không lấy số gốc.
+ * Số lớn hơn 99.999.999 hoặc không có chữ số 1/4 thì không có biến thể.
+ */
+export function oneFourVariants(value: number): number[] {
+  const digits = String(value).split('')
+  const slots = digits.flatMap((d, i) => (d === '1' || d === '4' ? [i] : []))
+  const out: number[] = []
+  const flip = (i: number): string => (digits[i] === '1' ? '4' : '1')
+  for (let a = 0; a < slots.length; a++) {
+    for (let b = a; b < slots.length; b++) {
+      const next = [...digits]
+      next[slots[a]] = flip(slots[a])
+      if (b !== a) next[slots[b]] = flip(slots[b])
+      const n = Number(next.join(''))
+      if (n !== value && !out.includes(n)) out.push(n)
+    }
   }
   return out
 }
@@ -384,6 +426,8 @@ interface Attempt {
   /** Cộng vào chi phí kịch bản: tổng đọc từ chữ "Tổng cộng" tin hơn tổng đoán từ dòng cuối. */
   penalty: number
   fromTrailing: boolean
+  /** Tổng là biến thể 1 ↔ 4 của số đọc được (không phải số ở cuối bill). */
+  flipped?: boolean
 }
 
 /**
@@ -392,13 +436,18 @@ interface Attempt {
  */
 function findBestAttempt(parsed: ParsedReceipt, rawText: string | undefined): Attempt | null {
   const { billTotal, billSubtotal } = parsed
-  const totals: Array<{ total: number | undefined; penalty: number; fromTrailing: boolean }> = []
+  const totals: Array<{ total: number | undefined; penalty: number; fromTrailing: boolean; flipped?: boolean }> = []
   if (billTotal !== undefined) totals.push({ total: billTotal, penalty: 0, fromTrailing: false })
   else if (billSubtotal !== undefined) totals.push({ total: undefined, penalty: 0, fromTrailing: false })
   if (rawText !== undefined) {
     trailingAmounts(rawText, TRAILING_CANDIDATES).forEach((value, rank) => {
       if (value !== billTotal) totals.push({ total: value, penalty: 1 + rank, fromTrailing: true })
     })
+  }
+  // Tổng / tiền hàng đọc lệch 1 ↔ 4 (các dòng tổng không khớp nhau): thử biến thể của số đọc được, phạt cao hơn số gốc.
+  const flippedTotal = [billTotal, billSubtotal].filter((v): v is number => v !== undefined).flatMap((v) => oneFourVariants(v))
+  for (const value of new Set(flippedTotal)) {
+    if (value !== billTotal && value !== billSubtotal) totals.push({ total: value, penalty: 2, fromTrailing: false, flipped: true })
   }
 
   let best: Attempt | null = null
@@ -409,10 +458,21 @@ function findBestAttempt(parsed: ParsedReceipt, rawText: string | undefined): At
       const scenario = findScenario(parsed, useSubtotal, t.total, mustRemove)
       if (!scenario) continue
       const penalty = t.penalty + (billSubtotal !== undefined && !useSubtotal ? 3 : 0)
-      if (!best || scenario.cost + penalty < best.scenario.cost + best.penalty) best = { scenario, total: t.total, penalty, fromTrailing: t.fromTrailing }
+      if (!best || scenario.cost + penalty < best.scenario.cost + best.penalty) best = { scenario, total: t.total, penalty, fromTrailing: t.fromTrailing, flipped: t.flipped }
     }
   }
   return best
+}
+
+/** Ghi chú cho nhóm Drink / Food mà tổng các món khác dòng nhóm của bill (BR-4.20). */
+function describeGroupChecks(parsed: ParsedReceipt): string[] {
+  return (parsed.groupChecks ?? []).map((c) => {
+    const name = c.group === 'drink' ? t('đồ uống') : c.group === 'food' ? t('đồ ăn') : t('đồ uống và đồ ăn')
+    const values = { name, read: formatMoney(c.read), expected: formatMoney(c.expected), gap: formatMoney(Math.abs(c.expected - c.read)), item: t('Món chưa đọc được') }
+    return c.read < c.expected
+      ? t('Nhóm {name}: các món cộng được {read}, dòng nhóm ghi {expected}, thiếu {gap}. Đã thêm dòng "{item}" cho phần thiếu.', values)
+      : t('Nhóm {name}: các món cộng được {read}, nhiều hơn dòng nhóm ghi {expected}. Hãy xem lại các món trong nhóm.', values)
+  })
 }
 
 /**
@@ -420,7 +480,9 @@ function findBestAttempt(parsed: ParsedReceipt, rawText: string | undefined): At
  * Ngoài ra đếm số dòng của bảng hàng hoá: bill đánh số N dòng mà đọc được ít hơn thì báo có thể thiếu món.
  */
 export function validateReceipt(parsed: ParsedReceipt, rawText?: string): ReceiptCheck {
-  const check = validateTotals(parsed, rawText)
+  const validated = validateTotals(parsed, rawText)
+  const groupNotes = describeGroupChecks(parsed)
+  const check = groupNotes.length > 0 ? { ...validated, notes: [...groupNotes, ...validated.notes] } : validated
   const rows = parsed.tableRows
   if (!rows) return check
   const missing = rows.unread
@@ -528,7 +590,10 @@ function validateTotals(parsed: ParsedReceipt, rawText?: string): ReceiptCheck {
     const { receipt } = applied
     const changes = applied.notes
     const notes = [...changes]
-    if (attempt.fromTrailing && attempt.total !== undefined) {
+    if (attempt.flipped && attempt.total !== undefined) {
+      receipt.billTotal = attempt.total
+      notes.unshift(t('Tổng "{v}" đọc được không khớp tổng các món; đọc lại 1 ↔ 4 thành {v2} thì khớp nên được dùng làm tổng bill.', { v: formatMoney(billTotal ?? billSubtotal ?? 0), v2: formatMoney(attempt.total) }))
+    } else if (attempt.fromTrailing && attempt.total !== undefined) {
       receipt.billTotal = attempt.total
       notes.unshift(
         billTotal === undefined

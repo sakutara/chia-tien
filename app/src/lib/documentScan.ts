@@ -439,6 +439,12 @@ function normalizeGray(gray: Uint8ClampedArray): Uint8ClampedArray {
   return out
 }
 
+/**
+ * Ngưỡng nhị phân hoá dùng khi quét hoá đơn (02 §3 bước 1): đo OCR thật trên 2 bill, 0,25 đọc đúng nhiều số nhất
+ * (28/31, so với 25/31 ở 0,12 và 23/31 ở 0,30). Thấp hơn làm nét quá đậm, bít lỗ số `6`/`8` và dính số `1` vào đường kẻ.
+ */
+export const RECEIPT_SCAN_CONTRAST = 0.25
+
 export interface BinarizeOptions {
   /** Pixel đen khi tối hơn trung bình cục bộ chừng này (0–1). */
   contrast?: number

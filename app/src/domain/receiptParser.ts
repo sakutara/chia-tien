@@ -37,6 +37,8 @@ export interface ParsedReceipt {
   vatIncluded?: boolean
   /** Đếm số dòng của bảng hàng hoá để phát hiện thiếu món: `expected` dòng đánh số trên bill, `read` dòng đọc được. */
   tableRows?: { expected: number; read: number; unread: string[] }
+  /** Bill có dòng tổng nhóm (Drink / Food): nhóm mà tổng các món đọc được khác số trên dòng nhóm (`group` bỏ trống: đối soát chung). */
+  groupChecks?: Array<{ group?: 'drink' | 'food'; expected: number; read: number }>
 }
 
 const PERCENT_RE = /(\d{1,2}(?:[.,]\d)?)\s*%/g
@@ -54,7 +56,7 @@ const ITEM_NOTE_RE = /^\W*(?:ghi chu|note)\b|^\W*size\b/
 /** Số lượng đứng trước tên món: "1x Cà phê sữa". */
 /** Cho phép tối đa hai token rác ngắn đứng trước (ảnh món bị OCR đọc thành "là.", "Pi"). */
 const LEADING_QTY_RE = /^(?:\S{1,3}\s+){0,2}?\W*(\d{1,2})\s*[xX×]\s+(?=\p{L})/u
-const TOTAL_RE = /tong cong|tong thanh toan|tong tien|can thanh toan|thanh toan|total|\bamount\b/
+const TOTAL_RE = /t[oe]ng cong|t[oe]ng thanh toan|t[oe]ng tien|can thanh toan|thanh toan|con phai thu|total|\bamount\b/
 /** Dòng tiền hàng / tạm tính: tổng các món, chưa gồm giảm giá, phí phục vụ, VAT. */
 const SUBTOTAL_RE = /tong \(\d+ mon\)|tien hang|tong tam tinh|tam tinh|sub ?total|cong tien/
 const TOTAL_EXCLUDE_RE = /tien hang|tam tinh|tien mat|tien thua|tien thoi|\bthe\b|card|cash/
@@ -79,6 +81,8 @@ const UNIT_WORDS = new Set(['lau', 'dia', 'di', 'die', 'tho', 'chai', 'ly', 'pha
 /** Dòng "Đơn vị bán hàng (Company): TÊN" của hoá đơn điện tử: tên quán chính là phần sau dấu hai chấm. */
 const SELLER_RE = /(?:don vi ban hang|ten don vi ban|nguoi ban)\b(.*)$/
 
+/** Nhãn đứng trước số dài không phải tiền: "Số" (số hoá đơn), "Số tài khoản", "STK" (OCR hay đọc thành "SO"). */
+const LONG_NUMBER_LABEL_RE = /^\W*(?:so|stk|so tai khoan|so hoa don|ma so)\s*[:.]?\s*\d/
 const VENDOR_KEYWORD_RE = /nha hang|quan\b|cafe|coffee|\blau\b|bbq|\bbill\b|restaurant|karaoke|\btra\b|\bbar\b|buffet|\bcom\b|\bpho\b|\bbun\b|bistro|kitchen/
 
 const QTY_PAIR_RE = /^(\d{1,3})\s*[xX×*]\s*(\d[\d.,]*k?)\s*=\s*(\d[\d.,]*k?)$/i
@@ -94,8 +98,15 @@ function normalizeLine(raw: string): string {
   return raw
     // Đơn vị tiền dính sau số: 25.000đ, 25,000₫, 25.000 VND.
     .replace(/(\d)\s*(?:đ|₫|vnđ|vnd)(?![\p{L}\d])/giu, '$1')
+    // Dấu chấm/phẩy thừa sau số ("90.000.", "1."): vết mực hoặc đường kẻ bị đọc thành dấu câu, làm token không còn là số.
+    .replace(/(\d)[.,](?=\s|$)/g, '$1')
     .replace(/(?<=\d)[Oo]|[Oo](?=\d)/g, '0')
     .replace(/(^|\s)[lI|](?=\d)/g, (_match, space: string) => `${space}1`)
+    // Đường kẻ bảng bị OCR đọc thành ký tự viền và chuỗi gạch / chấm: thay bằng khoảng trắng trước khi tách số (02 §3 bước 0).
+    .replace(/[|¦[\]{}_]/g, ' ')
+    .replace(/[-=~—.]{3,}/g, ' ')
+    // Chữ "đ" bị đọc thành chữ số: số tiền có nhóm nghìn cuối 4 chữ số ("176.0004") thì bỏ chữ số thừa.
+    .replace(/(?<![\d.,])(\d{1,3}(?:[.,]\d{3})*[.,]\d{3})\d(?![\d.,])/g, '$1')
     // OCR đọc dấu phân cách nghìn thành "/" hoặc dấu nháy: 85/000, 49'000.
     .replace(/(\d)[/'’](\d{3})(?!\d)/g, '$1,$2')
     .replace(/\S+/g, fixDigitLookalikes)
@@ -116,12 +127,30 @@ function dropZeroDecimals(line: string): string {
   return line.replace(/(\d{1,3}(?:[.,]\d{3})+)[.,]?00(?!\d)/g, '$1').replace(/(\d)[.,]00(?!\d)/g, '$1')
 }
 
+/**
+ * Số dài hơn 8 chữ số mà không chia hết cho 100 không phải tiền: mã số thuế, số hoá đơn, số tài khoản (02 §3 bước 5).
+ * Số dài chia hết cho 100 vẫn coi là tiền.
+ */
+function isLongNonMoney(token: string): boolean {
+  const digits = token.replace(/\D/g, '')
+  if (digits.length <= 8) return false
+  const value = parseMoney(token)
+  return value === null || value % 100 !== 0
+}
+
 function moneyValues(line: string): number[] {
   const withoutPercent = dropZeroDecimals(line.replace(PERCENT_RE, ' '))
   const tokens = withoutPercent.match(MONEY_TOKEN_RE) ?? []
   return tokens
+    .filter((token) => !isLongNonMoney(token))
     .map((t) => parseMoney(t))
     .filter((v): v is number => v !== null && v >= 100)
+}
+
+/** Dòng có số dài không phải tiền (MST, số hoá đơn, số tài khoản) và không có số tiền nào: không phải món. */
+function isLongNumberLine(line: string): boolean {
+  const hasLong = line.split(/\s+/).some((token) => /\d{9,}/.test(token) && isLongNonMoney(token))
+  return hasLong && moneyValues(line).length === 0
 }
 
 function percentOf(line: string): number | undefined {
@@ -390,12 +419,14 @@ function stripBigNumbers(rawName: string): { name: string; hints: number[] } {
  * Món từ một dòng (số lượng, đơn giá, thành tiền) hoặc hai dòng `tên` / `SL x đơn giá = thành tiền`.
  * Dòng chỉ có chữ ngay trước một dòng có giá được ghép làm phần đầu tên ("Trà Cóc" + "Pha ngọt").
  */
-function parseItems(lines: string[], vendorName: string | undefined): ParsedItem[] {
+function parseItems(lines: string[], vendorName: string | undefined, origins?: Map<ParsedItem, number>): ParsedItem[] {
   const items: ParsedItem[] = []
   // Bảng có cột "Đơn vị tính": từ đơn vị (Lẩu, Dĩa, Thố…) đứng cuối tên món, không thuộc tên.
   const unitColumn = lines.some((l) => hit(UNIT_COLUMN_RE, l))
   /** Các dòng chỉ có chữ liên tiếp chưa gắn vào món nào. */
   let pending: string[] = []
+  /** Dòng đang đọc, ghi lại làm vị trí của món để gắn món vào nhóm Drink / Food. */
+  let current = 0
 
   const push = (rawName: string, quantity: number, unitPrice: number, rawAmount: number, uncertain: boolean): void => {
     const { name: strippedName, hints } = stripBigNumbers(rawName)
@@ -415,7 +446,9 @@ function parseItems(lines: string[], vendorName: string | undefined): ParsedItem
     const prefixRaw = pending.length > 0 ? pending[pending.length - 1] : undefined
     const prefix = prefixRaw !== undefined ? cleanItemName(stripBigNumbers(prefixRaw).name) : undefined
     const name = prefix ? `${prefix} - ${own}` : own
-    items.push({ name, quantity, unitPrice, rawAmount, uncertain: flagged || quantity * unitPrice !== rawAmount })
+    const item: ParsedItem = { name, quantity, unitPrice, rawAmount, uncertain: flagged || quantity * unitPrice !== rawAmount }
+    items.push(item)
+    origins?.set(item, current)
   }
 
   // Hoá đơn điện tử dạng bảng: các món nằm trước dòng "Cộng tiền hàng hóa… (Total amount)"; phần sau là chữ ký số, mã tra cứu…
@@ -423,9 +456,10 @@ function parseItems(lines: string[], vendorName: string | undefined): ParsedItem
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    current = i
     if (tableMode && items.length > 0 && (hit(TOTAL_AMOUNT_RE, line) || hit(/^\W*cong tien/, line))) break
     const isClassified =
-      isAdjustmentLine(line) || isTotalLine(line) || isDateLine(line) || hit(ADDRESS_RE, line) || hit(HEADER_RE, line) || hit(FOOTER_RE, line) || hit(COLUMN_INDEX_RE, line) || hit(NOTE_RE, line) || hit(ITEM_NOTE_RE, line)
+      isAdjustmentLine(line) || isTotalLine(line) || isDateLine(line) || hit(ADDRESS_RE, line) || hit(HEADER_RE, line) || hit(FOOTER_RE, line) || hit(COLUMN_INDEX_RE, line) || hit(NOTE_RE, line) || hit(ITEM_NOTE_RE, line) || isLongNumberLine(line) || hit(LONG_NUMBER_LABEL_RE, line)
     if (isClassified) {
       pending = []
       continue
@@ -721,8 +755,8 @@ function groupKind(line: string): 'drink' | 'food' | null {
  * Bill tính riêng đồ uống và đồ ăn: mỗi nhóm một dòng tổng (có số tiền). Hai dòng này được giữ làm hai "món" dù không phải món ăn.
  * Trả về các dòng nhóm (đồ uống trước) và vị trí của chúng trong `lines`; dòng không có số tiền (tiêu đề nhóm) bị bỏ qua.
  */
-function findGroupRows(lines: string[]): { rows: ParsedItem[]; indexes: Set<number> } {
-  const found = new Map<'drink' | 'food', { name: string; amount: number }>()
+function findGroupRows(lines: string[]): { rows: ParsedItem[]; indexes: Set<number>; lines: GroupLine[] } {
+  const found = new Map<'drink' | 'food', { name: string; amount: number; index: number }>()
   const indexes = new Set<number>()
   lines.forEach((line, i) => {
     const kind = groupKind(line)
@@ -730,19 +764,87 @@ function findGroupRows(lines: string[]): { rows: ParsedItem[]; indexes: Set<numb
     const values = moneyValues(line)
     if (values.length === 0) return
     indexes.add(i)
-    if (!found.has(kind)) found.set(kind, { name: kind === 'drink' ? t('Tổng đồ uống') : t('Tổng đồ ăn'), amount: values[values.length - 1] })
+    if (!found.has(kind)) found.set(kind, { name: kind === 'drink' ? t('Tổng đồ uống') : t('Tổng đồ ăn'), amount: values[values.length - 1], index: i })
   })
   const rows = (['drink', 'food'] as const).flatMap((k) => {
     const g = found.get(k)
     return g ? [{ name: g.name, quantity: 1, unitPrice: g.amount, rawAmount: g.amount, uncertain: false }] : []
   })
-  return { rows, indexes }
+  const groupLines = (['drink', 'food'] as const).flatMap((k) => {
+    const g = found.get(k)
+    return g ? [{ kind: k, amount: g.amount, index: g.index }] : []
+  })
+  return { rows, indexes, lines: groupLines }
+}
+
+interface GroupLine {
+  kind: 'drink' | 'food'
+  amount: number
+  index: number
+}
+
+const MISSING_ITEM_NAME = 'Món chưa đọc được'
+
+/**
+ * Các món so với dòng tổng nhóm (Drink / Food) của bill (02 §3 bước 5, BR-4.20). Dòng nhóm là subtotal chứ không thay món:
+ * mỗi dòng nhóm khép các món nằm ngay trên nó; nhóm thiếu thì thêm "Món chưa đọc được" đúng phần thiếu, nhóm thừa thì giữ
+ * nguyên và báo lệch. Không biết vị trí món (bảng hàng hoá) thì đối soát chung cả bill.
+ */
+function reconcileGroups(items: ParsedItem[], origins: Map<ParsedItem, number> | undefined, groupLines: GroupLine[]): { items: ParsedItem[]; checks: NonNullable<ParsedReceipt['groupChecks']> } {
+  const sum = (list: ParsedItem[]): number => list.reduce((s, i) => s + i.rawAmount, 0)
+  const missingItem = (amount: number): ParsedItem => ({ name: t(MISSING_ITEM_NAME), quantity: 1, unitPrice: amount, rawAmount: amount, uncertain: true })
+  const sorted = [...groupLines].sort((a, b) => a.index - b.index)
+  const groupSum = sorted.reduce((s, g) => s + g.amount, 0)
+  if (sum(items) === groupSum) return { items, checks: [] }
+
+  if (!origins || items.some((item) => !origins.has(item))) {
+    const read = sum(items)
+    return { items: read < groupSum ? [...items, missingItem(groupSum - read)] : items, checks: [{ expected: groupSum, read }] }
+  }
+
+  const segments: ParsedItem[][] = sorted.map(() => [])
+  const rest: ParsedItem[] = []
+  for (const item of items) {
+    const k = sorted.findIndex((g) => g.index > (origins.get(item) as number))
+    ;(k < 0 ? rest : segments[k]).push(item)
+  }
+  const checks: NonNullable<ParsedReceipt['groupChecks']> = []
+  const out: ParsedItem[] = []
+  sorted.forEach((group, k) => {
+    const read = sum(segments[k])
+    out.push(...segments[k])
+    if (read === group.amount) return
+    checks.push({ group: group.kind, expected: group.amount, read })
+    if (read < group.amount) out.push(missingItem(group.amount - read))
+  })
+  return { items: [...out, ...rest], checks }
 }
 
 /** Tên món (02 §3 bước 11): số ở cuối tên tối đa 4 chữ số ("Bia 1964"); số dài hơn 4 chữ số là mã hoặc số tiền bị đọc nhầm, bỏ hết. */
 function tidyItemName(item: ParsedItem): ParsedItem {
   const name = item.name.replace(/(\s+\d+)+$/, (tail) => (/\d{5}/.test(tail) ? '' : tail)).trim()
   return name === item.name ? item : { ...item, name }
+}
+
+/**
+ * Tổng bill khi các dòng tổng đọc lệch nhau (02 §3 bước 10): lấy số xuất hiện nhiều nhất trong các dòng tổng và tiền hàng,
+ * nếu có số lặp lại ít nhất hai lần. Không có số nào lặp lại thì trả `undefined` (validation thử biến thể 1 ↔ 4).
+ */
+function majorityTotal(lines: string[]): number | undefined {
+  const values: number[] = []
+  lines.forEach((line, i) => {
+    // Chỉ dòng "tiền hàng" (không ghi trước thuế) và các dòng tổng; dòng "tiền thuế" không tính.
+    const isGross = hit(/tien hang/, line) && !hit(PRETAX_RE, line)
+    if (hit(PRETAX_RE, line) || hit(VAT_RE, line)) return
+    if (!isTotalLine(line) && !hit(TOTAL_AMOUNT_RE, line) && !hit(/con phai thu/, line) && !isGross) return
+    const value = totalValue(lines, i)
+    if (value !== undefined) values.push(value)
+  })
+  const counts = new Map<number, number>()
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1)
+  let best: { value: number; count: number } | undefined
+  for (const [value, count] of counts) if (!best || count > best.count) best = { value, count }
+  return best && best.count >= 2 ? best.value : undefined
 }
 
 /** Phân tích văn bản OCR của một hoá đơn. Không ném lỗi: thứ không đọc được thì bỏ trống. */
@@ -755,7 +857,8 @@ export function parseReceipt(rawText: string): ParsedReceipt {
   const vendorName = findVendor(lines)
   const table = parseVatTable(lines)
   const useTable = table !== null && (table.items.length > 0 || table.rows.unread.length > 0)
-  const result: ParsedReceipt = { items: useTable ? table.items : parseItems(lines, vendorName) }
+  const origins = new Map<ParsedItem, number>()
+  const result: ParsedReceipt = { items: useTable ? table.items : parseItems(lines, vendorName, origins) }
   if (useTable) {
     result.tableRows = table.rows
     if (table.discount > 0) result.discount = { mode: 'FIXED_AMOUNT', value: table.discount }
@@ -812,6 +915,9 @@ export function parseReceipt(rawText: string): ParsedReceipt {
     }
   }
 
+  const majority = majorityTotal(lines)
+  if (majority !== undefined) result.billTotal = majority
+
   // Giá từng dòng đã gồm thuế: VAT ghi ở chân bill là phần nằm sẵn trong giá, không cộng thêm; tiền hàng trước thuế cũng không dùng để so.
   if (result.vatIncluded) {
     delete result.vat
@@ -822,12 +928,15 @@ export function parseReceipt(rawText: string): ParsedReceipt {
 
   if (groups.rows.length > 0) {
     // Các dòng đọc được từ chính dòng nhóm ("Đồ uống 120.000") đã được thay bằng dòng nhóm chuẩn hoá.
-    const others = result.items.filter((item) => groupKind(item.name) === null)
-    const groupSum = groups.rows.reduce((s, r) => s + r.rawAmount, 0)
-    const othersSum = others.reduce((s, r) => s + r.rawAmount, 0)
-    // Bill đã liệt kê từng món và tổng nhóm chỉ là tổng phụ của chúng: giữ các món, thêm hai dòng nhóm sẽ tính trùng.
-    // Còn lại (bill chỉ có hai dòng nhóm, hoặc các món đọc ra không khớp tổng nhóm): hai dòng nhóm là số liệu đáng tin.
-    result.items = others.length > 0 && othersSum === groupSum ? others : groups.rows
+    const others = result.items.filter((item) => groupKind(item.name) === null && !groups.indexes.has(origins.get(item) ?? -1))
+    if (others.length === 0) {
+      // Không đọc được món nào: hai dòng nhóm là số liệu duy nhất để chia tiền.
+      result.items = groups.rows
+    } else {
+      const reconciled = reconcileGroups(others, useTable ? undefined : origins, groups.lines)
+      result.items = reconciled.items
+      if (reconciled.checks.length > 0) result.groupChecks = reconciled.checks
+    }
   }
 
   result.items = result.items.map(tidyItemName)

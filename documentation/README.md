@@ -67,6 +67,7 @@ Toàn bộ tài liệu thiết kế hệ thống được chia thành 4 phần c
 1. [**01. Kiến trúc Hệ thống & Mô hình Dữ liệu (`01-architecture-and-data-model.md`)**](./01-architecture-and-data-model.md)
    - Sơ đồ kiến trúc Client-side, thiết kế Schema IndexedDB, cấu trúc Snapshot Payload, cơ chế lưu trữ File hoá đơn (OPFS/Blob) và luồng dữ liệu.
 2. [**02. Nghiệp vụ Tính toán, OCR, VAT, Quyết toán & Chia sẻ Snapshot (`02-business-logic-and-algorithms.md`)**](./02-business-logic-and-algorithms.md)
+   - Pipeline OCR chi tiết (xử lý ảnh, nhận diện hai lượt, bộ phân tích và đối soát tổng): [**ocr-pipeline.md**](./ocr-pipeline.md).
    - Công thức tính tiền 3 tầng, phân bổ VAT, thuật toán OCR bóc tách hoá đơn, gom nhóm thanh toán, thuật toán Tự thanh toán vs. Nhờ người chủ trì, định dạng bản tin Chia sẻ & mã hoá Snapshot URL, và quy trình Lưu trữ (Archive).
 3. [**03. Thiết kế Giao diện (UI/UX) & Hệ màu USD Green (`03-ui-ux-and-design-system.md`)**](./03-ui-ux-and-design-system.md)
    - Bảng màu USD, Typography, bố cục 3 chế độ xem Bữa, luồng tương tác Quick Filter chọn người, chụp/OCR hoá đơn, bảng thanh toán, Modal Chia sẻ và giao diện Xem Snapshot (Read-only).
