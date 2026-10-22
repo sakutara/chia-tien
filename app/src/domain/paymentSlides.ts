@@ -36,18 +36,18 @@ function shareMembers(a?: PaymentEntitySettlement, b?: PaymentEntitySettlement):
 
 /**
  * Chọn tài khoản nhận của một thực thể: nếu nhờ chủ trì thu và thực thể chứa chủ trì thì ưu tiên tài khoản chủ trì;
- * sau đó người đại diện nhóm → chủ trì (nếu nằm trong nhóm) → thành viên đầu tiên có tài khoản.
+ * sau đó lấy tài khoản của thành viên đầu tiên (theo thứ tự trong nhóm) có thông tin ngân hàng.
  * Cá nhân lẻ dùng tài khoản của chính họ.
  */
 export function resolveRecipient(
-  entity: Pick<PaymentEntitySettlement, 'memberIds' | 'representativeId'> | undefined,
+  entity: Pick<PaymentEntitySettlement, 'memberIds'> | undefined,
   hostMemberId: string,
   people: ReadonlyMap<string, PersonBank>,
   hostFirst = false,
 ): { memberId: string; bank: BankAccount } | undefined {
   if (!entity) return undefined
   const hostInside = entity.memberIds.includes(hostMemberId) ? hostMemberId : undefined
-  const order = [hostFirst ? hostInside : undefined, entity.representativeId, hostInside, ...entity.memberIds]
+  const order = [hostFirst ? hostInside : undefined, ...entity.memberIds]
   for (const id of order) {
     if (!id || !entity.memberIds.includes(id)) continue
     const bank = people.get(id)?.bank
@@ -57,7 +57,7 @@ export function resolveRecipient(
 }
 
 export function resolveRecipientBank(
-  entity: Pick<PaymentEntitySettlement, 'memberIds' | 'representativeId'> | undefined,
+  entity: Pick<PaymentEntitySettlement, 'memberIds'> | undefined,
   hostMemberId: string,
   people: ReadonlyMap<string, PersonBank>,
   hostFirst = false,

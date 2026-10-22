@@ -46,7 +46,7 @@ export default function EntityGroupList({ entities, breakdowns }: Props) {
               <div className="space-y-3 text-sm">
                 <dl className="flex flex-wrap gap-x-4 gap-y-0.5">
                   <div className="flex gap-1.5">
-                    <dt className="text-usd-green-700">{t('Ứng')}</dt>
+                    <dt className="text-usd-green-700">{t('Ứng trước')}</dt>
                     <dd className="money">{formatMoney(entity.totalPaid)}</dd>
                   </div>
                   <div className="flex gap-1.5">

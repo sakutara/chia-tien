@@ -1,5 +1,5 @@
 import { useId, useMemo, useState, type KeyboardEvent } from 'react'
-import { Check, Crown, Plus } from 'lucide-react'
+import { Check, Crown, Plus, Users } from 'lucide-react'
 import { formatMemberName } from '../../db/normalize'
 import { decideEnter, filterMembers, findExactMatch } from '../../domain/memberFilter'
 import type { Member } from '../../types'
@@ -54,7 +54,12 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
       setMessage(t('{name} đã tham gia bữa này.', { name: member.name }))
       return
     }
-    await onPick(member)
+    try {
+      await onPick(member)
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : t('Có lỗi không xác định.'))
+      return
+    }
     reset()
   }
 
@@ -165,6 +170,7 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
               >
                 <span className="flex items-center gap-2">
                   {row.member.isDefaultHost && <Crown className="h-4 w-4 text-usd-gold-600" aria-label={t('Chủ app')} />}
+                  {row.member.groupMemberIds && <Users className="h-4 w-4 text-usd-green-700" aria-label={t('Nhóm')} />}
                   <span>{row.member.name}</span>
                 </span>
                 {joined && (

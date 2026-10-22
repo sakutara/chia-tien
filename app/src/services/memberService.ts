@@ -43,7 +43,7 @@ export async function getOrCreateMember(
 ): Promise<{ member: Member; created: boolean }> {
   const name = validateMemberName(rawName);
   const all = await db.members.toArray();
-  const existing = findExactMatch(all, name);
+  const existing = findExactMatch(all.filter((m) => !m.groupMemberIds), name);
   if (existing) return { member: existing, created: false };
 
   const key = allocateKey(all, name);

@@ -37,12 +37,10 @@ describe('buildPaymentSlides', () => {
     expect(slides.map((s) => s.key)).toEqual(['c->g'])
   })
 
-  it('nhóm nhận tiền: ưu tiên đại diện, rồi chủ trì, rồi thành viên có tài khoản', () => {
+  it('nhóm nhận tiền: lấy tài khoản của thành viên đầu tiên có thông tin, bỏ qua người đại diện', () => {
     const map = new Map(people.map((p) => [p.id, p]))
-    const g = entity('g', ['a', 'b', 'c'])
-    expect(resolveRecipientBank({ ...g, representativeId: 'c' }, 'a', map)?.accountName).toBe('C')
-    expect(resolveRecipientBank({ ...g, representativeId: 'b' }, 'a', map)?.accountName).toBe('A')
-    expect(resolveRecipientBank({ ...g, representativeId: 'b' }, 'zzz', map)?.accountName).toBe('A')
+    const g = entity('g', ['b', 'c', 'a'])
+    expect(resolveRecipientBank(g, 'zzz', map)?.accountName).toBe('C')
     expect(resolveRecipientBank(entity('x', ['b']), 'a', map)).toBeUndefined()
   })
 
@@ -56,8 +54,8 @@ describe('buildPaymentSlides', () => {
     expect(personFilterOptions(slides).map((o) => o.label).sort()).toEqual(['c'])
   })
 
-  it('nhờ chủ trì thu: nhóm có chủ trì nhận bằng tài khoản chủ trì dù người đại diện cũng có tài khoản', () => {
-    const g = entity('g', ['a', 'c'], { representativeId: 'c' })
+  it('nhờ chủ trì thu: nhóm có chủ trì nhận bằng tài khoản chủ trì; tự thanh toán thì lấy người đầu tiên có tài khoản', () => {
+    const g = entity('g', ['c', 'a'], { representativeId: 'c' })
     const settlement = { ...result([g, entity('b', ['b'])], [t('b', 'g', 100)], 'a'), settlementMode: 'HOST_MEDIATED' as const }
     expect(buildPaymentSlides({ settlement, mealTitle: 'x', people })[0].bank?.accountName).toBe('A')
     const self = { ...settlement, settlementMode: 'SELF_SETTLEMENT' as const }

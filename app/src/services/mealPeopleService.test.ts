@@ -4,6 +4,7 @@ import { db } from '../db/db';
 import { ensureDefaultData } from '../db/seed';
 import type { Invoice, InvoiceItem, Meal } from '../types';
 import {
+  addGroupContactToMeal,
   addParticipant,
   createAndAddParticipant,
   createGroup,
@@ -320,5 +321,65 @@ describe('mealPeopleService', () => {
       expect(hasPaidStatusAffected(meal, ['b'], 'g1')).toBe(false);
       expect(hasPaidStatusAffected(meal, ['b'], 'g2')).toBe(false);
     });
+  });
+});
+
+describe('nhóm lưu trong danh bạ', () => {
+  beforeEach(async () => {
+    await db.delete();
+    await db.open();
+    await ensureDefaultData();
+  });
+
+  it('tạo nhóm trong bữa thì nhóm cũng được lưu vào danh bạ, đổi tên/thành viên thì cập nhật hồ sơ', async () => {
+    const meal = await makeMeal();
+    const c = await createAndAddParticipant(meal.id, 'Chi');
+    const d = await createAndAddParticipant(meal.id, 'Dũng');
+    const group = await createGroup(meal.id, { name: 'Cặp đôi', memberIds: [c.member.id, d.member.id] });
+
+    const contact = await db.members.get(group.contactId!);
+    expect(contact).toMatchObject({ name: 'Cặp đôi', groupMemberIds: [c.member.id, d.member.id] });
+
+    await updateGroup(meal.id, group.id, { name: 'Vợ chồng' });
+    expect((await db.members.get(group.contactId!))?.name).toBe('Vợ chồng');
+  });
+
+  it('thêm nhóm từ danh bạ vào bữa khác như một cá nhân: tự thêm thành viên và dựng nhóm', async () => {
+    const first = await makeMeal();
+    const c = await createAndAddParticipant(first.id, 'Chi');
+    const d = await createAndAddParticipant(first.id, 'Dũng');
+    const group = await createGroup(first.id, { name: 'Cặp đôi', memberIds: [c.member.id, d.member.id] });
+
+    const second = await makeMeal();
+    await addGroupContactToMeal(second.id, group.contactId!);
+    await addGroupContactToMeal(second.id, group.contactId!); // idempotent
+
+    const saved = (await db.meals.get(second.id))!;
+    expect(saved.participantIds).toEqual(expect.arrayContaining([c.member.id, d.member.id]));
+    expect(saved.paymentGroups).toHaveLength(1);
+    expect(saved.paymentGroups[0]).toMatchObject({ name: 'Cặp đôi', contactId: group.contactId, memberIds: [c.member.id, d.member.id] });
+  });
+
+  it('từ chối khi thành viên đã ở nhóm khác trong bữa', async () => {
+    const first = await makeMeal();
+    const c = await createAndAddParticipant(first.id, 'Chi');
+    const d = await createAndAddParticipant(first.id, 'Dũng');
+    const group = await createGroup(first.id, { name: 'Cặp đôi', memberIds: [c.member.id, d.member.id] });
+
+    const second = await makeMeal();
+    await addParticipant(second.id, c.member.id);
+    const e = await createAndAddParticipant(second.id, 'Em');
+    await createGroup(second.id, { name: 'Nhóm khác', memberIds: [c.member.id, e.member.id] });
+    await expectCode(addGroupContactToMeal(second.id, group.contactId!), 'MEMBER_ALREADY_GROUPED');
+  });
+
+  it('tên trùng hồ sơ nhóm không bị coi là một cá nhân khi tạo người mới', async () => {
+    const meal = await makeMeal();
+    const c = await createAndAddParticipant(meal.id, 'Chi');
+    const d = await createAndAddParticipant(meal.id, 'Dũng');
+    const group = await createGroup(meal.id, { name: 'Cặp Đôi', memberIds: [c.member.id, d.member.id] });
+    const person = await createAndAddParticipant(meal.id, 'Cặp Đôi');
+    expect(person.created).toBe(true);
+    expect(person.member.id).not.toBe(group.contactId);
   });
 });

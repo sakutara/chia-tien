@@ -78,9 +78,9 @@ export default function TransferInstructionList({ transfers, hasCost, readOnly, 
                   <ArrowRight className="h-3 w-3 shrink-0 text-usd-green-700" aria-label={t('chuyển cho')} />
                   <strong className="min-w-0 truncate">{tr.toEntityName}</strong>
                 </span>
-                <span className="money block text-sm font-semibold">{formatMoney(tr.amount)}</span>
+                <span className="money !text-left block text-sm font-semibold">{formatMoney(tr.amount)}</span>
               </span>
-              {slideOf(tr) && (
+              {slideOf(tr) && !tr.isPaid && (
                 <IconButton
                   icon={QrCode}
                   label={t('Mở QR: {from} cho {to}', { from: tr.fromEntityName, to: tr.toEntityName })}
