@@ -14,9 +14,9 @@ export function MemberBreakdownSection({ b }: { b: MemberBreakdown }) {
       <h4 className="font-semibold">{b.memberName}</h4>
 
       <div className="space-y-1">
-        <p className="text-usd-green-700">{t('Đã ứng ({amount})', { amount: formatMoney(b.totalPaid) })}</p>
+        <p className="text-usd-green-700">{t('Đã ứng trước ({amount})', { amount: formatMoney(b.totalPaid) })}</p>
         {b.paidInvoices.length === 0 ? (
-          <p>{t('Chưa ứng hoá đơn nào.')}</p>
+          <p>{t('Chưa ứng trước hoá đơn nào.')}</p>
         ) : (
           <ul className="space-y-1">
             {b.paidInvoices.map((p) => (

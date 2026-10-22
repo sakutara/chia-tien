@@ -16,7 +16,7 @@ import { useMealSummaries } from '../hooks/useMealSummaries'
 import { useMembers } from '../hooks/useMembers'
 import { formatDateVi } from '../lib/dates'
 import { formatMoney } from '../lib/money'
-import { addParticipant, createAndAddParticipant } from '../services/mealPeopleService'
+import { addGroupContactToMeal, addParticipant, createAndAddParticipant } from '../services/mealPeopleService'
 import { T, t } from '../i18n'
 
 interface Props {
@@ -103,8 +103,8 @@ export default function MealWorkspacePage({ mealId, onBack }: Props) {
                   <div className="min-w-0 flex-1">
                     <MemberQuickFilter
                       members={members}
-                      participantIds={meal.participantIds}
-                      onPick={(m) => addParticipant(meal.id, m.id)}
+                      participantIds={[...meal.participantIds, ...groups.flatMap((g) => (g.contactId ? [g.contactId] : []))]}
+                      onPick={(m) => (m.groupMemberIds ? addGroupContactToMeal(meal.id, m.id) : addParticipant(meal.id, m.id))}
                       onCreate={async (name) => {
                         await createAndAddParticipant(meal.id, name)
                       }}

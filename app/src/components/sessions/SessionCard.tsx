@@ -122,6 +122,9 @@ export default function SessionCard({ view, isFirst, isLast, mealParticipants, h
         </div>
         {!readOnly && (
           <div className="flex shrink-0">
+            {!hasCost && (
+              <IconButton icon={Plus} label={t('Thêm hoá đơn nhanh')} tone="outline" onClick={() => setAdding(true)} disabled={sessionMembers.length === 0} />
+            )}
             <IconButton icon={ArrowUp} label={t('Đưa {name} lên', { name: session.name })} onClick={() => move('UP')} disabled={isFirst} />
             <IconButton icon={ArrowDown} label={t('Đưa {name} xuống', { name: session.name })} onClick={() => move('DOWN')} disabled={isLast} />
             <IconButton icon={Trash2} label={t('Xoá kèo {name}', { name: session.name })} tone="danger" onClick={requestDeleteSession} />
@@ -154,7 +157,7 @@ export default function SessionCard({ view, isFirst, isLast, mealParticipants, h
             <ul className="space-y-1">
               {(session.archivedPayerSummary ?? []).map((p) => (
                 <li key={p.memberId} className="flex flex-wrap justify-between gap-2">
-                  <span>{t('Ứng:')} {memberName(p.memberId)}</span>
+                  <span>{t('Ứng trước:')} {memberName(p.memberId)}</span>
                   <span className="money">{formatMoney(p.paidAmount)}</span>
                 </li>
               ))}

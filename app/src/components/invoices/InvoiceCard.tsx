@@ -70,7 +70,7 @@ export default function InvoiceCard({ row, index, session, sessionMembers, readO
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span>
-          <span className="text-usd-green-700">{t('Ứng:')}</span>
+          <span className="text-usd-green-700">{t('Ứng trước:')}</span>
           <PeoplePicker
             mode="single"
             label={t('Người ứng tiền hoá đơn #{n}', { n })}

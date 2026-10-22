@@ -322,10 +322,21 @@ describe('invoiceService — Epic 5 (người ứng, chế độ chia, món)', (
     })
   })
 
+  it('bật chia từng món: mọi người trong kèo tự được gán vào món chưa có người ăn', async () => {
+    const { session } = await setup()
+    const { invoice, items } = await createInvoice(draft(session.id, hostId))
+    expect(items.every((it) => it.consumers.length === 0)).toBe(true)
+
+    await setInvoiceSplitType(invoice.id, 'BY_ITEM')
+    const after = await db.items.where('invoiceId').equals(invoice.id).toArray()
+    expect(after.every((it) => it.consumers.length === 3)).toBe(true)
+  })
+
   it('BR-5.6 / R-6: gán nhanh cho mọi món hoặc chỉ món còn trống', async () => {
     const { session } = await setup()
     const { invoice, items } = await createInvoice({ ...draft(session.id, hostId), splitType: 'BY_ITEM' })
     await setItemConsumers(items[0].id, [{ memberId: carolId, shares: 4 }])
+    await setItemConsumers(items[1].id, [])
 
     const onlyEmpty = await setAllItemsConsumers(invoice.id, [hostId, bobId], 'UNASSIGNED_ONLY')
     expect(onlyEmpty.map((it) => it.id)).toEqual([items[1].id])

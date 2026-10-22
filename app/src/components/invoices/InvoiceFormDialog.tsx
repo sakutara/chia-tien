@@ -433,7 +433,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
               <input id="invoice-date" type="date" min={MIN_YMD} max={MAX_YMD} value={date} onChange={(e) => setDate(e.target.value)} className={INPUT} />
             </div>
             <div>
-              <label htmlFor="invoice-payer" className="mb-0.5 block text-xs font-medium text-usd-green-700">{t('Ứng')}</label>
+              <label htmlFor="invoice-payer" className="mb-0.5 block text-xs font-medium text-usd-green-700">{t('Ứng trước')}</label>
               <select id="invoice-payer" value={payer} onChange={(e) => setPayer(e.target.value)} className={INPUT}>
                 {payerOptions.map((m) => (
                   <option key={m.id} value={m.id}>{m.name}</option>

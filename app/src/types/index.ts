@@ -25,6 +25,7 @@ export interface Member {
   isDefaultHost?: boolean;     // Đánh dấu đây là hồ sơ "Tôi"
   avatarColor: string;         // Mã màu badge đại diện (trong dải màu USD/Emerald)
   bank?: BankAccount;          // Tài khoản ngân hàng nhận tiền (tuỳ chọn)
+  groupMemberIds?: string[];   // Có mặt → đây là nhóm lưu trong danh bạ; giá trị là các thành viên của nhóm
   createdAt: string;           // ISO Date
   lastUsedAt: string;          // ISO Date (phục vụ thống kê/gợi ý)
 }
@@ -43,6 +44,7 @@ export interface PaymentGroup {
   name: string;                // Tên nhóm (VD: "Gia đình An - Bình", "Cặp đôi C - D")
   memberIds: string[];         // Danh sách memberId gộp chung (tối thiểu 2 người trong bữa)
   representativeId?: string;   // Người đại diện đứng tên thanh toán của nhóm
+  contactId?: string;          // Nhóm này được lưu trong danh bạ dưới hồ sơ nào (Member.groupMemberIds)
 }
 
 export interface Meal {

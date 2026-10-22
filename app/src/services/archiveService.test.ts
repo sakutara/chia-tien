@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../db/db'
 import { ensureDefaultData } from '../db/seed'
-import { createInvoice, updateInvoice } from './invoiceService'
+import { createInvoice, setItemConsumers, updateInvoice } from './invoiceService'
 import { addSession, setSessionParticipants } from './sessionService'
 import { initMealPeople } from './mealPeopleService'
 import { archiveMeal, getArchivePreview } from './archiveService'
@@ -72,10 +72,11 @@ describe('archiveService (Epic 7: BR-7.1 → BR-7.3, R-1 → R-5)', () => {
     const init = await initMealPeople()
     const meal = await makeMeal([init.hostMemberId])
     const session = await addSession(meal.id, 'Kèo 1')
-    await createInvoice({
+    const { items } = await createInvoice({
       sessionId: session.id, payerMemberId: init.hostMemberId, inputMode: 'ITEMIZED', splitType: 'BY_ITEM',
       items: [{ name: 'Bia', quantity: 1, unitPrice: 50_000 }], discount: none, service: none, vat: none,
     })
+    await setItemConsumers(items[0].id, [])
     await expect(archiveMeal(meal.id)).rejects.toMatchObject({ code: 'ARCHIVE_UNASSIGNED_ITEMS' })
   })
 

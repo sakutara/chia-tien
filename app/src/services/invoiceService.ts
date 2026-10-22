@@ -66,13 +66,20 @@ export async function syncInvoiceFileIds(invoiceId: string): Promise<void> {
   });
 }
 
+/** Chia từng món: cả kèo cùng ăn, mỗi người một phần; dùng cho món chưa có người ăn. */
+function everyoneShares(sessionParticipantIds: string[]): ItemShare[] {
+  return sessionParticipantIds.map((memberId) => ({ memberId, shares: 1 }));
+}
+
 function toItemRows(
   computed: ComputedItem[],
   base: { mealId: string; sessionId: string; invoiceId: string },
   consumersById: Map<string, InvoiceItem['consumers']>,
+  fallbackConsumers: InvoiceItem['consumers'] = [],
 ): InvoiceItem[] {
   return computed.map((it, orderIndex) => {
     const id = it.id ?? generateId();
+    const kept = consumersById.get(id);
     return {
       ...base,
       id,
@@ -84,7 +91,7 @@ function toItemRows(
       allocatedServiceAmount: it.allocatedServiceAmount,
       allocatedVatAmount: it.allocatedVatAmount,
       finalAmount: it.finalAmount,
-      consumers: consumersById.get(id) ?? [],
+      consumers: kept && kept.length > 0 ? kept : fallbackConsumers,
       orderIndex,
     };
   });
@@ -138,6 +145,7 @@ export async function createInvoice(draft: InvoiceDraft): Promise<InvoiceResult>
       computed.items,
       { mealId: session.mealId, sessionId: session.id, invoiceId },
       new Map(),
+      splitType === 'BY_ITEM' ? everyoneShares(session.participantIds) : [],
     );
 
     let renamedSessionTo: string | undefined;
@@ -204,6 +212,7 @@ export async function updateInvoice(invoiceId: string, draft: InvoiceDraft): Pro
       computed.items,
       { mealId: session.mealId, sessionId: session.id, invoiceId },
       consumersById,
+      splitType === 'BY_ITEM' ? everyoneShares(session.participantIds) : [],
     );
 
     await db.items.where('invoiceId').equals(invoiceId).delete();
@@ -346,12 +355,18 @@ export async function setInvoicePayer(invoiceId: string, payerMemberId: string):
   });
 }
 
-/** Đổi chế độ chia BY_ITEM ↔ EQUAL_TOTAL; giữ nguyên món và người ăn (BR-5.2, BR-5.4, R-3). */
+/** Đổi chế độ chia BY_ITEM ↔ EQUAL_TOTAL; giữ nguyên món và người ăn; bật BY_ITEM thì món chưa có người ăn gán cả kèo (BR-5.2, BR-5.4, R-3). */
 export async function setInvoiceSplitType(invoiceId: string, splitType: InvoiceSplitType): Promise<Invoice> {
   return db.transaction('rw', [db.meals, db.sessions, db.invoices, db.items], async () => {
-    const { invoice, meal } = await loadEditableInvoice(invoiceId);
+    const { invoice, session, meal } = await loadEditableInvoice(invoiceId);
     const resolved = resolveSplitType(invoice.inputMode, splitType);
     const updated: Invoice = { ...invoice, splitType: resolved };
+    // Bật chia từng món: món chưa có người ăn tự động gán cả kèo.
+    if (resolved === 'BY_ITEM' && invoice.inputMode === 'ITEMIZED') {
+      const everyone = everyoneShares(session.participantIds);
+      const empty = (await loadInvoiceItems(invoiceId)).filter((it) => it.consumers.length === 0);
+      await db.items.bulkPut(empty.map((it) => ({ ...it, consumers: everyone })));
+    }
     await db.invoices.put(updated);
     await db.meals.update(meal.id, { updatedAt: nowIso() });
     return updated;

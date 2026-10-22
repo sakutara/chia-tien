@@ -53,6 +53,8 @@ async function fixture(withConsumers = false) {
     service: { mode: 'NONE', value: 0 },
     vat: { mode: 'NONE', value: 0 },
   })
+  // Bật chia từng món tự gán cả kèo; bỏ người ăn để giữ món trống cho các test.
+  for (const it of items) await setItemConsumers(it.id, [])
   if (withConsumers) await setItemConsumers(items[0].id, [{ memberId: bob.id, shares: 1 }])
   return { session, members: [...(await db.members.where('id').anyOf(meal.participantIds).toArray())], invoiceId: invoice.id, host: init.hostMemberId, bob, chi }
 }

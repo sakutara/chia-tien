@@ -3,7 +3,8 @@ import { db } from '../db/db';
 import { cleanName } from '../db/normalize';
 import { defaultGroupName, shrinkGroups, validateGroupDraft } from '../domain/paymentGroupRules';
 import type { Meal, Member, PaymentGroup } from '../types';
-import { getOrCreateMember } from './memberService';
+import { allocateKey, findExactMatch } from '../domain/memberFilter';
+import { avatarColorFor, getOrCreateMember } from './memberService';
 import { PeopleError } from './peopleErrors';
 import { t } from '../i18n';
 
@@ -177,7 +178,41 @@ async function memberNameMap(memberIds: string[]): Promise<Record<string, string
   return Object.fromEntries(memberIds.map((id, i) => [id, members[i]?.name ?? id]));
 }
 
-/** Tạo nhóm thanh toán (R-9, R-13). */
+/**
+ * Lưu nhóm vào danh bạ như một hồ sơ (`groupMemberIds`) để thêm vào bữa khác như một cá nhân.
+ * Đã có hồ sơ nhóm (theo `contactId` hoặc cùng tên) thì cập nhật thành viên; trùng tên với một cá nhân thì không lưu.
+ * Gọi trong transaction có `db.members`. Trả id hồ sơ, hoặc `undefined` nếu không lưu được.
+ */
+async function saveGroupContact(
+  name: string,
+  memberIds: string[],
+  contactId: string | undefined,
+  now: string,
+): Promise<string | undefined> {
+  const all = await db.members.toArray();
+  const groupContacts = all.filter((m) => m.groupMemberIds);
+  const existing = groupContacts.find((m) => m.id === contactId) ?? findExactMatch(groupContacts, name);
+  if (existing) {
+    await db.members.put({ ...existing, name, groupMemberIds: [...memberIds], lastUsedAt: now });
+    return existing.id;
+  }
+  if (findExactMatch(all, name)) return undefined;
+
+  const key = allocateKey(all, name);
+  const contact: Member = {
+    id: generateId(),
+    name,
+    normalizedName: key,
+    avatarColor: avatarColorFor(key),
+    groupMemberIds: [...memberIds],
+    createdAt: now,
+    lastUsedAt: now,
+  };
+  await db.members.add(contact);
+  return contact.id;
+}
+
+/** Tạo nhóm thanh toán (R-9, R-13). Nhóm cũng được lưu vào danh bạ. */
 export async function createGroup(mealId: string, input: GroupInput): Promise<PaymentGroup> {
   return db.transaction('rw', db.meals, db.members, async () => {
     const meal = await loadActiveMeal(mealId);
@@ -201,6 +236,7 @@ export async function createGroup(mealId: string, input: GroupInput): Promise<Pa
       memberIds: [...input.memberIds],
       representativeId,
     };
+    group.contactId = await saveGroupContact(group.name, group.memberIds, undefined, nowIso());
     await db.meals.put({
       ...meal,
       paymentGroups: [...meal.paymentGroups, group],
@@ -249,6 +285,7 @@ export async function updateGroup(mealId: string, groupId: string, patch: GroupP
       memberIds: [...memberIds],
       representativeId,
     };
+    updated.contactId = await saveGroupContact(updated.name, updated.memberIds, current.contactId, nowIso());
 
     // R-13: đổi thành phần làm mất trạng thái của người vào/ra nhóm và của chính nhóm.
     const changed = [...new Set([...current.memberIds, ...memberIds])].filter(
@@ -280,5 +317,47 @@ export async function dissolveGroup(mealId: string, groupId: string): Promise<vo
       settlementStatuses: withoutKeys(meal.settlementStatuses, [groupId, ...current.memberIds]),
       updatedAt: nowIso(),
     });
+  });
+}
+
+/**
+ * Thêm một nhóm trong danh bạ vào bữa như một cá nhân: các thành viên chưa có trong bữa được thêm,
+ * rồi dựng nhóm thanh toán của bữa. Đã có nhóm này thì không làm gì (idempotent).
+ * Thành viên đang thuộc nhóm khác của bữa thì từ chối (R-9).
+ */
+export async function addGroupContactToMeal(mealId: string, contactId: string): Promise<void> {
+  await db.transaction('rw', db.meals, db.members, async () => {
+    const meal = await loadActiveMeal(mealId);
+    const contact = await db.members.get(contactId);
+    if (!contact?.groupMemberIds) throw new PeopleError('GROUP_NOT_FOUND', t('Không tìm thấy nhóm.'), { groupId: contactId });
+    if (meal.paymentGroups.some((g) => g.contactId === contactId)) return;
+
+    const found = await db.members.bulkGet(contact.groupMemberIds);
+    const memberIds = contact.groupMemberIds.filter((_, i) => found[i] && !found[i]?.groupMemberIds);
+    const participantIds = [...new Set([...meal.participantIds, ...memberIds])];
+    validateGroupDraft({
+      memberIds,
+      participantIds,
+      existingGroups: meal.paymentGroups,
+      names: await memberNameMap(memberIds),
+    });
+
+    const now = nowIso();
+    const group: PaymentGroup = {
+      id: generateId(),
+      mealId,
+      name: contact.name,
+      memberIds,
+      representativeId: memberIds[0],
+      contactId,
+    };
+    await db.meals.put({
+      ...meal,
+      participantIds,
+      paymentGroups: [...meal.paymentGroups, group],
+      settlementStatuses: withoutKeys(meal.settlementStatuses, memberIds),
+      updatedAt: now,
+    });
+    await db.members.bulkUpdate([contactId, ...memberIds].map((id) => ({ key: id, changes: { lastUsedAt: now } })));
   });
 }

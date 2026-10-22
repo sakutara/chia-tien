@@ -152,7 +152,7 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
                           <li className="font-semibold">{t('Đã chốt {n} hoá đơn', { n: archivedInvoiceCount(payload, session.id) })}</li>
                           {session.archivedPayerSummary.map((p) => (
                             <li key={p.memberId} className="flex justify-between gap-2">
-                              <span>Ứng: {memberName(p.memberId)}</span>
+                              <span>{t('Ứng trước:')} {memberName(p.memberId)}</span>
                               <span className="money">{formatMoney(p.paidAmount)}</span>
                             </li>
                           ))}
@@ -167,7 +167,7 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
                               <p className="money font-semibold">{formatMoney(inv.totalAmount)}</p>
                             </div>
                             <p className="text-usd-green-700">
-                              {t('Ứng:')} {memberName(inv.payerMemberId)} · {inv.splitType === 'BY_ITEM' ? t('Chia từng món') : t('Chia đều theo tổng')}
+                              {t('Ứng trước:')} {memberName(inv.payerMemberId)} · {inv.splitType === 'BY_ITEM' ? t('Chia từng món') : t('Chia đều theo tổng')}
                               {inv.inputMode === 'TOTAL_ONLY' && t(' · Chỉ nhập tổng')}
                             </p>
                             {inv.splitType === 'EQUAL_TOTAL' && (
