@@ -152,6 +152,11 @@ documentation/epic-<n>/
 GitHub Pages phục vụ từ nhánh `main`, thư mục `/docs` (bản build prod, base `./` để asset dùng đường dẫn tương đối, không chốt cứng tên repo). Hook trong `.githooks/` giữ thư mục này luôn khớp mã nguồn:
 
 - **`post-merge`**: sau mỗi `git merge` / `git pull` vào `main` (kể cả fast-forward), tự build và commit `Build docs (<sha>)` nếu bản build đổi. Gồm cả trường hợp merge PR trên GitHub rồi `git pull` về máy.
-- **`pre-push`**: lưới an toàn; build lỗi thì chặn push, bản build đổi thì commit rồi dừng để chạy lại `git push`.
 - Chỉ chạy trên nhánh `main`, cần `app/node_modules` (thiếu thì bỏ qua và cảnh báo). Bỏ qua bằng `SKIP_PAGES_BUILD=1`; build tay bằng `.githooks/build-docs.sh`.
 - Hook được bật nhờ `core.hooksPath=.githooks`, tự đặt khi chạy `npm install` trong `app/` (script `prepare`); máy đã clone sẵn chạy một lần: `git config core.hooksPath .githooks`.
+
+## 7. Quy tắc làm việc với Git (BẮT BUỘC)
+
+- **Không commit trực tiếp lên `main`.** Mọi thay đổi đi qua một branch riêng (ví dụ `feat/...`, `fix/...`, `docs/...`), rồi mở Pull Request vào `main`.
+- Hệ quả với hook: `post-merge` chỉ build `docs/` khi có merge/pull vào `main`. Vì vậy mọi thay đổi lên `main` phải qua merge (PR) để `docs/` luôn được build lại.
+- Không dùng `--no-verify` hay `SKIP_PAGES_BUILD=1` để lách quy tắc này trừ khi người phụ trách đồng ý.

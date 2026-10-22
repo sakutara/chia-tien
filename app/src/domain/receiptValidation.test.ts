@@ -243,3 +243,28 @@ describe('validateReceipt — dòng rác lọt qua bộ lọc', () => {
     expect(check.notes.join(' ')).toContain('Rác')
   })
 })
+
+describe('validateReceipt — đối soát tổng với giảm giá bị đọc thành món và món bị thiếu', () => {
+  it('giảm giá bị đọc thành món (cộng thay vì trừ): chuyển thành giảm giá của bill, bỏ khỏi danh sách món', () => {
+    const check = validateReceipt(parseReceipt('QUÁN TEST\nCơm 150.000\nCanh 150.000\nGiảm 5.000\nTổng cộng 295.000'))
+    expect(check.status).toBe('CORRECTED')
+    expect(check.receipt.items.map((i) => i.name)).toEqual(['Cơm', 'Canh'])
+    expect(check.receipt.discount).toEqual({ mode: 'FIXED_AMOUNT', value: 5_000 })
+  })
+
+  it('thiếu một món (tổng các món nhỏ hơn bill một chút): thêm dòng "Món chưa đọc được" đúng số tiền thiếu', () => {
+    const check = validateReceipt(parseReceipt('QUÁN TEST\nCơm 150.000\nCanh 100.000\nTổng cộng 255.000'))
+    expect(check.status).toBe('CORRECTED')
+    expect(check.receipt.items.map((i) => [i.name, i.rawAmount, i.uncertain])).toEqual([
+      ['Cơm', 150_000, false],
+      ['Canh', 100_000, false],
+      ['Món chưa đọc được', 5_000, true],
+    ])
+  })
+
+  it('lệch lớn hơn 10% thì không tự thêm/bớt, báo người dùng chỉnh tay', () => {
+    const check = validateReceipt(parseReceipt('QUÁN TEST\nCơm 150.000\nCanh 100.000\nTổng cộng 400.000'))
+    expect(check.status).toBe('MISMATCH')
+    expect(check.receipt.items).toHaveLength(2)
+  })
+})

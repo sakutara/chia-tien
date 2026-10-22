@@ -555,4 +555,6 @@ export const en: Record<string, string> = {
   'Chọn cách thêm ảnh bill': 'Choose how to add the bill photo',
   'Ảnh sẽ được AI đọc trực tiếp, không qua OCR. OCR chỉ chạy khi AI không đọc được.': 'The AI reads the photo directly, without OCR. OCR only runs if the AI cannot read it.',
   'AI chưa đọc được ({reason}) nên chuyển sang OCR.': 'The AI could not read it ({reason}), so switching to OCR.',
+  'Dòng "{name}" ({v}) là {label} bị đọc thành món; đã chuyển thành {label} của bill.': 'Line "{name}" ({v}) is {label} that was read as an item; it has been moved to the bill\'s {label}.',
+  'Tổng các món thiếu {v} so với bill: đã thêm dòng "{name}" với số tiền đó, hãy tìm đúng món.': 'The items are short {v} compared with the bill: added a line "{name}" for that amount, please find the missing item.',
 }

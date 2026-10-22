@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build app vào docs/ (GitHub Pages phục vụ từ main + /docs) và commit nếu bản build đổi.
-# Dùng chung cho hook post-merge và pre-push. Chỉ làm việc trên nhánh main.
+# Dùng cho hook post-merge. Chỉ làm việc trên nhánh main.
 # Trả về: 0 = docs đã đúng (hoặc bỏ qua), 10 = vừa commit bản build mới, khác = build lỗi.
 # Bỏ qua bằng: SKIP_PAGES_BUILD=1
 set -e

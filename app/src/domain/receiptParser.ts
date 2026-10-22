@@ -54,7 +54,7 @@ const ITEM_NOTE_RE = /^\W*(?:ghi chu|note)\b|^\W*size\b/
 /** Số lượng đứng trước tên món: "1x Cà phê sữa". */
 /** Cho phép tối đa hai token rác ngắn đứng trước (ảnh món bị OCR đọc thành "là.", "Pi"). */
 const LEADING_QTY_RE = /^(?:\S{1,3}\s+){0,2}?\W*(\d{1,2})\s*[xX×]\s+(?=\p{L})/u
-const TOTAL_RE = /tong cong|tong thanh toan|tong tien|can thanh toan|thanh toan|total/
+const TOTAL_RE = /tong cong|tong thanh toan|tong tien|can thanh toan|thanh toan|total|\bamount\b/
 /** Dòng tiền hàng / tạm tính: tổng các món, chưa gồm giảm giá, phí phục vụ, VAT. */
 const SUBTOTAL_RE = /tong \(\d+ mon\)|tien hang|tong tam tinh|tam tinh|sub ?total|cong tien/
 const TOTAL_EXCLUDE_RE = /tien hang|tam tinh|tien mat|tien thua|tien thoi|\bthe\b|card|cash/
@@ -246,8 +246,8 @@ const JUNK_TOKEN_RE = /^[A-Za-z]{1,2}\d{1,4}$/
 const NUMBER_TOKEN_RE = /^\d[\d.,]*k?$/i
 /** Số lượng thật chỉ có 1-2 chữ số; số lớn hơn là tiền. */
 const QTY_TOKEN_RE = /^\d{1,2}$/
-/** Tên món không nên chứa số tiền: từ 1.000 đồng trở lên thì khả năng cao là số tiền bị hiểu nhầm. */
-const BIG_NUMBER_MIN = 1000
+/** Tên món không nên chứa số tiền: từ 3.000 đồng trở lên thì khả năng cao là số tiền bị hiểu nhầm (số nhỏ hơn như "1964" là tên món). */
+const BIG_NUMBER_MIN = 3000
 /** Thành tiền một món dưới mức này (đồng) gần như chắc chắn là rác OCR (số điện thoại, số nhà...). */
 const MIN_ITEM_AMOUNT = 1000
 
@@ -739,6 +739,12 @@ function findGroupRows(lines: string[]): { rows: ParsedItem[]; indexes: Set<numb
   return { rows, indexes }
 }
 
+/** Tên món (02 §3 bước 11): số ở cuối tên tối đa 4 chữ số ("Bia 1964"); số dài hơn 4 chữ số là mã hoặc số tiền bị đọc nhầm, bỏ hết. */
+function tidyItemName(item: ParsedItem): ParsedItem {
+  const name = item.name.replace(/(\s+\d+)+$/, (tail) => (/\d{5}/.test(tail) ? '' : tail)).trim()
+  return name === item.name ? item : { ...item, name }
+}
+
 /** Phân tích văn bản OCR của một hoá đơn. Không ném lỗi: thứ không đọc được thì bỏ trống. */
 export function parseReceipt(rawText: string): ParsedReceipt {
   const lines = rawText
@@ -823,6 +829,8 @@ export function parseReceipt(rawText: string): ParsedReceipt {
     // Còn lại (bill chỉ có hai dòng nhóm, hoặc các món đọc ra không khớp tổng nhóm): hai dòng nhóm là số liệu đáng tin.
     result.items = others.length > 0 && othersSum === groupSum ? others : groups.rows
   }
+
+  result.items = result.items.map(tidyItemName)
 
   return result
 }
