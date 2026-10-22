@@ -1,6 +1,8 @@
 # OCR Hoá Đơn Offline: Xử Lý Ảnh, Nhận Diện Và Bóc Tách (`Tesseract.js`)
 
 > Tách từ [02. Nghiệp vụ Tính toán](./02-business-logic-and-algorithms.md) (mục 3). Quy tắc nghiệp vụ liên quan: BR-4.7, BR-4.16 đến BR-4.20 trong [epic-4/BR.md](./epic-4/BR.md).
+>
+> Tài liệu này chỉ mô tả pipeline OCR offline. Tổng hợp toàn bộ chuỗi "ảnh/PDF → dữ liệu hoá đơn", gồm đường đọc bằng AI Gemini và luồng PDF, xem [05. Hệ thống đọc hoá đơn](./05-ocr-and-receipt-reading.md).
 
 Do chạy hoàn toàn trên trình duyệt và không dùng API trả phí, hệ thống xây dựng một pipeline OCR 3 bước chuyên biệt cho hoá đơn tiếng Việt:
 

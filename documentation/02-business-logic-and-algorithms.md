@@ -75,7 +75,7 @@ $$\sum_i d_i = D, \quad \sum_i c_i = C, \quad \sum_i v_i = V, \quad \sum_i F_i =
 
 ## 3. Thuật toán Đọc Hoá Đơn (OCR Offline + AI Gemini tuỳ chọn)
 
-Toàn bộ pipeline OCR (xử lý ảnh, nhận diện hai lượt, bộ phân tích và đối soát tổng) được tách thành tài liệu riêng: **[ocr-pipeline.md](./ocr-pipeline.md)**.
+Pipeline OCR offline (xử lý ảnh, nhận diện hai lượt, bộ phân tích và đối soát tổng) được tách thành tài liệu riêng: **[ocr-pipeline.md](./ocr-pipeline.md)**. Tổng hợp toàn bộ chuỗi đọc hoá đơn, gồm AI Gemini và PDF: **[05. Hệ thống đọc hoá đơn](./05-ocr-and-receipt-reading.md)**.
 
 ### Bước 4: Đối chiếu & tự sửa (`domain/receiptValidation.ts`)
 Kiểm `SL × đơn giá = thành tiền` từng dòng và `Σ món − giảm giá + phí phục vụ + VAT = tổng bill` (R-8). Lệch thì thử các kịch bản khác từ cùng văn bản (sửa một số của một dòng, bỏ dòng tổng bị đọc thành món, đổi/thêm giảm giá-phí-VAT, đổi cách tính) và chọn kịch bản ít thay đổi nhất. Trạng thái: `OK` / `CORRECTED` / `MISMATCH` / `UNVERIFIED`. Không kịch bản nào khớp thì giữ số đọc được và báo người dùng sửa tay.
