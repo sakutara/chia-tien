@@ -16,8 +16,9 @@
    - **Tầng 3 — Món (Item)**: Chi tiết từng món ăn/thức uống/dịch vụ trong hoá đơn, hỗ trợ gán người ăn (chia đều hoặc chia theo số phần) và tự động phân bổ thuế VAT.
 
 2. **Quản lý Hoá đơn bằng File & Nhận diện OCR Offline**:
-   - Chụp ảnh trực tiếp từ camera hoặc tải ảnh hoá đơn lên; toàn bộ ảnh hoá đơn được lưu thành file trong bộ nhớ trình duyệt (IndexedDB / OPFS), cho phép xem lại, thêm mới hoặc xoá bỏ.
-   - Tích hợp **OCR Offline (Tesseract.js hỗ trợ Tiếng Việt + Tiếng Anh)** kết hợp bộ phân tích cú pháp hoá đơn thông minh để tự động bóc tách: **Ngày**, **Tên quán**, **Danh sách món & Giá tiền**, và **Thuế VAT**.
+   - Chụp ảnh trực tiếp từ camera hoặc tải ảnh/PDF hoá đơn lên; toàn bộ ảnh hoá đơn được lưu thành file trong bộ nhớ trình duyệt (IndexedDB / OPFS), cho phép xem lại, thêm mới hoặc xoá bỏ.
+   - Tích hợp **OCR Offline (Tesseract.js hỗ trợ Tiếng Việt + Tiếng Anh)** kết hợp bộ phân tích cú pháp hoá đơn thông minh để tự động bóc tách: **Ngày**, **Tên quán**, **Danh sách món & Giá tiền**, và **Thuế VAT**, kèm bước **đối chiếu tổng tiền và tự sửa** số đọc sai. PDF có lớp chữ được đọc thẳng (không cần OCR); ảnh trùng trong cùng bữa được cảnh báo.
+   - **Đọc bằng AI Gemini (tuỳ chọn)**: khi OCR lệch tổng hoặc thiếu món, người dùng có thể nhập khoá Gemini API của riêng mình để AI đọc lại ảnh; ảnh gửi thẳng từ trình duyệt tới Google, không qua máy chủ nào của app. Mặc định hệ thống vẫn chạy hoàn toàn offline.
    - Cho phép nhập hoá đơn bằng tay (chi tiết từng món) hoặc chỉ nhập **Tổng tiền** (khi chỉ nhập tổng tiền, hệ thống bắt buộc chế độ chia đều theo tổng).
 
 3. **Quản lý Thành viên & Nhóm Thanh toán linh hoạt**:
@@ -54,7 +55,8 @@
 | **Styling & Theme** | Tailwind CSS + Lucide Icons | Dễ dàng xây dựng hệ màu USD Dark Green (`#1B4332`, `#2D6A4F`, `#F4F1EA`) đồng nhất. |
 | **Cơ sở dữ liệu Local** | IndexedDB (thông qua `Dexie.js`) | Lưu trữ toàn bộ cấu trúc 3 tầng (Bữa, Kèo, Món, Danh bạ, Nhóm) bền vững ngay trên trình duyệt, không cần server. |
 | **Lưu trữ File Hoá đơn** | OPFS (Origin Private File System) + IndexedDB Blob Fallback | Lưu ảnh hoá đơn thành file thực sự trên trình duyệt, hỗ trợ đọc/ghi/xoá file nhanh và giải phóng dung lượng thực tế khi xoá hoặc lưu trữ bữa. |
-| **Nhận diện OCR** | `tesseract.js` (Traineddata `vie` + `eng`) + Canvas Image Preprocessor | Chạy hoàn toàn offline trên trình duyệt, miễn phí, không phụ thuộc API Key bên ngoài. |
+| **Nhận diện OCR** | `tesseract.js` (Traineddata `vie` + `eng`) + Canvas Document Scanner + `pdfjs-dist` (lớp chữ PDF) | Chạy offline trên trình duyệt, miễn phí, mặc định không cần API Key. |
+| **Đọc hoá đơn bằng AI (tuỳ chọn)** | Gemini API (`generateContent`, khoá do người dùng nhập, lưu `localStorage`) | Dự phòng khi OCR đọc chưa chuẩn; gọi trực tiếp từ trình duyệt, không có máy chủ trung gian. |
 | **Mã hoá Snapshot URL & Chia sẻ** | `lz-string` (Base64URL Compression) + Web Share API (`navigator.share`) | Nén toàn bộ dữ liệu bữa thành chuỗi URL ngắn gọn chạy hoàn toàn client-side và chia sẻ trực tiếp sang ứng dụng nhắn tin. |
 | **State Management** | React Context / Zustand + `useLiveQuery` (Dexie) | Đồng bộ dữ liệu thời gian thực giữa Database và UI. |
 
@@ -62,7 +64,7 @@
 
 ## 4. Danh mục Tài liệu Thiết kế (Documentation Index)
 
-Toàn bộ tài liệu thiết kế hệ thống được chia thành 4 phần chi tiết trong thư mục `documentation/`:
+Toàn bộ tài liệu thiết kế hệ thống được chia thành 5 phần chi tiết trong thư mục `documentation/`:
 
 1. [**01. Kiến trúc Hệ thống & Mô hình Dữ liệu (`01-architecture-and-data-model.md`)**](./01-architecture-and-data-model.md)
    - Sơ đồ kiến trúc Client-side, thiết kế Schema IndexedDB, cấu trúc Snapshot Payload, cơ chế lưu trữ File hoá đơn (OPFS/Blob) và luồng dữ liệu.
@@ -72,7 +74,9 @@ Toàn bộ tài liệu thiết kế hệ thống được chia thành 4 phần c
    - Bảng màu USD, Typography, bố cục 3 chế độ xem Bữa, luồng tương tác Quick Filter chọn người, chụp/OCR hoá đơn, bảng thanh toán, Modal Chia sẻ và giao diện Xem Snapshot (Read-only).
 4. [**04. Phân rã Epics & Lộ trình Triển khai (`04-epics-and-roadmap.md`)**](./04-epics-and-roadmap.md)
    - Chia nhỏ toàn bộ tính năng thành 9 Epics độc lập kèm User Stories, Acceptance Criteria và thứ tự ưu tiên phát triển.
-5. **Tài liệu theo Epic** (`documentation/epic-<n>/`, mỗi Epic gồm 2 file — xem quy tắc bắt buộc ở mục 5 bên dưới):
+5. [**05. Hệ thống đọc hoá đơn: OCR + AI Gemini (`05-ocr-and-receipt-reading.md`)**](./05-ocr-and-receipt-reading.md)
+   - Tổng hợp theo mã nguồn toàn bộ chuỗi ảnh/PDF → dữ liệu hoá đơn: nhập & quét ảnh, PDF, Tesseract, bộ phân tích, đối chiếu tự sửa, đọc bằng Gemini, phát hiện ảnh trùng, hằng số, bản đồ mã nguồn, hạn chế.
+6. **Tài liệu theo Epic** (`documentation/epic-<n>/`, mỗi Epic gồm 2 file — xem quy tắc bắt buộc ở mục 5 bên dưới):
    - Epic 1: [**BR — Yêu cầu nghiệp vụ**](./epic-1/BR.md) · [**SA — Phân tích hệ thống**](./epic-1/SA.md)
    - Epic 2: [**BR — Yêu cầu nghiệp vụ**](./epic-2/BR.md) · [**SA — Phân tích hệ thống**](./epic-2/SA.md) *(đã triển khai, còn kiểm thủ công trước khi đóng)*
    - Epic 3: [**BR — Yêu cầu nghiệp vụ**](./epic-3/BR.md) · [**SA — Phân tích hệ thống**](./epic-3/SA.md) *(đã triển khai, còn kiểm thủ công trước khi đóng)*

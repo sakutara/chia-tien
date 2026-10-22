@@ -25,7 +25,7 @@ app/
 └─ src/
    ├─ lib/
    │  ├─ money.ts                       # THÊM parseMoney ("45k", "45.000" → 45000 | null), formatBytes
-   │  ├─ imagePreprocess.ts             # MỚI: grayscale, contrast stretch, resize ≤1800px (Canvas) cho OCR
+   │  ├─ imagePreprocess.ts             # MỚI: grayscale, contrast stretch, resize về 2800px (Canvas) cho OCR
    │  └─ imageCompress.ts               # MỚI: decode + vẽ lại + toBlob JPEG theo kế hoạch nén (Canvas)
    ├─ domain/                           # TOÀN HÀM THUẦN, có test riêng
    │  ├─ sessionRules.ts                # MỚI: cleanSessionName, defaultSessionName, isDefaultSessionName, vendorSessionName, reorder, normalizeParticipants
@@ -243,7 +243,7 @@ textSimilarity(a: string, b: string): number                                    
 
 ### B.7. Thuật toán OCR chi tiết
 
-**Tiền xử lý (`imagePreprocess.ts`)**: đọc ảnh bằng `createImageBitmap` (tôn trọng EXIF xoay) → thu về chiều dài cạnh dài nhất ≤ 1800 px → grayscale `0.299R+0.587G+0.114B` → kéo giãn tương phản theo phân vị 2%/98% → (tuỳ chọn) ngưỡng thích nghi nhẹ. Trả `Blob` PNG cho Tesseract; file gốc không đổi. Chạy trên main thread bằng `OffscreenCanvas` nếu có; test chạy phần thuần (hàm tính phân vị/kéo giãn trên mảng).
+**Tiền xử lý (`imagePreprocess.ts`)**: đọc ảnh bằng `createImageBitmap` (tôn trọng EXIF xoay) → đưa cạnh dài về 2800 px (phóng tối đa 3×) → grayscale `0.299R+0.587G+0.114B` → kéo giãn tương phản theo phân vị 2%/98% → (tuỳ chọn) ngưỡng thích nghi nhẹ. Trả `Blob` PNG cho Tesseract; file gốc không đổi. Chạy trên main thread bằng `OffscreenCanvas` nếu có; test chạy phần thuần (hàm tính phân vị/kéo giãn trên mảng).
 
 **Nhận diện (`ocrService`)**: tạo worker một lần, tái dùng giữa các lần quét, `terminate()` khi rời màn chi tiết bữa sau 60 giây rảnh. `logger` của Tesseract → `onProgress`. Hỗ trợ `AbortSignal` bằng cách `terminate()` worker rồi tạo lại lần sau. Nhiều ảnh quét lần lượt, nối bằng dòng trống; lưu `ocrRawText` từng ảnh vào `invoice_files`.
 
@@ -375,3 +375,7 @@ Ca thật: ảnh chụp màn hình hoá đơn điện tử (nền trắng, bản
 - **Giao diện**: ô tải lên nhận `application/pdf` (nhãn "Tải ảnh hoặc PDF lên"), trong lúc đọc hiện "Đang đọc PDF…".
 - **Test**: `pdfText.test` (dựng dòng), `invoiceFilePdf.test` (trang có/không lớp chữ, giới hạn trang, từ chối, lỗi truyền nguyên). pdf.js/Canvas không chạy trong jsdom nên phần dựng trang được kiểm trên trình duyệt thật.
 - **Hạn chế**: PDF ảnh quét không qua bước cắt khung/nắn thẳng của máy quét (ảnh trang giữ nguyên); chữ trong PDF vẫn có thể sai nếu chính PDF dùng font mã hoá lạ (khi đó nên bấm "Quét lại bill (OCR)"). Cần `npm install` sau khi kéo mã về vì có thêm phụ thuộc `pdfjs-dist`.
+
+### B.13. Bổ sung: đọc hoá đơn bằng AI Gemini (tuỳ chọn)
+
+Tính năng cộng thêm sau khi triển khai Epic, **ngoài phạm vi BR-4.x gốc** ("không cần API key"): mặc định vẫn là OCR offline; AI chỉ chạy khi người dùng tự nhập khoá Gemini API. Mô tả đầy đủ tại [05 §7](../05-ocr-and-receipt-reading.md): `services/geminiService.ts`, `domain/aiReceipt.ts`, `components/invoices/GeminiSettingsDialog.tsx`, điểm vào `startAi`/`readWithAi` trong `InvoiceFormDialog`. Dữ liệu duy nhất rời thiết bị là ảnh + gợi ý OCR gửi tới Google khi người dùng chủ động; khoá lưu `localStorage`. Test: `services/geminiService.test.ts`, `InvoiceFormDialog.test.tsx`. Việc còn lại: bổ sung BR/AC chính thức (ví dụ BR-4.19) nếu Epic được mở lại.

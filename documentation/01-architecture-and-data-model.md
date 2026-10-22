@@ -17,7 +17,7 @@ flowchart TD
     subgraph Domain["Tầng Nghiệp Vụ (Domain Services)"]
         CalcEngine["Bộ Tính Toán Chia Tiền & Phân Bổ VAT"]
         SettlementEngine["Bộ Giải Quyết Công Nợ (P2P / Host-Mediated)"]
-        OCRService["OCR Pipeline (Canvas Preprocessor + Tesseract.js + Receipt Parser)"]
+        OCRService["OCR Pipeline (Document Scanner + Tesseract.js / PDF text + Receipt Parser + Validator; tuỳ chọn Gemini API)"]
         ArchiveService["Bộ Lưu Trữ & Dọn Dẹp Dữ Liệu (Archive Pruner)"]
         ShareSnapshotService["Bộ Mã Hoá Snapshot URL (LZ-String) & Tạo Tin Nhắn Chia Sẻ"]
     end
@@ -267,7 +267,7 @@ export interface InvoiceFileRecord {
 ```
 
 #### Cơ chế Quản lý File Hoá đơn:
-1. **Thêm File**: Khi người dùng chụp ảnh hoặc chọn file ảnh cho một hoá đơn, ảnh được **nén trước khi lưu ở mức Cân bằng cố định** (cạnh dài tối đa 2000 px, JPEG chất lượng 0,80; BR-4.16), sau đó **tự quét OCR** và lưu văn bản vào `ocrRawText` của ảnh (dùng để khỏi quét lại và để phát hiện ảnh trùng, BR-4.17, BR-4.18). Bản nén được ghi thành file vật lý trong thư mục ảo OPFS `/invoices/<mealId>/<fileId>_<fileName>` (đồng thời lưu `Blob` dự phòng trong bảng `invoice_files`), cho phép tải file về máy hoặc mở xem bất cứ lúc nào. Bản gốc không được giữ. Giới hạn: 40 MB/ảnh trước nén, 10 ảnh/hoá đơn, định dạng JPEG/PNG/WebP.
+1. **Thêm File**: Khi người dùng chụp ảnh hoặc chọn file ảnh cho một hoá đơn, ảnh được **nén trước khi lưu ở mức Cân bằng cố định** (cạnh dài tối đa 2000 px, JPEG chất lượng 0,80; BR-4.16), (ưu tiên xử lý kiểu máy quét, xem [05 §3](./05-ocr-and-receipt-reading.md)) sau đó **tự quét OCR** và lưu văn bản vào `ocrRawText` của ảnh (dùng để khỏi quét lại và để phát hiện ảnh trùng, BR-4.17, BR-4.18). Bản nén được ghi thành file vật lý trong thư mục ảo OPFS `/invoices/<mealId>/<fileId>_<fileName>` (đồng thời lưu `Blob` dự phòng trong bảng `invoice_files`), cho phép tải file về máy hoặc mở xem bất cứ lúc nào. Bản gốc không được giữ. Giới hạn: 40 MB/ảnh trước nén, 10 ảnh/hoá đơn, định dạng JPEG/PNG/WebP.
 2. **Xoá File đơn lẻ**: Người dùng có thể xoá một file ảnh khỏi hoá đơn -> hệ thống xoá file khỏi OPFS và xoá bản ghi trong `invoice_files`.
 3. **Xoá Hoá đơn / Kèo / Bữa**: Tự động xoá toàn bộ các file hoá đơn liên quan để giải phóng bộ nhớ.
 4. **Lưu trữ Bữa (Archive)**: Tự động xoá sạch toàn bộ file trong `/invoices/<mealId>/`, xoá toàn bộ bản ghi `invoices`, `invoice_files`, và `items` của bữa đó, chỉ giữ lại thông tin chi phí từng kèo và bảng quyết toán trong `Meal.archivedSummary`.

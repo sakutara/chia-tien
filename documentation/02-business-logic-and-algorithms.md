@@ -73,30 +73,40 @@ $$\sum_i d_i = D, \quad \sum_i c_i = C, \quad \sum_i v_i = V, \quad \sum_i F_i =
 
 ---
 
-## 3. Thuật toán OCR Nhận Diện Hoá Đơn Offline (`Tesseract.js`)
+## 3. Thuật toán Đọc Hoá Đơn (OCR Offline + AI Gemini tuỳ chọn)
 
-Do chạy hoàn toàn trên trình duyệt và không dùng API trả phí, hệ thống xây dựng một pipeline OCR 3 bước chuyên biệt cho hoá đơn tiếng Việt:
+> Mô tả đầy đủ, theo hiện trạng mã nguồn, xem [**05 — Hệ thống đọc hoá đơn**](./05-ocr-and-receipt-reading.md). Mục này chỉ giữ phần thuật toán cốt lõi.
+
+Mặc định chạy hoàn toàn trên trình duyệt, không dùng API trả phí. Pipeline cho hoá đơn tiếng Việt:
 
 ```mermaid
 flowchart LR
-    Img["Ảnh Hoá Đơn (Camera / Upload)"] --> Pre["Bước 1: Tiền xử lý Canvas\n(Grayscale, Contrast, Resize)"]
-    Pre --> Tess["Bước 2: Tesseract.js Worker\n(Ngôn ngữ: vie + eng)"]
-    Tess --> Parser["Bước 3: Heuristic Receipt Parser\n(Ngày, Quán, Món + Giá, VAT)"]
-    Parser --> Review["Form Xác Nhận & Chỉnh Sửa Nhanh"]
+    Img["Ảnh / PDF"] --> Scan["Bước 0: Quét ảnh kiểu máy quét\n(cắt 4 góc, nắn thẳng, trắng đen)\nPDF: lấy lớp chữ"]
+    Scan --> Pre["Bước 1: Tiền xử lý Canvas\n(xám, giãn tương phản, 2800px)"]
+    Pre --> Tess["Bước 2: Tesseract.js Worker\n(vie + eng, PSM 4)"]
+    Tess --> Parser["Bước 3: Receipt Parser\n(Ngày, Quán, Món + Giá, VAT)"]
+    Parser --> Val["Bước 4: Đối chiếu & tự sửa\n(validateReceipt)"]
+    Val --> Review["Form Xác Nhận & Chỉnh Sửa Nhanh"]
+    Val -. lệch / thiếu món .-> Ai["Bước 5 (tuỳ chọn): Gemini\nđọc lại bằng ảnh"]
+    Ai --> Review
 ```
 
+### Bước 0: Quét ảnh khi lưu (`lib/imageScan.ts`, `lib/documentScan.ts`)
+- Tìm 4 góc tờ hoá đơn, nắn phối cảnh về hình chữ nhật (cạnh dài 2800 px), nhị phân hoá thích nghi (chữ đen – nền trắng), làm dày nét mảnh; tài liệu điện tử sạch chỉ cắt và giữ xám. Kết quả đáng ngờ hoặc lỗi thì rơi về nén *Cân bằng* (2000 px, JPEG 0,80), rồi về ảnh gốc.
+- PDF: mỗi trang dựng thành ảnh JPEG 2800 px; trang có lớp chữ (≥ 20 ký tự) lưu thẳng văn bản, **bỏ qua OCR** (`lib/pdfImport.ts`, `lib/pdfText.ts`).
+
 ### Bước 1: Tiền xử lý ảnh trên HTML5 Canvas (`lib/imagePreprocess.ts`)
-- Thu cạnh dài tối đa **1800 px** (giữ tỷ lệ), vẽ lên Canvas (đã xoay đúng theo EXIF).
+- Đưa cạnh dài về **2800 px** (phóng ảnh nhỏ tối đa 3×, thu ảnh quá lớn), đã xoay đúng theo EXIF. Tesseract cần chữ cao tối thiểu ~25 px.
 - Chuyển sang thang độ xám: $Y = 0{,}299R + 0{,}587G + 0{,}114B$.
 - Kéo giãn tương phản theo phân vị **2% / 98%** của mức xám, để chữ in nhiệt mờ rõ hơn; kết quả là PNG cho Tesseract.
 - Ảnh đã lưu của hoá đơn không bị thay đổi; bước này chỉ phục vụ OCR.
 
 ### Bước 2: Nhận diện văn bản với `Tesseract.js` (`services/ocrService.ts`)
-- Dùng `tesseract.js` **v7**, ngôn ngữ `vie` + `eng` (dữ liệu `tessdata_fast`, đóng gói trong `public/ocr/`, không gọi mạng khi quét).
+- Dùng `tesseract.js` **v7**, ngôn ngữ `vie` + `eng` (dữ liệu đóng gói trong `public/ocr/`, không gọi mạng khi quét). Tham số: `tessedit_pageseg_mode=4`, `preserve_interword_spaces=1`, `user_defined_dpi=300`.
 - Lõi WASM được đóng gói đủ ba biến thể LSTM (`relaxedsimd`, `simd`, thường) để thư viện chọn theo trình duyệt.
 - Worker được tạo ở lần quét đầu, dùng lại giữa các lần, và tự dừng sau 60 giây rảnh. Huỷ quét dừng worker và báo `OCR_CANCELLED`.
 - Hiển thị tiến trình theo từng ảnh (`OcrProgress`). OCR chạy **tự động ngay sau khi ảnh được lưu**; nhiều ảnh được quét lần lượt và văn bản từng ảnh được lưu vào `ocrRawText`. Ảnh đã có văn bản thì không quét lại. Văn bản này còn dùng để **phát hiện ảnh trùng** (so tập từ đã bỏ dấu bằng Jaccard ≥ 0,8, tối thiểu 8 từ, trong cùng bữa).
-- Quét đọc **bản đã lưu** của ảnh (đã nén theo mức đã chọn), không phải bản gốc. Với mức *Cân bằng* (cạnh dài 2000 px) chữ bill vẫn đọc tốt.
+- Quét đọc **bản đã lưu** của ảnh (đã qua Bước 0), rồi qua Bước 1.
 
 ### Bước 3: Bộ Phân Tích Hoá Đơn Thông Minh (`domain/receiptParser.ts`)
 Hàm thuần: văn bản vào, dữ liệu gợi ý ra. Nguyên tắc: **không đoán**; thứ không chắc thì bỏ trống hoặc đánh dấu để người dùng xem lại.
@@ -117,6 +127,13 @@ Hàm thuần: văn bản vào, dữ liệu gợi ý ra. Nguyên tắc: **không 
 
 > [!TIP]
 > Sau khi OCR bóc tách xong, kết quả được đổ trực tiếp vào **Form Kiểm Tra Hoá Đơn** để người dùng có thể sửa lại bất kỳ ký tự hay con số nào chưa chuẩn chỉ với 1 chạm trước khi lưu.
+
+### Bước 4: Đối chiếu & tự sửa (`domain/receiptValidation.ts`)
+Kiểm `SL × đơn giá = thành tiền` từng dòng và `Σ món − giảm giá + phí phục vụ + VAT = tổng bill` (R-8). Lệch thì thử các kịch bản khác từ cùng văn bản (sửa một số của một dòng, bỏ dòng tổng bị đọc thành món, đổi/thêm giảm giá-phí-VAT, đổi cách tính) và chọn kịch bản ít thay đổi nhất. Trạng thái: `OK` / `CORRECTED` / `MISMATCH` / `UNVERIFIED`. Không kịch bản nào khớp thì giữ số đọc được và báo người dùng sửa tay.
+
+### Bước 5 (tuỳ chọn): Đọc bằng AI Gemini (`services/geminiService.ts`, `domain/aiReceipt.ts`)
+- Kích hoạt khi `needsBetterRead` (lệch tổng, không có tổng, không có món, thiếu dòng) hoặc người dùng chọn "Đọc bill bằng AI". Cần khoá Gemini API của người dùng; ảnh (≤ 6) kèm gợi ý OCR gửi thẳng từ trình duyệt tới Google.
+- Trả về JSON theo lược đồ cố định; app đối chiếu lại bằng `computeBill`. Không khớp thì gửi chỗ lệch cho AI **đọc lại một lần**, giữ kết quả ít vấn đề hơn. AI lỗi thì tự chuyển về OCR offline.
 
 ---
 

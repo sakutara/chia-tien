@@ -96,8 +96,8 @@ Hoá đơn (1)                          [＋]
 
 #### Form thêm/sửa hoá đơn (hộp thoại lớn `lg`)
 Thứ tự từ trên xuống:
-1. **Ảnh** (khung nét đứt): icon `Chụp ảnh` (chính), `Tải ảnh lên`, `Quét lại bill (OCR)`; số ảnh `n/10`; danh sách ảnh gọn (xem / tải / xoá). OCR tự chạy sau khi thêm ảnh; tiến trình có icon `Huỷ quét`.
-2. Cảnh báo ảnh trùng, lỗi OCR, đối chiếu tổng (hộp vàng, icon `Xoá ảnh trùng` / `Giữ lại`).
+1. **Ảnh** (khung nét đứt): icon `Chụp ảnh` (chính), `Tải ảnh/PDF lên`, `Quét lại bill (OCR)`, `Đọc bill bằng AI` và `Cài đặt AI (khoá Gemini)`; số ảnh `n/10`; danh sách ảnh gọn (xem / tải / xoá). OCR tự chạy sau khi thêm ảnh; tiến trình có icon `Huỷ quét`.
+2. Cảnh báo ảnh trùng, lỗi OCR, đối chiếu tổng (hộp vàng, icon `Xoá ảnh trùng` / `Giữ lại`). Khi OCR đọc chưa chuẩn hiện hộp gợi ý với icon `Đọc lại bằng AI`. Chi tiết luồng: [05](./05-ocr-and-receipt-reading.md).
 3. **Quán · Ngày · Ứng** (một hàng 3 cột từ `sm`).
 4. **Công tắc**:
    - `Nhập chi tiết món` — **chỉ hiện khi hoá đơn nhập tay** (chưa có ảnh). Tắt = chỉ nhập tổng, luôn chia đều theo tổng.
