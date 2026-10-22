@@ -73,9 +73,16 @@ $$\sum_i d_i = D, \quad \sum_i c_i = C, \quad \sum_i v_i = V, \quad \sum_i F_i =
 
 ---
 
-## 3. Thuật toán OCR Nhận Diện Hoá Đơn Offline (`Tesseract.js`)
+## 3. Thuật toán Đọc Hoá Đơn (OCR Offline + AI Gemini tuỳ chọn)
 
 Toàn bộ pipeline OCR (xử lý ảnh, nhận diện hai lượt, bộ phân tích và đối soát tổng) được tách thành tài liệu riêng: **[ocr-pipeline.md](./ocr-pipeline.md)**.
+
+### Bước 4: Đối chiếu & tự sửa (`domain/receiptValidation.ts`)
+Kiểm `SL × đơn giá = thành tiền` từng dòng và `Σ món − giảm giá + phí phục vụ + VAT = tổng bill` (R-8). Lệch thì thử các kịch bản khác từ cùng văn bản (sửa một số của một dòng, bỏ dòng tổng bị đọc thành món, đổi/thêm giảm giá-phí-VAT, đổi cách tính) và chọn kịch bản ít thay đổi nhất. Trạng thái: `OK` / `CORRECTED` / `MISMATCH` / `UNVERIFIED`. Không kịch bản nào khớp thì giữ số đọc được và báo người dùng sửa tay.
+
+### Bước 5 (tuỳ chọn): Đọc bằng AI Gemini (`services/geminiService.ts`, `domain/aiReceipt.ts`)
+- Kích hoạt khi `needsBetterRead` (lệch tổng, không có tổng, không có món, thiếu dòng) hoặc người dùng chọn "Đọc bill bằng AI". Cần khoá Gemini API của người dùng; ảnh (≤ 6) kèm gợi ý OCR gửi thẳng từ trình duyệt tới Google.
+- Trả về JSON theo lược đồ cố định; app đối chiếu lại bằng `computeBill`. Không khớp thì gửi chỗ lệch cho AI **đọc lại một lần**, giữ kết quả ít vấn đề hơn. AI lỗi thì tự chuyển về OCR offline.
 
 ---
 
