@@ -3,6 +3,7 @@ import { generateId } from '../../lib/id'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { computeInvoice, VENDOR_NAME_MAX, type ComputedInvoice } from '../../domain/invoiceRules'
+import { reflowBlockText } from '../../domain/blockTextReceipt'
 import { parseReceipt } from '../../domain/receiptParser'
 import { needsBetterRead, validateReceipt } from '../../domain/receiptValidation'
 import type { InvoiceRow } from '../../hooks/useMealSessions'
@@ -547,7 +548,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
               onClick={() => {
                 setScanNotice(null)
                 setPasteOpen(false)
-                applyRawText(pasteText, t('Không nhận ra dữ liệu hoá đơn trong văn bản đã dán. Hãy kiểm tra lại văn bản hoặc nhập tay.'))
+                applyRawText(reflowBlockText(pasteText), t('Không nhận ra dữ liệu hoá đơn trong văn bản đã dán. Hãy kiểm tra lại văn bản hoặc nhập tay.'))
                 setPasteText('')
               }}
             >
