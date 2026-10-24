@@ -71,6 +71,19 @@ function archivedInvoiceCount(payload: MealSnapshotPayload, sessionId: string): 
   return payload.archivedSummary?.sessionsSummary.find((s) => s.sessionId === sessionId)?.invoiceCount ?? 0
 }
 
+/** Gom các món của link theo nhóm người trả (thực thể thanh toán) thay vì theo kèo; mỗi dòng giữ tên kèo để biết món thuộc kèo nào. */
+function itemsByOwner(shares: NonNullable<MealSnapshotPayload['itemShares']>) {
+  const groups = new Map<string, { ownerId: string; lines: Array<{ name: string; amount: number; keoName: string }> }>()
+  for (const keo of shares) {
+    for (const l of keo.lines) {
+      const group = groups.get(l.ownerId) ?? { ownerId: l.ownerId, lines: [] }
+      group.lines.push({ name: l.name, amount: l.amount, keoName: keo.name })
+      groups.set(l.ownerId, group)
+    }
+  }
+  return [...groups.values()]
+}
+
 type StepKey = 'bills' | 'settle'
 
 const STEPS: ReadonlyArray<Step<StepKey>> = [
@@ -106,21 +119,21 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
       <div role="tabpanel" id="snap-panel" aria-labelledby={`snap-tab-${step}`}>
         {step === 'bills' && payload.itemShares && (
           <section className="space-y-3" aria-label={t('Các món phải trả')}>
-            {payload.itemShares.map((keo, k) => {
-              const owners = new Set(keo.lines.map((l) => l.ownerId))
-              const total = keo.lines.reduce((sum, l) => sum + l.amount, 0)
+            {itemsByOwner(payload.itemShares).map((group) => {
+              const total = group.lines.reduce((sum, l) => sum + l.amount, 0)
+              const ownerName = allSlides.find((x) => x.fromEntityId === group.ownerId)?.fromName ?? ''
               return (
-                <details key={k} className="card" open>
+                <details key={group.ownerId} className="card" open>
                   <summary className="flex min-h-10 cursor-pointer flex-wrap items-center justify-between gap-2 font-semibold">
-                    <span className="break-words">{keo.name}</span>
+                    <span className="break-words">{ownerName}</span>
                     <span className="money">{formatMoney(total)}</span>
                   </summary>
                   <ul className="mt-2 space-y-1 text-sm">
-                    {keo.lines.map((l, i) => (
+                    {group.lines.map((l, i) => (
                       <li key={i} className="flex flex-wrap justify-between gap-2 rounded border border-usd-paper-200 px-2 py-1">
                         <span className="break-words">
                           {l.name}
-                          {owners.size > 1 && <span className="text-xs text-usd-green-700"> · {allSlides.find((x) => x.fromEntityId === l.ownerId)?.fromName ?? ''}</span>}
+                          <span className="text-xs text-usd-green-700"> · {l.keoName}</span>
                         </span>
                         <span className="money">{formatMoney(l.amount)}</span>
                       </li>
