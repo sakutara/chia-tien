@@ -415,11 +415,52 @@ function stripBigNumbers(rawName: string): { name: string; hints: number[] } {
   return { name: kept.join(' '), hints }
 }
 
+/** Dòng gạch dài nối giữa các món ("-------", "=====", ". . . . ."): bill quán ăn dùng nó để ngăn cách từng món. */
+function isSeparatorLine(raw: string): boolean {
+  const compact = raw.replace(/\s/g, '')
+  return compact.length >= 5 && /^[-=~_—–.+:·'‘’`*]+$/.test(compact) && /[-=~_—–]/.test(compact)
+}
+
+/** Số thứ tự đứng đầu dòng món: "1. SALMON", "8 Trà đào", "10) Ebi". */
+const STT_PREFIX_RE = /^\W*(\d{1,2})\s*[.)]?\s+(?=\p{L})/u
+/** Tiêu đề cột bảng món: "Tên món | SL | ĐG | Thành tiền" (cần ít nhất hai cột để không nhầm với một dòng món). */
+const COLUMN_HEADER_PARTS = [/ten mon|ten hang|\bmon\b/, /^sl\b|\bsl\b|so luong|quantity/, /\bdg\b|don gia|unit price/, /thanh tien|t\.?\s?tien|\bamount\b/]
+
+/** Vị trí dòng tiêu đề cột: các món bắt đầu ngay sau nó, phần trên là thông tin đơn (ngày, bàn, thu ngân…). */
+function findItemsStart(lines: string[]): number {
+  const at = lines.findIndex((line) => COLUMN_HEADER_PARTS.filter((re) => hit(re, line)).length >= 2)
+  return at < 0 ? 0 : at + 1
+}
+
+interface Numbering {
+  /** Chỉ số các dòng bắt đầu bằng số thứ tự (STT). */
+  rows: Map<number, number>
+  /** Số thứ tự lớn nhất đọc được: gợi ý số món đã gọi. */
+  count: number
+}
+
+/**
+ * Nhận ra cột số thứ tự: các dòng bắt đầu bằng 1, 2, 3… tăng dần (cho nhảy tối đa 2 số khi OCR làm hỏng một dòng).
+ * Cần ít nhất 3 dòng liên tiếp đúng thứ tự mới coi là STT, để "2 Bia 50.000" (số lượng) không bị nhầm.
+ */
+function detectNumbering(lines: string[], from: number): Numbering | null {
+  const rows = new Map<number, number>()
+  let last = 0
+  for (let i = from; i < lines.length; i++) {
+    const n = Number(STT_PREFIX_RE.exec(lines[i])?.[1])
+    if (n > last && n <= last + 3) {
+      rows.set(i, n)
+      last = n
+    }
+  }
+  return rows.size >= 3 ? { rows, count: last } : null
+}
+
 /**
  * Món từ một dòng (số lượng, đơn giá, thành tiền) hoặc hai dòng `tên` / `SL x đơn giá = thành tiền`.
  * Dòng chỉ có chữ ngay trước một dòng có giá được ghép làm phần đầu tên ("Trà Cóc" + "Pha ngọt").
  */
-function parseItems(lines: string[], vendorName: string | undefined, origins?: Map<ParsedItem, number>): ParsedItem[] {
+function parseItems(lines: string[], vendorName: string | undefined, origins?: Map<ParsedItem, number>, layout: { start: number; boundaries: Set<number>; numbering: Numbering | null } = { start: 0, boundaries: new Set(), numbering: null }, sttRead?: Set<number>): ParsedItem[] {
   const items: ParsedItem[] = []
   // Bảng có cột "Đơn vị tính": từ đơn vị (Lẩu, Dĩa, Thố…) đứng cuối tên món, không thuộc tên.
   const unitColumn = lines.some((l) => hit(UNIT_COLUMN_RE, l))
@@ -427,6 +468,10 @@ function parseItems(lines: string[], vendorName: string | undefined, origins?: M
   let pending: string[] = []
   /** Dòng đang đọc, ghi lại làm vị trí của món để gắn món vào nhóm Drink / Food. */
   let current = 0
+  /** Món vừa đọc: dòng chữ không có giá ngay sau nó là phần tên bị xuống dòng ("SALMON" + "SASIMI"). */
+  let last: ParsedItem | undefined
+  const { start, boundaries, numbering } = layout
+  const blockMode = boundaries.size > 0 || numbering !== null
 
   const push = (rawName: string, quantity: number, unitPrice: number, rawAmount: number, uncertain: boolean): void => {
     const { name: strippedName, hints } = stripBigNumbers(rawName)
@@ -448,20 +493,30 @@ function parseItems(lines: string[], vendorName: string | undefined, origins?: M
     const name = prefix ? `${prefix} - ${own}` : own
     const item: ParsedItem = { name, quantity, unitPrice, rawAmount, uncertain: flagged || quantity * unitPrice !== rawAmount }
     items.push(item)
+    last = item
+    const sttNumber = numbering?.rows.get(current)
+    if (sttNumber !== undefined) sttRead?.add(sttNumber)
     origins?.set(item, current)
   }
 
   // Hoá đơn điện tử dạng bảng: các món nằm trước dòng "Cộng tiền hàng hóa… (Total amount)"; phần sau là chữ ký số, mã tra cứu…
   const tableMode = unitColumn || lines.some((l) => hit(TOTAL_AMOUNT_RE, l))
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
+  for (let i = start; i < lines.length; i++) {
+    // Số thứ tự đầu dòng không thuộc tên món; nó chỉ cho biết bill đã gọi bao nhiêu món.
+    const line = numbering?.rows.has(i) ? lines[i].replace(STT_PREFIX_RE, '') : lines[i]
     current = i
+    // Gạch phân cách: món mới bắt đầu, dòng chữ trước đó không còn dính vào món nào.
+    if (boundaries.has(i)) {
+      pending = []
+      last = undefined
+    }
     if (tableMode && items.length > 0 && (hit(TOTAL_AMOUNT_RE, line) || hit(/^\W*cong tien/, line))) break
     const isClassified =
       isAdjustmentLine(line) || isTotalLine(line) || isDateLine(line) || hit(ADDRESS_RE, line) || hit(HEADER_RE, line) || hit(FOOTER_RE, line) || hit(COLUMN_INDEX_RE, line) || hit(NOTE_RE, line) || hit(ITEM_NOTE_RE, line) || isLongNumberLine(line) || hit(LONG_NUMBER_LABEL_RE, line)
     if (isClassified) {
       pending = []
+      last = undefined
       continue
     }
 
@@ -513,7 +568,12 @@ function parseItems(lines: string[], vendorName: string | undefined, origins?: M
       continue
     }
 
-    if (isNameOnly(line) && line !== vendorName) pending.push(line)
+    if (isNameOnly(line) && line !== vendorName) {
+      // Giữ ngoặc đầu dòng: "(BÁNH XÈO NHẬT)" là phần chú thích của món.
+      const continuation = blockMode && last !== undefined && !numbering?.rows.has(i) && cleanItemName(line) ? line.replace(/[^\p{L}\p{N})]+$/u, '').trim() : undefined
+      if (last && continuation) last.name = `${last.name} ${continuation}`
+      else pending.push(line)
+    }
   }
   return items
 }
@@ -847,18 +907,43 @@ function majorityTotal(lines: string[]): number | undefined {
   return best && best.count >= 2 ? best.value : undefined
 }
 
+/** Đọc món theo bố cục bill: bỏ phần thông tin đơn phía trên tiêu đề cột, dùng gạch phân cách và số thứ tự để chia món. */
+function readItems(lines: string[], vendorName: string | undefined, origins: Map<ParsedItem, number>, boundaries: Set<number>, sttRead: Set<number>): ParsedItem[] {
+  const start = findItemsStart(lines)
+  const read = (from: number): ParsedItem[] => parseItems(lines, vendorName, origins, { start: from, boundaries, numbering: detectNumbering(lines, from) }, sttRead)
+  const items = read(start)
+  // Tiêu đề cột đoán sai (không có món nào sau nó): đọc lại từ đầu như bill không có tiêu đề.
+  return items.length === 0 && start > 0 ? read(0) : items
+}
+
 /** Phân tích văn bản OCR của một hoá đơn. Không ném lỗi: thứ không đọc được thì bỏ trống. */
 export function parseReceipt(rawText: string): ParsedReceipt {
-  const lines = rawText
-    .split(/\r?\n/)
-    .map(normalizeLine)
-    .filter((line) => line.length > 0)
+  // Gạch phân cách được ghi lại trước khi normalizeLine xoá chúng: `boundaries` là chỉ số dòng mở đầu mỗi khối.
+  const lines: string[] = []
+  const boundaries = new Set<number>()
+  for (const raw of rawText.split(/\r?\n/)) {
+    if (isSeparatorLine(raw)) {
+      if (lines.length > 0) boundaries.add(lines.length)
+      continue
+    }
+    const line = normalizeLine(raw)
+    if (line.length > 0) lines.push(line)
+  }
 
   const vendorName = findVendor(lines)
   const table = parseVatTable(lines)
   const useTable = table !== null && (table.items.length > 0 || table.rows.unread.length > 0)
   const origins = new Map<ParsedItem, number>()
-  const result: ParsedReceipt = { items: useTable ? table.items : parseItems(lines, vendorName, origins) }
+  const sttRead = new Set<number>()
+  const result: ParsedReceipt = { items: useTable ? table.items : readItems(lines, vendorName, origins, boundaries, sttRead) }
+  if (!useTable) {
+    // Không có bảng STT chuẩn: dùng số thứ tự đầu dòng làm gợi ý số món (thiếu số nào thì báo thiếu món).
+    const numbering = detectNumbering(lines, findItemsStart(lines))
+    if (numbering) {
+      const unread = Array.from({ length: numbering.count }, (_, k) => k + 1).filter((n) => !sttRead.has(n)).map((n) => t('STT {n}: không đọc được dòng này', { n }))
+      result.tableRows = { expected: numbering.count, read: numbering.count - unread.length, unread }
+    }
+  }
   if (useTable) {
     result.tableRows = table.rows
     if (table.discount > 0) result.discount = { mode: 'FIXED_AMOUNT', value: table.discount }
