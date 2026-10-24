@@ -96,8 +96,8 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
   const debtors = debtorIds.map((id) => settlement.entities.find((e) => e.entityId === id)).filter((e) => e !== undefined)
   const subset = recipients !== null && recipients.length > 0 && recipients.length < debtors.length ? recipients : null
   // Snapshot chỉ chứa khoản chuyển của những người được chọn; người nhận link không xem được phần của người khác.
-  // Link dùng đúng dạng đã tạo trước đây: chỉ các khoản chuyển tiền của người được chọn.
-  const { payload, snapshotUrl } = scopeSnapshot(loaded.data, subset)
+  // Link kèm các món (theo kèo) và số tiền phần của người được chọn để người nhận xem được tab Hoá đơn.
+  const { payload, snapshotUrl } = scopeSnapshot(loaded.data, subset, true)
   const nameById = new Map(payload.members.map((m) => [m.id, m.name] as const))
   const message = formatShareMessage({
     mealTitle: payload.meal.title,

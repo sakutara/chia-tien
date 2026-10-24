@@ -88,9 +88,8 @@ describe('Song ngữ (Epic 9)', () => {
     expect(localizeMember({ ...me, name: 'Leonard' }).name).toBe('Leonard')
   })
 
-  it('link Snapshot mang ngôn ngữ người gửi qua tham số l (BR-9.8)', () => {
+  it('link Snapshot không mang tham số ngôn ngữ (người nhận dùng ngôn ngữ đã lưu hoặc của trình duyệt)', () => {
     const base = { origin: 'https://x.test', pathname: '/' }
-    expect(buildSnapshotUrl('abc', base, 'en')).toBe('https://x.test/?s=abc&l=en')
-    expect(buildSnapshotUrl('abc', base, 'vi')).toBe('https://x.test/?s=abc&l=vi')
+    expect(buildSnapshotUrl('abc', base)).toBe('https://x.test/?s=abc')
   })
 })

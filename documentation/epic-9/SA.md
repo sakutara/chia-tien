@@ -39,7 +39,7 @@ Sửa: `lib/money.ts` (`formatMoney(amount, lang?)`), `lib/dates.ts` (`formatDat
 - `AppSettings` thêm trường tuỳ chọn `language?: 'vi' | 'en'`; không cần nâng phiên bản schema Dexie (`settings` khoá theo `id`). `MealSnapshotPayload` không đổi.
 - **Giá trị mặc định do hệ thống sinh** (BR-9.9) vẫn lưu nguyên văn nhưng được *dịch lúc đọc*: `localizeMember` đổi hồ sơ chủ app còn tên mặc định `Tôi` thành `Me`; `localizeSession` đổi `Kèo n` / `Venue n` theo ngôn ngữ hiện tại. Áp dụng ở các hook (`useMembers`, `useMealPeople`, `useMealSessions`, `useMealSettlement`) và khi dựng Snapshot. Tên người dùng tự đặt giữ nguyên. `isDefaultSessionName` nhận cả `Kèo n` lẫn `Venue n`.
 - Hộp thoại "Hồ sơ của tôi" lưu lại `Tôi` (dạng gốc) nếu tên không đổi so với bản đang hiển thị, để tên mặc định không bị khoá cứng sang `Me`.
-- **Snapshot link**: thêm tham số `l` (`vi` | `en`) sau `s`: `…?s=<mã>&l=en`. Định dạng nén nhị phân `~` không đổi nên link cũ vẫn mở; link cũ không có `l` rơi về ngôn ngữ trình duyệt.
+- **Snapshot link**: ~~thêm tham số `l`~~ — đã bỏ để link ngắn hơn: `…?s=<mã>`; người nhận dùng ngôn ngữ đã lưu hoặc của trình duyệt, link cũ có `&l=` vẫn được đọc. Định dạng nén nhị phân `~` không đổi nên link cũ vẫn mở; link cũ không có `l` rơi về ngôn ngữ trình duyệt.
 - **Nội dung chuyển khoản** (`<người> thanh toán <bữa>`) không lưu trong link khi bằng mặc định mà dựng lại ở máy người xem theo ngôn ngữ của họ (`en`: `<người> pays <bữa>`).
 
 ### B.5. Luồng xử lý chính
@@ -50,7 +50,7 @@ Sửa: `lib/money.ts` (`formatMoney(amount, lang?)`), `lib/dates.ts` (`formatDat
    - `vi`: `- An: chuyển cho Bình 50.000 ₫, chuyển cho Cường 20.000 ₫`
    - `en`: `- An: transfer to Bình 50,000 ₫, transfer to Cường 20,000 ₫`
    - Không có khoản cần chuyển: `vi` `- Tất cả các khoản thanh toán đã hoàn tất.` / `en` `- All payments are settled.`
-   Link sinh kèm `&l=<ngôn ngữ giao diện>`.
+   Link sinh không còn kèm `&l=` (đã bỏ).
 5. **Mở Snapshot**: giải mã payload như Epic 8, `detectLanguage` với `urlParam = l` (BR-9.8), render toàn bộ trang bằng `useT()`.
 
 ### B.6. Giao diện lập trình nội bộ
@@ -66,7 +66,7 @@ detectLanguage({ stored, urlParam, navigatorLang }): Lang
 useLang(): Lang                                  // useSyncExternalStore; gọi ở App và ở hook có useLiveQuery
 formatMoney(amount, lang?), formatDate(ymd, lang?), weekdayLabels(lang?)
 formatShareMessage(input: { …; lang?: Lang }): string
-buildSnapshotUrl(payload | encoded, baseLocation?, lang?): string   // thêm &l=
+buildSnapshotUrl(payload | encoded, baseLocation?): string   // không còn &l=
 ```
 
 ### B.7. Yêu cầu phi chức năng

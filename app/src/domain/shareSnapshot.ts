@@ -34,8 +34,6 @@ import type { SettlementEngineInput } from './settlementEngine'
  */
 
 export const SNAPSHOT_PARAM = 's'
-/** Tham số ngôn ngữ của người gửi (`vi` | `en`), đặt sau `s` để không ảnh hưởng chuỗi mã hoá (Epic 9, BR-9.8). */
-export const SNAPSHOT_LANG_PARAM = 'l'
 /** Tên tham số của link cũ (`?snapshot=`), vẫn đọc được. */
 export const LEGACY_SNAPSHOT_PARAM = 'snapshot'
 const SNAPSHOT_MEAL_ID = 'snapshot'
@@ -515,10 +513,9 @@ export function decodeSnapshotPayload(encoded: string): MealSnapshotPayload {
 export function buildSnapshotUrl(
   payload: MealSnapshotPayload | string,
   baseLocation: Pick<Location, 'origin' | 'pathname'> = window.location,
-  lang: Lang = getLang(),
 ): string {
   const encoded = typeof payload === 'string' ? payload : encodeSnapshotPayload(payload)
-  return `${baseLocation.origin}${baseLocation.pathname}?${SNAPSHOT_PARAM}=${encoded}&${SNAPSHOT_LANG_PARAM}=${lang}`
+  return `${baseLocation.origin}${baseLocation.pathname}?${SNAPSHOT_PARAM}=${encoded}`
 }
 
 /** Dựng dữ liệu trong bộ nhớ từ payload để chạy lại `computeMealSettlement` (Epic 6) mà không chạm IndexedDB. */
