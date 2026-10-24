@@ -169,7 +169,7 @@ export default function SessionCard({ view, isFirst, isLast, mealParticipants, h
               <ul className="space-y-1" aria-label={t('Món của {name}', { name: session.name })}>
                 {keptItems.map((it) => (
                   <li key={it.id} className="flex flex-wrap justify-between gap-2">
-                    <span className="min-w-0 break-words">{it.name} · {it.quantity} × {formatMoney(it.unitPrice)}</span>
+                    <span className="min-w-0 break-words">{it.name} · {formatMoney(it.unitPrice)} × {it.quantity}</span>
                     <span className="money">{formatMoney(it.finalAmount)}</span>
                   </li>
                 ))}

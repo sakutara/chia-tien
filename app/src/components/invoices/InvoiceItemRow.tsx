@@ -1,5 +1,5 @@
-import { Check, GripVertical, Trash2 } from 'lucide-react'
-import { useState, type CSSProperties, type HTMLAttributes, type Ref } from 'react'
+import { Check, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { memo, useState } from 'react'
 import { ITEM_NAME_MAX, countUnassignedItems } from '../../domain/invoiceRules'
 import { formatMoney, parseMoney } from '../../lib/money'
 import { setItemConsumers, updateInvoiceItem } from '../../services/invoiceService'
@@ -11,6 +11,7 @@ import InlineText from '../ui/InlineText'
 import PeoplePicker from '../ui/PeoplePicker'
 import Popover from '../ui/Popover'
 import { t } from '../../i18n'
+import { sameContent } from './sameContent'
 
 interface Props {
   item: InvoiceItem
@@ -21,13 +22,12 @@ interface Props {
   canDelete: boolean
   /** Số thứ tự hiển thị (bắt đầu từ 1), không sửa được. */
   number: number
-  /** Có thì hiện tay nắm kéo thả để đổi vị trí món. */
-  dragHandleProps?: HTMLAttributes<HTMLButtonElement>
-  liRef?: Ref<HTMLLIElement>
-  style?: CSSProperties
-  dragging?: boolean
+  /** Có thì hiện hai nút chuyển món lên/xuống (`dir` = -1 lên, +1 xuống). Hàm phải có danh tính cố định để `memo` có tác dụng. */
+  onMove?: (itemId: string, dir: -1 | 1) => void
+  canMoveUp?: boolean
+  canMoveDown?: boolean
   /** Gọi sau khi người dùng xác nhận (nếu món đã có người ăn). */
-  onDelete: () => void
+  onDelete: (itemId: string) => void
   onError: (message: string) => void
 }
 
@@ -35,9 +35,9 @@ const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : 
 
 /**
  * Một món rút gọn thành 3 dòng (Tầng 3):
- * tên (bấm để đổi) / SL × đơn giá = thành tiền (bấm để đổi SL, đơn giá; thành tiền tự tính) / tham gia (bấm để thêm bớt).
+ * tên (bấm để đổi) / đơn giá × SL = thành tiền (bấm để đổi SL, đơn giá; thành tiền tự tính) / tham gia (bấm để thêm bớt).
  */
-export default function InvoiceItemRow({ item, splitType, sessionMembers, readOnly, canDelete, number, dragHandleProps, liRef, style, dragging, onDelete, onError }: Props) {
+function InvoiceItemRow({ item, splitType, sessionMembers, readOnly, canDelete, number, onMove, canMoveUp, canMoveDown, onDelete, onError }: Props) {
   const [confirming, setConfirming] = useState(false)
   const consumers = item.consumers
   const showConsumers = splitType === 'BY_ITEM'
@@ -50,29 +50,41 @@ export default function InvoiceItemRow({ item, splitType, sessionMembers, readOn
 
   function requestDelete() {
     if (consumers.length > 0) setConfirming(true)
-    else onDelete()
+    else onDelete(item.id)
   }
 
   return (
     <li
-      ref={liRef}
-      style={style}
-      className={`space-y-0.5 rounded-lg border border-usd-paper-200 bg-white/70 px-2 py-1.5 text-sm ${dragging ? 'z-50 bg-white shadow-lg ring-2 ring-usd-green-700' : ''}`}
+      className="flex gap-1.5 rounded-lg border border-usd-paper-200 bg-white/70 px-2 py-1.5 text-sm"
       aria-label={t('Món {name}', { name: item.name })}
     >
-      <div className="flex items-start gap-1">
-        {dragHandleProps && (
+      {onMove && (
+        <div className="-my-1.5 -ml-2 flex w-8 shrink-0 flex-col self-stretch">
           <button
             type="button"
-            aria-label={t('Kéo để đổi vị trí món {name}', { name: item.name })}
-            title={t('Kéo để đổi vị trí món {name}', { name: item.name })}
-            className="-my-0.5 -ml-1 shrink-0 cursor-grab touch-none rounded p-1 text-usd-green-700 active:cursor-grabbing"
-            {...dragHandleProps}
+            aria-label={t('Chuyển món {name} lên', { name: item.name })}
+            title={t('Chuyển món {name} lên', { name: item.name })}
+            disabled={!canMoveUp}
+            onClick={() => onMove(item.id, -1)}
+            className="flex min-h-6 flex-1 items-center justify-center rounded text-usd-green-800 hover:bg-usd-paper-200 disabled:cursor-not-allowed disabled:opacity-30"
           >
-            <GripVertical className="h-4 w-4" aria-hidden="true" />
+            <ChevronUp className="h-4 w-4" aria-hidden="true" />
           </button>
-        )}
-        <span aria-label={t('Món số {n}', { n: number })} className="shrink-0 select-none font-semibold tabular-nums text-usd-green-700">
+          <button
+            type="button"
+            aria-label={t('Chuyển món {name} xuống', { name: item.name })}
+            title={t('Chuyển món {name} xuống', { name: item.name })}
+            disabled={!canMoveDown}
+            onClick={() => onMove(item.id, 1)}
+            className="flex min-h-6 flex-1 items-center justify-center rounded text-usd-green-800 hover:bg-usd-paper-200 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <ChevronDown className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+      <div className="min-w-0 flex-1 space-y-0.5">
+      <div className="flex items-start gap-1">
+        <span aria-hidden="true" data-item-number className="shrink-0 select-none font-semibold tabular-nums text-usd-green-700">
           {number}.
         </span>
         <p className="min-w-0 flex-1 break-words font-medium">
@@ -118,18 +130,27 @@ export default function InvoiceItemRow({ item, splitType, sessionMembers, readOn
         tone="danger"
         onConfirm={() => {
           setConfirming(false)
-          onDelete()
+          onDelete(item.id)
         }}
         onCancel={() => setConfirming(false)}
       />
+      </div>
     </li>
   )
 }
 
-/** "2 × 150.000 ₫ = 300.000 ₫": bấm để sửa số lượng và đơn giá, thành tiền tự tính. */
+/** Dữ liệu từ DB về luôn là object mới dù nội dung không đổi; so sánh theo nội dung để không render lại cả danh sách. */
+function sameProps(prev: Props, next: Props) {
+  const keys = Object.keys(next) as Array<keyof Props>
+  return keys.every((key) => (key === 'item' ? sameContent(prev.item, next.item) : prev[key] === next[key]))
+}
+
+export default memo(InvoiceItemRow, sameProps)
+
+/** "150.000 ₫ × 2 = 300.000 ₫": bấm để sửa số lượng và đơn giá, thành tiền tự tính. */
 function AmountLine({ item, readOnly, onError }: { item: InvoiceItem; readOnly: boolean; onError: (m: string) => void }) {
   const adjustment = item.finalAmount - item.rawAmount
-  const text = `${item.quantity} × ${formatMoney(item.unitPrice)} = ${formatMoney(item.rawAmount)}`
+  const text = `${formatMoney(item.unitPrice)} × ${item.quantity} = ${formatMoney(item.rawAmount)}`
   const extra = adjustment !== 0 && (
     <span className="ml-1 text-xs text-usd-green-700">
       ({adjustment > 0 ? '+' : '−'}
@@ -166,7 +187,7 @@ function AmountForm({ item, onDone, onError }: { item: InvoiceItem; onDone: () =
   async function save() {
     if (!valid) return
     try {
-      // Thành tiền bỏ trống để hệ thống tự tính lại theo SL × đơn giá.
+      // Thành tiền bỏ trống để hệ thống tự tính lại theo đơn giá × SL.
       await updateInvoiceItem(item.id, { name: item.name, quantity: q, unitPrice: p })
       onDone()
     } catch (err) {
@@ -182,14 +203,14 @@ function AmountForm({ item, onDone, onError }: { item: InvoiceItem; onDone: () =
         void save()
       }}
     >
-      <div className="grid grid-cols-[4rem_1fr] gap-2">
-        <label className="text-xs">
-          SL
-          <input data-autofocus inputMode="numeric" aria-label={t('Số lượng')} value={qty} onChange={(e) => setQty(e.target.value)} className="field mt-0.5" />
-        </label>
+      <div className="grid grid-cols-[1fr_4rem] gap-2">
         <label className="text-xs">
           {t('Đơn giá')}
-          <input inputMode="numeric" aria-label={t('Đơn giá')} value={price} onChange={(e) => setPrice(e.target.value)} className="field mt-0.5" />
+          <input data-autofocus inputMode="numeric" aria-label={t('Đơn giá')} value={price} onChange={(e) => setPrice(e.target.value)} className="field mt-0.5" />
+        </label>
+        <label className="text-xs">
+          SL
+          <input inputMode="numeric" aria-label={t('Số lượng')} value={qty} onChange={(e) => setQty(e.target.value)} className="field mt-0.5" />
         </label>
       </div>
       <div className="flex items-center justify-between gap-2">
