@@ -1,4 +1,4 @@
-import { KeyRound, ScanText, Sparkles, Trash2, X } from 'lucide-react'
+import { ClipboardPaste, KeyRound, ScanText, Sparkles, Trash2, X } from 'lucide-react'
 import { generateId } from '../../lib/id'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -94,6 +94,8 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
   const [scan, setScan] = useState<{ percent: number; stage: string } | null>(null)
   const [billTotal, setBillTotal] = useState<number | undefined>(undefined)
   const [ocrCheck, setOcrCheck] = useState<ReceiptFill['check'] | null>(null)
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState('')
   const [pendingFill, setPendingFill] = useState<ReceiptFill | null>(null)
   // OCR đọc chưa chuẩn → gợi ý đọc lại bằng AI. `aiSettings` mở hộp nhập khoá; `readAfterSave` đọc ngay sau khi lưu khoá.
   const [aiSuggested, setAiSuggested] = useState(false)
@@ -162,6 +164,25 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
   }
 
   /**
+   * Phân tích văn bản OCR (từ ảnh đã quét hoặc do người dùng dán từ OCR ngoài) rồi điền vào form.
+   * Đối chiếu SL × đơn giá = thành tiền và tổng bill (gồm giảm giá, phí phục vụ, VAT) trước khi điền vào danh sách món.
+   */
+  function applyRawText(rawText: string, emptyNotice = t('Đã lưu ảnh nhưng không nhận ra chữ nào trên bill. Hãy chụp lại rõ hơn (đủ sáng, thẳng, không rung) hoặc nhập tay.')) {
+    const check = validateReceipt(parseReceipt(rawText), rawText)
+    const fill = fillFromReceipt(check.receipt)
+    if (Object.keys(fill).length === 0) {
+      setAiSuggested(true)
+      setScanNotice(emptyNotice)
+      return
+    }
+    fill.check = { status: check.status, notes: check.notes }
+    setAiSuggested(needsBetterRead(check))
+    const hasData = hasUserEntries({ vendorName: vendor, invoiceDate: date, rows, subtotal, discount, service, vat })
+    if (hasData) setPendingFill(fill)
+    else applyFill(fill)
+  }
+
+  /**
    * Quét OCR các ảnh của hoá đơn rồi điền vào form (BR-4.7, BR-4.17).
    * Chỉ quét ảnh chưa có văn bản OCR (kết quả đã lưu được dùng lại); `force` quét lại tất cả.
    * Sau khi quét, báo ảnh trùng với ảnh đã có trong bữa (BR-4.18).
@@ -207,20 +228,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       if (skipFill) return
 
       const fresh = await listFilesByInvoice(draftId)
-      // Đối chiếu SL × đơn giá = thành tiền và tổng bill (gồm giảm giá, phí phục vụ, VAT) trước khi điền vào danh sách món.
-      const rawText = fresh.map((f) => f.ocrRawText ?? '').join('\n')
-      const check = validateReceipt(parseReceipt(rawText), rawText)
-      const fill = fillFromReceipt(check.receipt)
-      if (Object.keys(fill).length === 0) {
-        setAiSuggested(true)
-        setScanNotice(t('Đã lưu ảnh nhưng không nhận ra chữ nào trên bill. Hãy chụp lại rõ hơn (đủ sáng, thẳng, không rung) hoặc nhập tay.'))
-        return
-      }
-      fill.check = { status: check.status, notes: check.notes }
-      setAiSuggested(needsBetterRead(check))
-      const hasData = hasUserEntries({ vendorName: vendor, invoiceDate: date, rows, subtotal, discount, service, vat })
-      if (hasData) setPendingFill(fill)
-      else applyFill(fill)
+      applyRawText(fresh.map((f) => f.ocrRawText ?? '').join('\n'))
     } catch (err) {
       if (err instanceof PeopleError && err.code === 'OCR_CANCELLED') return
       const reason = err instanceof PeopleError ? err.message : t('Không quét được ảnh.')
@@ -353,6 +361,13 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
                   tone="outline"
                   disabled={scan !== null || imageCount === 0}
                   onClick={() => void scanImages(true)}
+                />
+                <IconButton
+                  icon={ClipboardPaste}
+                  label={t('Dán text OCR ngoài')}
+                  tone="outline"
+                  disabled={scan !== null}
+                  onClick={() => setPasteOpen(true)}
                 />
                 <IconButton
                   icon={Sparkles}
@@ -510,6 +525,37 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
           }}
         />
       )}
+
+      <Modal open={pasteOpen} title={t('Dán text OCR từ công cụ ngoài')} onClose={() => setPasteOpen(false)} size="lg">
+        <div className="space-y-3">
+          <p className="text-sm text-usd-green-700">{t('Dán văn bản đã quét từ AI/OCR bên ngoài. App sẽ phân tích và điền vào hoá đơn như khi tự quét ảnh.')}</p>
+          <textarea
+            data-autofocus
+            aria-label={t('Văn bản OCR')}
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            rows={12}
+            spellCheck={false}
+            className="field w-full font-mono text-xs"
+          />
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" className="btn-secondary" onClick={() => setPasteOpen(false)}>{t('Huỷ')}</button>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={pasteText.trim() === ''}
+              onClick={() => {
+                setScanNotice(null)
+                setPasteOpen(false)
+                applyRawText(pasteText, t('Không nhận ra dữ liệu hoá đơn trong văn bản đã dán. Hãy kiểm tra lại văn bản hoặc nhập tay.'))
+                setPasteText('')
+              }}
+            >
+              {t('Điền vào hoá đơn')}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={aiChoice} title={t('Chọn cách thêm ảnh bill')} onClose={() => setAiChoice(false)}>
         <div className="space-y-3">
