@@ -434,6 +434,20 @@ export async function deleteInvoiceItem(itemId: string): Promise<InvoiceResult> 
   });
 }
 
+/** Sắp xếp lại món theo thứ tự `orderedIds` (kéo thả); id thiếu/thừa thì giữ nguyên thứ tự cũ cho phần còn lại. */
+export async function reorderInvoiceItems(invoiceId: string, orderedIds: string[]): Promise<InvoiceResult> {
+  return db.transaction('rw', [db.meals, db.sessions, db.invoices, db.items], async () => {
+    const { invoice, session, meal } = await loadEditableInvoice(invoiceId);
+    assertItemized(invoice);
+    const existing = await loadInvoiceItems(invoiceId);
+    const byId = new Map(existing.map((it) => [it.id, it]));
+    const ordered = orderedIds.flatMap((id) => byId.get(id) ?? []);
+    const seen = new Set(ordered.map((it) => it.id));
+    const drafts = [...ordered, ...existing.filter((it) => !seen.has(it.id))].map((it) => ({ ...it, consumers: it.consumers }));
+    return saveItemized(invoice, session, meal, drafts);
+  });
+}
+
 /** Ghi người ăn và số phần của một món (BR-5.6, BR-5.7, R-5). */
 export async function setItemConsumers(itemId: string, consumers: ItemShare[]): Promise<InvoiceItem> {
   return db.transaction('rw', [db.meals, db.sessions, db.invoices, db.items], async () => {

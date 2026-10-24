@@ -5,6 +5,7 @@ import { formatMoney } from '../../lib/money'
 import {
   addInvoiceItem,
   deleteInvoiceItem,
+  reorderInvoiceItems,
   setAllItemsConsumers,
   setInvoicePayer,
   setInvoiceSplitType,
@@ -15,7 +16,7 @@ import IconButton from '../ui/IconButton'
 import PeoplePicker from '../ui/PeoplePicker'
 import Switch from '../ui/Switch'
 import EqualSplitPicker from './EqualSplitPicker'
-import InvoiceItemRow from './InvoiceItemRow'
+import InvoiceItemList from './InvoiceItemList'
 import { t } from '../../i18n'
 
 interface Props {
@@ -120,20 +121,15 @@ export default function InvoiceCard({ row, index, session, sessionMembers, readO
               />
             )}
           </div>
-          <ul className="space-y-1.5">
-            {items.map((item) => (
-              <InvoiceItemRow
-                key={item.id}
-                item={item}
-                splitType={invoice.splitType}
-                sessionMembers={sessionMembers}
-                readOnly={readOnly}
-                canDelete={items.length > 1}
-                onDelete={() => void run(() => deleteInvoiceItem(item.id))}
-                onError={onError}
-              />
-            ))}
-          </ul>
+          <InvoiceItemList
+            items={items}
+            splitType={invoice.splitType}
+            sessionMembers={sessionMembers}
+            readOnly={readOnly}
+            onDelete={(id) => void run(() => deleteInvoiceItem(id))}
+            onReorder={(ids) => void run(() => reorderInvoiceItems(invoice.id, ids))}
+            onError={onError}
+          />
         </section>
       )}
     </div>

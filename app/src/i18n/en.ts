@@ -40,6 +40,8 @@ export const en: Record<string, string> = {
   'Món của hoá đơn #{n}': 'Items of receipt #{n}',
   'Món ({n})': 'Items ({n})',
   'Thêm món vào hoá đơn #{n}': 'Add item to receipt #{n}',
+  'Kéo để đổi vị trí món {name}': 'Drag to reorder {name}',
+  'Món số {n}': 'Item {n}',
   'Món mới': 'New item',
   'Không lưu được ảnh (bộ nhớ đầy hoặc trình duyệt chặn lưu).': 'Could not save the photo (storage full or blocked by the browser).',
   '{v}: {reason}': '{v}: {reason}',
