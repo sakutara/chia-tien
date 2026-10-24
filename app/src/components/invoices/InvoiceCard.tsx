@@ -1,4 +1,5 @@
 import { Pencil, Plus, Trash2, UsersRound } from 'lucide-react'
+import { memo } from 'react'
 import { countUnassignedItems } from '../../domain/invoiceRules'
 import type { InvoiceRow } from '../../hooks/useMealSessions'
 import { formatMoney } from '../../lib/money'
@@ -17,6 +18,7 @@ import PeoplePicker from '../ui/PeoplePicker'
 import Switch from '../ui/Switch'
 import EqualSplitPicker from './EqualSplitPicker'
 import InvoiceItemList from './InvoiceItemList'
+import { sameContent } from './sameContent'
 import { t } from '../../i18n'
 
 interface Props {
@@ -36,9 +38,9 @@ const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : 
 
 /**
  * Thẻ một hoá đơn trong kèo (Tầng 2 + Tầng 3), dạng gọn: tên + tổng + icon; người ứng là chuỗi bấm để đổi;
- * công tắc chia từng món / chia đều; món hiện 3 dòng (tên, SL × giá = tiền, người tham gia).
+ * công tắc chia từng món / chia đều; món hiện 3 dòng (tên, giá × SL = tiền, người tham gia).
  */
-export default function InvoiceCard({ row, index, session, sessionMembers, readOnly, onEditInvoice, onDeleteInvoice, onError }: Props) {
+function InvoiceCard({ row, index, session, sessionMembers, readOnly, onEditInvoice, onDeleteInvoice, onError }: Props) {
   const { invoice, items } = row
   const unassigned = countUnassignedItems(invoice.splitType, items)
   const locked = invoice.inputMode === 'TOTAL_ONLY'
@@ -135,3 +137,18 @@ export default function InvoiceCard({ row, index, session, sessionMembers, readO
     </div>
   )
 }
+
+/**
+ * Dữ liệu từ DB về luôn là object mới dù nội dung không đổi, và SessionCard truyền callback mới mỗi lần render
+ * (chúng chỉ dùng setter/id nên danh tính hàm không ảnh hưởng). So sánh theo nội dung để một lần ghi DB
+ * (ví dụ đổi thứ tự món) không bắt mọi hoá đơn render lại.
+ */
+function sameProps(prev: Props, next: Props) {
+  return (
+    prev.index === next.index &&
+    prev.readOnly === next.readOnly &&
+    sameContent([prev.row, prev.session, prev.sessionMembers], [next.row, next.session, next.sessionMembers])
+  )
+}
+
+export default memo(InvoiceCard, sameProps)

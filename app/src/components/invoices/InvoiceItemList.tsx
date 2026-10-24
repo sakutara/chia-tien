@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { InvoiceItem, InvoiceSplitType, Member } from '../../types'
 import InvoiceItemRow from './InvoiceItemRow'
 
@@ -8,153 +8,56 @@ interface Props {
   sessionMembers: Member[]
   readOnly: boolean
   onDelete: (itemId: string) => void
-  /** Gọi khi thả xong với thứ tự id mới (chỉ khi vị trí thật sự đổi). */
+  /** Gọi với thứ tự id mới sau khi một món được chuyển lên/xuống. */
   onReorder: (orderedIds: string[]) => void
   onError: (message: string) => void
 }
 
-interface Drag {
-  id: string
-  /** Vị trí (trong danh sách đã bỏ món đang kéo) mà ô trống đang nằm. */
-  slot: number
-  top: number
-  left: number
-  width: number
-  height: number
-  /** Khoảng cách từ con trỏ tới mép trên của món lúc bắt đầu kéo. */
-  grabY: number
-  pointerY: number
-}
-
-/** Danh sách món có số thứ tự và kéo thả (tay nắm bên trái): món đang kéo nổi theo con trỏ, ô trống đứt nét báo chỗ sẽ thả. */
+/** Danh sách món có số thứ tự và hai nút chuyển lên/xuống bên trái mỗi món. */
 export default function InvoiceItemList({ items, splitType, sessionMembers, readOnly, onDelete, onReorder, onError }: Props) {
-  const [drag, setDrag] = useState<Drag | null>(null)
-  // Giữ thứ tự mới ngay sau khi thả cho tới khi DB trả về, tránh món nhảy về chỗ cũ.
+  // Giữ thứ tự mới ngay sau khi bấm cho tới khi DB trả về, tránh món nhảy về chỗ cũ.
   const [pending, setPending] = useState<{ base: InvoiceItem[]; ids: string[] } | null>(null)
-  const refs = useRef(new Map<string, HTMLLIElement>())
-
-  // Chỉ dùng thứ tự tạm khi `items` chưa đổi kể từ lúc thả.
   const optimistic = pending && pending.base === items ? pending.ids : null
-  const setOptimistic = (ids: string[]) => setPending({ base: items, ids })
+  const ordered = optimistic ? [...items].sort((a, b) => optimistic.indexOf(a.id) - optimistic.indexOf(b.id)) : items
 
-  const ordered = optimistic
-    ? [...items].sort((a, b) => optimistic.indexOf(a.id) - optimistic.indexOf(b.id))
-    : items
-  const rest = drag ? ordered.filter((it) => it.id !== drag.id) : ordered
-
-  function slotAt(y: number, skipId: string): number {
-    let slot = 0
-    for (const it of ordered) {
-      if (it.id === skipId) continue
-      const rect = refs.current.get(it.id)?.getBoundingClientRect()
-      if (rect && y > rect.top + rect.height / 2) slot++
-    }
-    return slot
-  }
-
-  function start(e: React.PointerEvent<HTMLButtonElement>, item: InvoiceItem) {
-    const el = refs.current.get(item.id)
-    if (!el || e.button > 0) return
-    e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    const rect = el.getBoundingClientRect()
-    setDrag({
-      id: item.id,
-      slot: ordered.findIndex((it) => it.id === item.id),
-      top: rect.top,
-      left: rect.left,
-      width: rect.width,
-      height: rect.height,
-      grabY: e.clientY - rect.top,
-      pointerY: e.clientY,
-    })
-  }
-
-  function move(e: React.PointerEvent<HTMLButtonElement>) {
-    if (!drag) return
-    const center = e.clientY - drag.grabY + drag.height / 2
-    setDrag({ ...drag, pointerY: e.clientY, slot: slotAt(center, drag.id) })
-  }
-
-  function end(e: React.PointerEvent<HTMLButtonElement>, commit: boolean) {
-    if (!drag) return
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
-    const next = rest.map((it) => it.id)
-    next.splice(drag.slot, 0, drag.id)
-    const changed = next.some((id, i) => id !== ordered[i].id)
-    setDrag(null)
-    if (commit && changed) {
-      setOptimistic(next)
-      onReorder(next)
-    }
-  }
-
-  function keyMove(e: React.KeyboardEvent, index: number) {
-    const to = e.key === 'ArrowUp' ? index - 1 : e.key === 'ArrowDown' ? index + 1 : -1
-    if (to < 0 || to >= ordered.length) return
-    e.preventDefault()
-    const next = ordered.map((it) => it.id)
-    next.splice(to, 0, ...next.splice(index, 1))
-    setOptimistic(next)
-    onReorder(next)
-  }
-
-  const renderRow = (item: InvoiceItem, number: number, floating: boolean) => (
-    <InvoiceItemRow
-      key={item.id}
-      item={item}
-      splitType={splitType}
-      sessionMembers={sessionMembers}
-      readOnly={readOnly}
-      canDelete={items.length > 1}
-      number={number}
-      dragging={floating}
-      style={floating && drag ? { position: 'fixed', top: drag.pointerY - drag.grabY, left: drag.left, width: drag.width, pointerEvents: 'none' } : undefined}
-      liRef={(el) => {
-        if (el) refs.current.set(item.id, el)
-        else refs.current.delete(item.id)
-      }}
-      dragHandleProps={
-        readOnly || items.length < 2
-          ? undefined
-          : {
-              onPointerDown: (e) => start(e, item),
-              onPointerMove: move,
-              onPointerUp: (e) => end(e, true),
-              onPointerCancel: (e) => end(e, false),
-              onKeyDown: (e) => keyMove(e, ordered.findIndex((it) => it.id === item.id)),
-            }
-      }
-      onDelete={() => onDelete(item.id)}
-      onError={onError}
-    />
-  )
-
-  // Món đang kéo vẫn nằm nguyên trong DOM (chỉ đổi sang position: fixed) để không mất pointer capture;
-  // ô trống chèn vào đúng chỗ sẽ thả.
-  const rows: React.ReactNode[] = []
-  let seen = 0
-  ordered.forEach((item) => {
-    if (drag && item.id === drag.id) {
-      rows.push(renderRow(item, drag.slot + 1, true))
-      return
-    }
-    if (drag && seen === drag.slot) rows.push(<DropPlaceholder key="drop-placeholder" height={drag.height} />)
-    rows.push(renderRow(item, seen + (drag && seen >= drag.slot ? 2 : 1), false))
-    seen++
+  // Handler có danh tính cố định (để memo của hàng có tác dụng) nên đọc giá trị mới nhất qua ref.
+  const latest = useRef({ items, ordered, onDelete, onReorder, onError })
+  useEffect(() => {
+    latest.current = { items, ordered, onDelete, onReorder, onError }
   })
-  if (drag && drag.slot >= seen) rows.push(<DropPlaceholder key="drop-placeholder" height={drag.height} />)
 
-  return <ul className="space-y-1.5">{rows}</ul>
-}
+  const move = useCallback((id: string, dir: -1 | 1) => {
+    const { items: base, ordered: list, onReorder: reorder } = latest.current
+    const from = list.findIndex((it) => it.id === id)
+    const to = from + dir
+    if (from < 0 || to < 0 || to >= list.length) return
+    const next = list.map((it) => it.id)
+    next.splice(to, 0, ...next.splice(from, 1))
+    setPending({ base, ids: next })
+    reorder(next)
+  }, [])
+  const handleDelete = useCallback((id: string) => latest.current.onDelete(id), [])
+  const handleError = useCallback((message: string) => latest.current.onError(message), [])
 
-function DropPlaceholder({ height }: { height: number }) {
+  const canReorder = !readOnly && items.length > 1
   return (
-    <li
-      aria-hidden="true"
-      data-testid="drop-placeholder"
-      style={{ height }}
-      className="rounded-lg border-2 border-dashed border-usd-green-700 bg-usd-paper-100/60"
-    />
+    <ul className="space-y-1.5">
+      {ordered.map((item, i) => (
+        <InvoiceItemRow
+          key={item.id}
+          item={item}
+          splitType={splitType}
+          sessionMembers={sessionMembers}
+          readOnly={readOnly}
+          canDelete={items.length > 1}
+          number={i + 1}
+          onMove={canReorder ? move : undefined}
+          canMoveUp={i > 0}
+          canMoveDown={i < ordered.length - 1}
+          onDelete={handleDelete}
+          onError={handleError}
+        />
+      ))}
+    </ul>
   )
 }
