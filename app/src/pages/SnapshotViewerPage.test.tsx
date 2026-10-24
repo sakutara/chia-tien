@@ -104,10 +104,11 @@ describe('SnapshotViewerPage (Epic 8: BR-8.2, BR-8.3, BR-8.4, AC-6)', () => {
 
     expect(await screen.findByRole('tab', { name: /Hoá đơn/ })).toBeTruthy()
     await userEvent.click(screen.getByRole('tab', { name: /Hoá đơn/ }))
-    expect(screen.getByText('Kèo 1 - Lẩu')).toBeTruthy()
-    expect(screen.getByText('Lẩu bò')).toBeTruthy()
+    expect(screen.getByText('Bình', { selector: 'summary span' })).toBeTruthy() // gom theo nhóm người trả
+    expect(screen.getByText('Lẩu bò', { exact: false })).toBeTruthy()
+    expect(screen.getAllByText(/Kèo 1 - Lẩu/).length).toBe(2) // tên kèo nằm cạnh từng món
     expect(screen.getByText('30.000 ₫')).toBeTruthy()
-    expect(screen.getAllByText('45.000 ₫').length).toBeGreaterThan(0) // tổng phần của Bình ở kèo
+    expect(screen.getAllByText('45.000 ₫').length).toBeGreaterThan(0) // tổng phần của nhóm Bình
   })
 
   it('link gọn không kèm món thì không có tab Hoá đơn', async () => {
