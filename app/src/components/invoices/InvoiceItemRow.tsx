@@ -1,5 +1,5 @@
-import { Check, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { Check, GripVertical, Trash2 } from 'lucide-react'
+import { useState, type CSSProperties, type HTMLAttributes, type Ref } from 'react'
 import { ITEM_NAME_MAX, countUnassignedItems } from '../../domain/invoiceRules'
 import { formatMoney, parseMoney } from '../../lib/money'
 import { setItemConsumers, updateInvoiceItem } from '../../services/invoiceService'
@@ -19,6 +19,13 @@ interface Props {
   sessionMembers: Member[]
   readOnly: boolean
   canDelete: boolean
+  /** Số thứ tự hiển thị (bắt đầu từ 1), không sửa được. */
+  number: number
+  /** Có thì hiện tay nắm kéo thả để đổi vị trí món. */
+  dragHandleProps?: HTMLAttributes<HTMLButtonElement>
+  liRef?: Ref<HTMLLIElement>
+  style?: CSSProperties
+  dragging?: boolean
   /** Gọi sau khi người dùng xác nhận (nếu món đã có người ăn). */
   onDelete: () => void
   onError: (message: string) => void
@@ -30,7 +37,7 @@ const errorText = (err: unknown) => (err instanceof PeopleError ? err.message : 
  * Một món rút gọn thành 3 dòng (Tầng 3):
  * tên (bấm để đổi) / SL × đơn giá = thành tiền (bấm để đổi SL, đơn giá; thành tiền tự tính) / tham gia (bấm để thêm bớt).
  */
-export default function InvoiceItemRow({ item, splitType, sessionMembers, readOnly, canDelete, onDelete, onError }: Props) {
+export default function InvoiceItemRow({ item, splitType, sessionMembers, readOnly, canDelete, number, dragHandleProps, liRef, style, dragging, onDelete, onError }: Props) {
   const [confirming, setConfirming] = useState(false)
   const consumers = item.consumers
   const showConsumers = splitType === 'BY_ITEM'
@@ -47,8 +54,27 @@ export default function InvoiceItemRow({ item, splitType, sessionMembers, readOn
   }
 
   return (
-    <li className="space-y-0.5 rounded-lg border border-usd-paper-200 bg-white/70 px-2 py-1.5 text-sm" aria-label={t('Món {name}', { name: item.name })}>
+    <li
+      ref={liRef}
+      style={style}
+      className={`space-y-0.5 rounded-lg border border-usd-paper-200 bg-white/70 px-2 py-1.5 text-sm ${dragging ? 'z-50 bg-white shadow-lg ring-2 ring-usd-green-700' : ''}`}
+      aria-label={t('Món {name}', { name: item.name })}
+    >
       <div className="flex items-start gap-1">
+        {dragHandleProps && (
+          <button
+            type="button"
+            aria-label={t('Kéo để đổi vị trí món {name}', { name: item.name })}
+            title={t('Kéo để đổi vị trí món {name}', { name: item.name })}
+            className="-my-0.5 -ml-1 shrink-0 cursor-grab touch-none rounded p-1 text-usd-green-700 active:cursor-grabbing"
+            {...dragHandleProps}
+          >
+            <GripVertical className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
+        <span aria-label={t('Món số {n}', { n: number })} className="shrink-0 select-none font-semibold tabular-nums text-usd-green-700">
+          {number}.
+        </span>
         <p className="min-w-0 flex-1 break-words font-medium">
           <InlineText label={t('Tên món')} value={item.name} readOnly={readOnly} maxLength={ITEM_NAME_MAX} onCommit={rename} />
         </p>

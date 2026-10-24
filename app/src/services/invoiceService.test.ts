@@ -11,6 +11,7 @@ import {
   deleteInvoice,
   deleteInvoiceItem,
   getInvoiceDeletePreview,
+  reorderInvoiceItems,
   setAllItemsConsumers,
   setEqualSplitParticipants,
   setInvoicePayer,
@@ -295,6 +296,20 @@ describe('invoiceService — Epic 5 (người ứng, chế độ chia, món)', (
     await updateInvoiceItem(items[0].id, { name: 'Lẩu bò to', quantity: 2, unitPrice: 160_000 })
     expect((await db.items.get(items[0].id))?.consumers).toEqual([{ memberId: bobId, shares: 2 }])
     expect(invoice.id).toBeTruthy()
+  })
+
+  it('đổi vị trí món: lưu orderIndex mới, giữ người ăn và tổng tiền', async () => {
+    const { session } = await setup()
+    const { invoice, items } = await createInvoice(draft(session.id, hostId))
+    await setItemConsumers(items[0].id, [{ memberId: bobId, shares: 2 }])
+    const ids = items.map((it) => it.id)
+    const reversed = [...ids].reverse()
+
+    const result = await reorderInvoiceItems(invoice.id, reversed)
+    expect(result.items.map((it) => it.id)).toEqual(reversed)
+    expect(result.items.map((it) => it.orderIndex)).toEqual(reversed.map((_, i) => i))
+    expect((await db.items.get(ids[0]))?.consumers).toEqual([{ memberId: bobId, shares: 2 }])
+    expect(result.invoice.totalAmount).toBe(invoice.totalAmount)
   })
 
   it('R-8: không xoá món cuối cùng của hoá đơn ITEMIZED', async () => {
