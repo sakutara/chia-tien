@@ -88,3 +88,69 @@ export function searchBanks(query: string): BankInfo[] {
 export function findBankByBin(bin: string): BankInfo | undefined {
   return BANKS.find((b) => b.bin === bin)
 }
+
+/** App ngân hàng trên dịch vụ deep link của VietQR (`https://dl.vietqr.io/pay?app=...`). */
+interface DeepLinkApp {
+  /** Mã app (`app=`). */
+  appId: string
+  /** Tên app hiển thị. */
+  appName: string
+  /** App tự điền sẵn tài khoản, số tiền, nội dung; `false` thì chỉ mở app, người dùng phải dán thông tin. */
+  autofill: boolean
+}
+
+const app = (appId: string, appName: string, autofill = false): DeepLinkApp => ({ appId, appName, autofill })
+
+/** Danh sách app theo BIN ngân hàng, lấy từ API deeplink của VietQR. Ngân hàng chưa có ở đây dùng menu chia sẻ của thiết bị. */
+const DEEP_LINK_APPS: Readonly<Record<string, DeepLinkApp>> = {
+  '970415': app('icb', 'VietinBank iPay', true),
+  '970418': app('bidv', 'BIDV SmartBanking', true),
+  '970448': app('ocb', 'OCB OMNI', true),
+  '970416': app('acb', 'ACB ONE', true),
+  '970422': app('mb', 'MB Bank', true),
+  '970436': app('vcb', 'VCB Digibank'),
+  '970407': app('tcb', 'Techcombank Mobile'),
+  '970432': app('vpb', 'VPBank NEO'),
+  '970441': app('vib-2', 'MyVIB'),
+  '970443': app('shb', 'SHB SAHA'),
+  '970449': app('lpb', 'LPBank'),
+  '970440': app('seab', 'SeAMobile'),
+  '970429': app('scb', 'SCB Mobile Banking'),
+  '970437': app('hdb', 'HDBank'),
+  '970405': app('vba', 'Agribank Plus'),
+  '970423': app('tpb', 'TPBank Mobile'),
+  '970454': app('timo', 'Timo'),
+  '970424': app('shbvn', 'Shinhan SOL Việt Nam'),
+  '970428': app('nab', 'Nam A Bank Open Banking'),
+  '970425': app('abb', 'ABBank'),
+  '970431': app('eib', 'Eximbank EDigi'),
+  '970446': app('coopbank', 'Co-opBank Mobile Banking'),
+  '970412': app('pvcb', 'PVConnect'),
+  '970457': app('wvn', 'Woori WON Vietnam'),
+  '970452': app('klb', 'KienlongBank Plus'),
+  '970438': app('bvb', 'BAOVIET Smart'),
+  '970427': app('vab', 'Vietbank Digital Plus'),
+  '970419': app('ncb', 'NCB iziMobile'),
+  '970414': app('oceanbank', 'Ocean Bank Mobile Banking'),
+  '970439': app('pbvn', 'PB engage VN'),
+  '970400': app('sgicb', 'SAIGONBANK Smart Banking'),
+  '422589': app('cimb', 'Octo by CIMB Vietnam'),
+}
+
+export interface BankDeepLink {
+  href: string
+  appName: string
+  /** `false` khi app không tự điền thông tin chuyển khoản. */
+  autofill: boolean
+}
+
+/**
+ * Link mở thẳng app ngân hàng đã cài; `undefined` nếu chưa hỗ trợ ngân hàng này.
+ * Tài khoản truyền dạng `số@BIN` để không phụ thuộc cách đặt mã ngân hàng (VD: VietinBank là CTG hay ICB).
+ */
+export function buildBankDeepLink(account: { bankBin: string; accountNumber: string; accountName: string }, amount: number, content: string): BankDeepLink | undefined {
+  const found = DEEP_LINK_APPS[account.bankBin]
+  if (!found) return undefined
+  const q = new URLSearchParams({ app: found.appId, ba: `${account.accountNumber}@${account.bankBin}`, am: String(amount), tn: content, bn: account.accountName })
+  return { href: `https://dl.vietqr.io/pay?${q.toString()}`, appName: found.appName, autofill: found.autofill }
+}
