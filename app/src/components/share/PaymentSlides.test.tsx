@@ -11,7 +11,7 @@ const slide: PaymentSlide = {
   toName: 'Bình',
   amount: 150000,
   content: 'An chuyen Binh',
-  bank: { bankName: 'VCB', accountName: 'BINH', accountNumber: '0123456789' } as PaymentSlide['bank'],
+  bank: { bankBin: '970422', bankName: 'MB Bank', accountName: 'BINH', accountNumber: '0123456789' } as PaymentSlide['bank'],
   involvedIds: ['m1', 'm2'],
 }
 
@@ -28,6 +28,14 @@ describe('PaymentSlides - thanh toán bằng ngân hàng', () => {
     fireEvent.click(screen.getByRole('button', { name: /Thanh toán bằng ngân hàng|Pay with bank app/ }))
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1))
     expect(share.mock.calls[0][0].text).toContain('0123456789')
+  })
+
+  it('ngân hàng được hỗ trợ có link mở thẳng app kèm số tiền và nội dung', () => {
+    render(<PaymentSlides slides={[slide]} />)
+    const href = screen.getByRole('link', { name: /Mở app MB Bank|Open MB Bank app/ }).getAttribute('href') ?? ''
+    expect(href).toContain('dl.vietqr.io/pay?app=mb')
+    expect(href).toContain('am=150000')
+    expect(decodeURIComponent(href.replace(/\+/g, ' '))).toContain('ba=0123456789@mb')
   })
 
   it('không hiện nút khi người nhận chưa có tài khoản', () => {

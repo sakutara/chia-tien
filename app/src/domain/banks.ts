@@ -88,3 +88,24 @@ export function searchBanks(query: string): BankInfo[] {
 export function findBankByBin(bin: string): BankInfo | undefined {
   return BANKS.find((b) => b.bin === bin)
 }
+
+/**
+ * Mã app trên dịch vụ deep link của VietQR (`https://dl.vietqr.io/pay?app=...`), theo BIN ngân hàng.
+ * Chỉ liệt kê các app đã xác nhận được qua tài liệu VietQR; ngân hàng khác dùng menu chia sẻ của thiết bị.
+ * Muốn hỗ trợ thêm ngân hàng thì bổ sung một dòng ở đây.
+ */
+const DEEP_LINK_APPS: Readonly<Record<string, string>> = {
+  '970422': 'mb',
+  '970415': 'icb',
+  '970418': 'bidv',
+  '970416': 'acb',
+}
+
+/** Link mở thẳng app ngân hàng đã cài với sẵn tài khoản, số tiền, nội dung; `undefined` nếu chưa hỗ trợ ngân hàng này. */
+export function buildBankDeepLink(account: { bankBin: string; accountNumber: string; accountName: string }, amount: number, content: string): string | undefined {
+  const app = DEEP_LINK_APPS[account.bankBin]
+  const bank = findBankByBin(account.bankBin)
+  if (!app || !bank) return undefined
+  const q = new URLSearchParams({ app, ba: `${account.accountNumber}@${bank.code.toLowerCase()}`, am: String(amount), tn: content, bn: account.accountName })
+  return `https://dl.vietqr.io/pay?${q.toString()}`
+}

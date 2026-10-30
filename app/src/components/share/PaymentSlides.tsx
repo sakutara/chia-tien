@@ -1,6 +1,7 @@
 import { ArrowRight, Check, ChevronLeft, ChevronRight, Copy, Landmark, Send } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { PaymentSlide } from '../../domain/paymentSlides'
+import { buildBankDeepLink } from '../../domain/banks'
 import { formatMoney } from '../../lib/money'
 import { copyTextToClipboard, shareTransferToBankApp } from '../../services/snapshotService'
 import IconButton from '../ui/IconButton'
@@ -56,12 +57,19 @@ function AmountCopy({ amount }: { amount: number }) {
 /** Nút mở menu chia sẻ của thiết bị để gửi thông tin chuyển tiền sang app ngân hàng đã cài. */
 function BankPayButton({ slide }: { slide: PaymentSlide }) {
   const [error, setError] = useState('')
+  const deepLink = slide.bank ? buildBankDeepLink(slide.bank, slide.amount, slide.content) : undefined
   return (
     <div className="space-y-1">
+      {deepLink && (
+        <a href={deepLink} className="icon-btn icon-btn-solid flex w-full items-center justify-center gap-2 no-underline">
+          <Landmark className="h-4 w-4" aria-hidden="true" />
+          {t('Mở app {bank}', { bank: slide.bank?.bankName ?? '' })}
+        </a>
+      )}
       <IconButton
         icon={Send}
         label={t('Thanh toán bằng ngân hàng')}
-        tone="primary"
+        tone={deepLink ? 'outline' : 'primary'}
         className="w-full"
         onClick={() => {
           setError('')
