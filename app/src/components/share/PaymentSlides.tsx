@@ -1,8 +1,8 @@
-import { ArrowRight, Check, ChevronLeft, ChevronRight, Copy, Landmark } from 'lucide-react'
+import { ArrowRight, Check, ChevronLeft, ChevronRight, Copy, Landmark, Send } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { PaymentSlide } from '../../domain/paymentSlides'
 import { formatMoney } from '../../lib/money'
-import { copyTextToClipboard } from '../../services/snapshotService'
+import { copyTextToClipboard, shareTransferToBankApp } from '../../services/snapshotService'
 import IconButton from '../ui/IconButton'
 import QrCode from '../ui/QrCode'
 import { t } from '../../i18n'
@@ -50,6 +50,26 @@ function AmountCopy({ amount }: { amount: number }) {
       className="!h-7 !w-7"
       onClick={() => void copyTextToClipboard(String(amount)).then(() => setDone(true), () => undefined)}
     />
+  )
+}
+
+/** Nút mở menu chia sẻ của thiết bị để gửi thông tin chuyển tiền sang app ngân hàng đã cài. */
+function BankPayButton({ slide }: { slide: PaymentSlide }) {
+  const [error, setError] = useState('')
+  return (
+    <div className="space-y-1">
+      <IconButton
+        icon={Send}
+        label={t('Thanh toán bằng ngân hàng')}
+        tone="primary"
+        className="w-full"
+        onClick={() => {
+          setError('')
+          shareTransferToBankApp(slide).catch((err: unknown) => setError(err instanceof Error ? err.message : ''))
+        }}
+      />
+      {error && <p role="alert" className="text-center text-xs text-usd-red-600">{error}</p>}
+    </div>
   )
 }
 
@@ -122,6 +142,8 @@ export default function PaymentSlides({ slides }: Props) {
                 )}
                 <CopyRow label={t('Nội dung')} value={s.content} copyValue={s.content} />
               </dl>
+
+              {s.bank && <BankPayButton slide={s} />}
             </div>
           </li>
         ))}

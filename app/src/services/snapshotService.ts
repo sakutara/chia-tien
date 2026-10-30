@@ -1,11 +1,12 @@
 import { db } from '../db/db';
-import { buildPaymentSlides, toSnapshotPayments } from '../domain/paymentSlides';
+import { buildPaymentSlides, toSnapshotPayments, type PaymentSlide } from '../domain/paymentSlides';
 import { buildItemShares, buildSnapshotPayload, buildSnapshotUrl, encodeCompactSnapshot } from '../domain/shareSnapshot';
 import { computeMealSettlement, type SettlementEngineInput } from '../domain/settlementEngine';
 import type { MealSettlementResult, MealSnapshotPayload } from '../types';
 import { localizeMember, localizeSession } from '../db/localize';
 import { PeopleError } from './peopleErrors';
 import { t } from '../i18n';
+import { formatMoney } from '../lib/money';
 
 export interface LoadedMealSnapshot {
   payload: MealSnapshotPayload;
@@ -185,4 +186,43 @@ export function downloadBlob(blob: Blob, fileName: string): void {
   a.click();
   a.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Nội dung chữ của một khoản chuyển tiền (ngân hàng, tài khoản, số tiền, nội dung) để các app nhận được khi chia sẻ. */
+export function buildTransferText(slide: PaymentSlide): string {
+  const lines = [t('Chuyển khoản cho {name}', { name: slide.toName })];
+  if (slide.bank) lines.push(`${slide.bank.bankName} · ${slide.bank.accountName}`, `${t('Số tài khoản')}: ${slide.bank.accountNumber}`);
+  lines.push(`${t('Số tiền')}: ${formatMoney(slide.amount)}`, `${t('Nội dung')}: ${slide.content}`);
+  return lines.join('\n');
+}
+
+/**
+ * Mở menu chia sẻ của hệ điều hành với thông tin chuyển tiền (ảnh QR + chữ) để người dùng chọn app ngân hàng đã cài.
+ * Web không liệt kê được app trong máy, nên danh sách app do hệ điều hành hiển thị. Trả `false` khi người dùng đóng menu.
+ */
+export async function shareTransferToBankApp(slide: PaymentSlide): Promise<boolean> {
+  const text = buildTransferText(slide);
+  const title = t('Chuyển khoản cho {name}', { name: slide.toName });
+  if (!canUseWebShare()) {
+    await copyTextToClipboard(text);
+    throw new PeopleError('SHARE_FAILED', t('Thiết bị này không hỗ trợ chia sẻ trực tiếp. Đã sao chép thông tin chuyển khoản.'));
+  }
+  let files: File[] = [];
+  if (slide.qrPayload) {
+    try {
+      const { renderPaymentsPng } = await import('../lib/paymentImage');
+      const blob = await renderPaymentsPng([slide]);
+      const file = new File([blob], 'chuyen-khoan.png', { type: 'image/png' });
+      if (canShareFile(file)) files = [file];
+    } catch {
+      // Không tạo được ảnh thì vẫn chia sẻ phần chữ.
+    }
+  }
+  try {
+    await navigator.share({ title, text, ...(files.length > 0 ? { files } : {}) });
+    return true;
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') return false;
+    throw new PeopleError('SHARE_FAILED', t('Không mở được menu chia sẻ.'));
+  }
 }
