@@ -154,6 +154,14 @@ export interface BankDeepLink {
 export function buildBankDeepLink(account: { bankBin: string; accountNumber: string; accountName: string }, amount: number, content: string): BankDeepLink | undefined {
   const found = DEEP_LINK_APPS[account.bankBin]
   if (!found) return undefined
-  const q = new URLSearchParams({ app: found.appId, ba: `${account.accountNumber}@${found.bankCode ?? found.appId}`, am: String(amount), tn: content, bn: account.accountName })
-  return { href: `https://dl.vietqr.io/pay?${q.toString()}`, appName: found.appName, autofill: found.autofill }
+  // Không dùng URLSearchParams: nó mã hoá "@" thành %40 và khoảng trắng thành "+", dịch vụ deep link của VietQR đọc sai hai dạng này.
+  const param = (key: string, value: string) => `${key}=${encodeURIComponent(value).replace(/%40/g, '@')}`
+  const query = [
+    param('app', found.appId),
+    param('ba', `${account.accountNumber}@${found.bankCode ?? found.appId}`),
+    param('am', String(amount)),
+    param('tn', content),
+    param('bn', account.accountName),
+  ].join('&')
+  return { href: `https://dl.vietqr.io/pay?${query}`, appName: found.appName, autofill: found.autofill }
 }

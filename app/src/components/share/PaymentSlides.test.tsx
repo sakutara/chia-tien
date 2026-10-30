@@ -35,7 +35,9 @@ describe('PaymentSlides - thanh toán bằng ngân hàng', () => {
     const href = screen.getByRole('link', { name: /Mở app MB Bank|Open MB Bank app/ }).getAttribute('href') ?? ''
     expect(href).toContain('dl.vietqr.io/pay?app=mb')
     expect(href).toContain('am=150000')
-    expect(decodeURIComponent(href.replace(/\+/g, ' '))).toContain('ba=0123456789@mb')
+    expect(href).toContain('ba=0123456789@mb&')
+    expect(href).toContain('tn=An%20chuyen%20Binh')
+    expect(href).not.toContain('+')
   })
 
   it('không hiện nút khi người nhận chưa có tài khoản', () => {
