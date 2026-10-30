@@ -61,10 +61,13 @@ function BankPayButton({ slide }: { slide: PaymentSlide }) {
   return (
     <div className="space-y-1">
       {deepLink && (
-        <a href={deepLink} className="icon-btn icon-btn-solid flex w-full items-center justify-center gap-2 no-underline">
+        <a href={deepLink.href} className="icon-btn icon-btn-solid flex w-full items-center justify-center gap-2 no-underline">
           <Landmark className="h-4 w-4" aria-hidden="true" />
-          {t('Mở app {bank}', { bank: slide.bank?.bankName ?? '' })}
+          {t('Mở app {bank}', { bank: deepLink.appName })}
         </a>
+      )}
+      {deepLink && !deepLink.autofill && (
+        <p className="text-center text-xs text-usd-green-700">{t('App này không tự điền thông tin, hãy dán số tài khoản và nội dung đã sao chép.')}</p>
       )}
       <IconButton
         icon={Send}

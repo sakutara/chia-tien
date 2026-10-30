@@ -320,6 +320,7 @@ export const en: Record<string, string> = {
   'Mã QR chuyển {v} tới {accountName}': 'QR code to transfer {v} to {accountName}',
   '{name} chưa có thông tin ngân hàng nên chưa tạo được mã QR.': '{name} has no bank details yet, so a QR code could not be created.',
   'Nội dung': 'Description',
+  'App này không tự điền thông tin, hãy dán số tài khoản và nội dung đã sao chép.': 'This app does not autofill; paste the copied account number and description.',
   'Mở app {bank}': 'Open {bank} app',
   'Thanh toán bằng ngân hàng': 'Pay with bank app',
   'Chuyển khoản cho {name}': 'Bank transfer to {name}',
