@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PaymentSlide } from '../../domain/paymentSlides'
 import PaymentSlides from './PaymentSlides'
@@ -15,7 +15,10 @@ const slide: PaymentSlide = {
   involvedIds: ['m1', 'm2'],
 }
 
-afterEach(() => Reflect.deleteProperty(navigator, 'share'))
+afterEach(() => {
+  cleanup()
+  Reflect.deleteProperty(navigator, 'share')
+})
 
 describe('PaymentSlides - thanh toán bằng ngân hàng', () => {
   it('mở menu chia sẻ của thiết bị kèm thông tin chuyển khoản', async () => {
