@@ -95,11 +95,13 @@ interface DeepLinkApp {
   appId: string
   /** Tên app hiển thị. */
   appName: string
+  /** Mã ngân hàng của VietQR dùng ở `ba=`; vắng thì dùng `appId` (hai mã trùng nhau với hầu hết ngân hàng). */
+  bankCode?: string
   /** App tự điền sẵn tài khoản, số tiền, nội dung; `false` thì chỉ mở app, người dùng phải dán thông tin. */
   autofill: boolean
 }
 
-const app = (appId: string, appName: string, autofill = false): DeepLinkApp => ({ appId, appName, autofill })
+const app = (appId: string, appName: string, autofill = false, bankCode?: string): DeepLinkApp => ({ appId, appName, autofill, bankCode })
 
 /** Danh sách app theo BIN ngân hàng, lấy từ API deeplink của VietQR. Ngân hàng chưa có ở đây dùng menu chia sẻ của thiết bị. */
 const DEEP_LINK_APPS: Readonly<Record<string, DeepLinkApp>> = {
@@ -111,7 +113,7 @@ const DEEP_LINK_APPS: Readonly<Record<string, DeepLinkApp>> = {
   '970436': app('vcb', 'VCB Digibank'),
   '970407': app('tcb', 'Techcombank Mobile'),
   '970432': app('vpb', 'VPBank NEO'),
-  '970441': app('vib-2', 'MyVIB'),
+  '970441': app('vib-2', 'MyVIB', false, 'vib'),
   '970443': app('shb', 'SHB SAHA'),
   '970449': app('lpb', 'LPBank'),
   '970440': app('seab', 'SeAMobile'),
@@ -119,7 +121,7 @@ const DEEP_LINK_APPS: Readonly<Record<string, DeepLinkApp>> = {
   '970437': app('hdb', 'HDBank'),
   '970405': app('vba', 'Agribank Plus'),
   '970423': app('tpb', 'TPBank Mobile'),
-  '970454': app('timo', 'Timo'),
+  '970454': app('timo', 'Timo', false, 'vccb'),
   '970424': app('shbvn', 'Shinhan SOL Việt Nam'),
   '970428': app('nab', 'Nam A Bank Open Banking'),
   '970425': app('abb', 'ABBank'),
@@ -146,11 +148,12 @@ export interface BankDeepLink {
 
 /**
  * Link mở thẳng app ngân hàng đã cài; `undefined` nếu chưa hỗ trợ ngân hàng này.
- * Tài khoản truyền dạng `số@BIN` để không phụ thuộc cách đặt mã ngân hàng (VD: VietinBank là CTG hay ICB).
+ * `ba=` là `số tài khoản@mã ngân hàng VietQR` (chữ thường, VD: `22102025@icb`); mã này là của ngân hàng người nhận, nên khác `app=`
+ * của app đang mở. Mỗi ngân hàng trong bảng trên dùng chính app của mình nên lấy mã từ chính dòng của BIN đó.
  */
 export function buildBankDeepLink(account: { bankBin: string; accountNumber: string; accountName: string }, amount: number, content: string): BankDeepLink | undefined {
   const found = DEEP_LINK_APPS[account.bankBin]
   if (!found) return undefined
-  const q = new URLSearchParams({ app: found.appId, ba: `${account.accountNumber}@${account.bankBin}`, am: String(amount), tn: content, bn: account.accountName })
+  const q = new URLSearchParams({ app: found.appId, ba: `${account.accountNumber}@${found.bankCode ?? found.appId}`, am: String(amount), tn: content, bn: account.accountName })
   return { href: `https://dl.vietqr.io/pay?${q.toString()}`, appName: found.appName, autofill: found.autofill }
 }
