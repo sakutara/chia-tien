@@ -1,0 +1,3 @@
+#!/bin/sh
+# Đẩy file LFS (vietocr_encoder.onnx) lên remote trước khi push code.
+git lfs pre-push "$@"
