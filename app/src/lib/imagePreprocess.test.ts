@@ -23,7 +23,7 @@ describe('stretchContrast', () => {
 })
 
 describe('ocrScale', () => {
-  it('phóng to ảnh bill nhỏ để chữ đủ cao cho Tesseract', () => {
+  it('phóng to ảnh bill nhỏ để chữ đủ cao cho VietOCR', () => {
     expect(ocrScale(563, 1289)).toBeCloseTo(2.17, 2)
   })
 

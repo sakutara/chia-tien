@@ -1,9 +1,17 @@
 /*
  * Gom các từ OCR thành dòng theo toạ độ dọc (architecture VietOCR §2.2): từ cùng hàng ngang ghép thành một dòng,
  * và khoảng cách ngang lớn (nhảy sang cột SL / Đơn giá / Thành tiền) được tách bằng hai khoảng trắng để `receiptParser` nhận ra cột.
- * Hàm thuần, không phụ thuộc Tesseract hay ONNX.
+ * Hàm thuần, không phụ thuộc runtime OCR.
  */
-import type { OcrWord } from './ocrDigits'
+
+/** Một từ OCR kèm hộp bao (toạ độ pixel của ảnh đã quét). */
+export interface OcrWord {
+  text: string
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+}
 
 /** Hai từ cùng hàng khi lệch tâm dọc không quá tỉ lệ này nhân chiều cao chữ trung vị. */
 const SAME_LINE_RATIO = 0.55

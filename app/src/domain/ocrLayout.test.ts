@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseReceipt } from './receiptParser'
-import { groupWordsIntoLines, layoutOcrText } from './ocrLayout'
-import type { OcrWord } from './ocrDigits'
+import { groupWordsIntoLines, layoutOcrText, type OcrWord } from './ocrLayout'
 
 /** Từ có chiều cao 20px; `x` là mép trái, `y` là mép trên. */
 const w = (text: string, x: number, y: number, width = 40): OcrWord => ({ text, x0: x, y0: y, x1: x + width, y1: y + 20 })

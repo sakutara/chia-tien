@@ -18,11 +18,11 @@
     "fflate": "^0.8.3",
     "lucide-react": "^1.59.0",
     "lz-string": "^1.5.0",
+    "onnxruntime-web": "1.22.0-dev.20250409-89f8206ba4",
     "pdfjs-dist": "^4.10.38",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "tesseract.js": "^7.0.0"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",

@@ -1,7 +1,7 @@
 
 import { t } from '../i18n'/*
  * Tiền xử lý ảnh trước khi OCR (02 §3, bước 1): đưa cạnh dài về khoảng 2800 px (phóng to ảnh nhỏ, thu ảnh quá lớn),
- * chuyển xám, kéo giãn tương phản. Tesseract cần chữ cao tối thiểu ~25 px; ảnh bill đã nén thường chỉ rộng ~600 px nên
+ * chuyển xám, kéo giãn tương phản. VietOCR đọc dòng ở chiều cao 32 px, nên chữ phải đủ cao trước khi cắt; ảnh bill đã nén thường chỉ rộng ~600 px nên
  * không phóng to thì đọc sai gần hết.
  * Chỉ chạy trên trình duyệt (Canvas). Bản đã lưu của hoá đơn không bị đổi.
  */
@@ -58,7 +58,7 @@ export function stretchContrast(gray: Uint8ClampedArray): Uint8ClampedArray {
   return out
 }
 
-/** Ảnh đã chuẩn bị cho Tesseract: PNG xám, tương phản đã kéo giãn. */
+/** Ảnh đã chuẩn bị cho VietOCR: PNG xám, tương phản đã kéo giãn. */
 export async function prepareForOcr(source: Blob): Promise<Blob> {
   const bitmap = await createImageBitmap(source, { imageOrientation: 'from-image' })
   try {

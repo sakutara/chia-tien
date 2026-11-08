@@ -1,154 +1,118 @@
 import { prepareForOcr } from '../lib/imagePreprocess'
-import { acceptReread, buildText, collectLines, cropRect, selectRereadTargets, type OcrBlockLike, type OcrWord } from '../domain/ocrDigits'
-import { PeopleError } from './peopleErrors'
+import { generateId } from '../lib/id'
+import { layoutOcrText, type OcrWord } from '../domain/ocrLayout'
 import { t } from '../i18n'
+import type { VietOcrWorkerRequest, VietOcrWorkerResponse } from './aiContracts'
+import { registerMemoryCleaner } from './memoryLifecycle'
+import { PeopleError } from './peopleErrors'
 
 /*
- * OCR offline bằng Tesseract.js (BR-4.7, BR-4.13). Worker và dữ liệu ngôn ngữ nằm trong public/ocr,
- * nên quét không cần mạng. Worker được tạo khi quét lần đầu, dùng lại, và tự dừng sau một phút rảnh.
+ * OCR trên máy bằng VietOCR ONNX (BR-4.7, BR-4.13): detector DB + recognizer vgg_seq2seq chạy trong Web Worker
+ * (`workers/vietOcrWorker.ts`). Worker giữ model giữa các lần quét và tự dừng sau 15 giây rảnh;
+ * `memoryLifecycle` dừng ngay khi đóng form hoặc ẩn app. Không có dự phòng: lỗi thì báo cho người dùng nhập tay.
  */
 
-const BASE = `${import.meta.env.BASE_URL}ocr/`
-const IDLE_MS = 60_000
+const BASE = import.meta.env.BASE_URL
+const IDLE_MS = 15_000
 
 export type OcrProgressHandler = (percent: number, stage: string) => void
 
-/** Tesseract.js (tải lười) — kiểu tối thiểu dùng trong app. */
-interface OcrWorker {
-  setParameters(params: Record<string, string>): Promise<unknown>
-  recognize(image: Blob, options?: Record<string, unknown>, output?: Record<string, boolean>): Promise<{ data: { text: string; blocks?: OcrBlockLike[] | null } }>
-  terminate(): Promise<unknown>
+/** Một worker VietOCR đang sống. `ready` chờ khởi tạo xong; `abort` huỷ mọi yêu cầu đang chờ khi worker bị dừng. */
+interface Session {
+  worker: Worker
+  abort: AbortController
+  ready: Promise<void>
 }
 
-let workerPromise: Promise<OcrWorker> | null = null
-/** Worker `eng` riêng cho lượt 2 (đọc lại số tiền), tạo lười. */
-let digitWorkerPromise: Promise<OcrWorker> | null = null
+let session: Session | null = null
 let idleTimer: ReturnType<typeof setTimeout> | undefined
-let currentProgress: OcrProgressHandler | undefined
 
-async function createOcrWorker(): Promise<OcrWorker> {
-  const { createWorker } = await import('tesseract.js')
-  const worker = (await createWorker(['vie', 'eng'], undefined, {
-    workerPath: `${BASE}worker.min.js`,
-    corePath: BASE,
-    langPath: BASE,
-    gzip: false,
-    logger: (m: { status: string; progress: number }) => {
-      if (m.status === 'recognizing text') currentProgress?.(Math.round(m.progress * 100), t('Đang đọc chữ…'))
-    },
-  })) as unknown as OcrWorker
-  // Bill là một cột chữ: PSM 4 (một cột, kích cỡ chữ đổi dòng) giữ đúng thứ tự dòng và cột giá; PSM 3 hay làm
-  // vỡ bảng món. Giữ khoảng trắng giữa các từ để cột đơn giá / SL / thành tiền không dính nhau.
-  await worker.setParameters({
-    tessedit_pageseg_mode: '4',
-    preserve_interword_spaces: '1',
-    user_defined_dpi: '300',
-  })
-  return worker
-}
-
-function getWorker(): Promise<OcrWorker> {
-  if (!workerPromise) {
-    workerPromise = createOcrWorker().catch((err: unknown) => {
-      workerPromise = null
-      throw err
-    })
-  }
-  return workerPromise
-}
-
-/** Worker chỉ đọc số: một dòng, whitelist chữ số và dấu nhóm nghìn (không nhầm `đ`, `l`, `O`). */
-async function createDigitWorker(): Promise<OcrWorker> {
-  const { createWorker } = await import('tesseract.js')
-  const worker = (await createWorker(['eng'], undefined, {
-    workerPath: `${BASE}worker.min.js`,
-    corePath: BASE,
-    langPath: BASE,
-    gzip: false,
-  })) as unknown as OcrWorker
-  await worker.setParameters({
-    tessedit_pageseg_mode: '7',
-    tessedit_char_whitelist: '0123456789.,',
-    user_defined_dpi: '300',
-  })
-  return worker
-}
-
-function getDigitWorker(): Promise<OcrWorker> {
-  if (!digitWorkerPromise) {
-    digitWorkerPromise = createDigitWorker().catch((err: unknown) => {
-      digitWorkerPromise = null
-      throw err
-    })
-  }
-  return digitWorkerPromise
-}
-
-/** Cắt một vùng từ ảnh đã chuẩn bị (Blob PNG) thành Blob PNG mới để đọc lại. */
-async function cropBlob(bitmap: ImageBitmap, word: OcrWord): Promise<Blob> {
-  const rect = cropRect(word, bitmap.width, bitmap.height)
-  const canvas = document.createElement('canvas')
-  canvas.width = rect.w + 40
-  canvas.height = rect.h + 40
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error(t('Canvas không khả dụng.'))
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.drawImage(bitmap, rect.x, rect.y, rect.w, rect.h, 20, 20, rect.w, rect.h)
-  return new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(t('Không tạo được ảnh OCR.')))), 'image/png'))
+function cancelled(): PeopleError {
+  return new PeopleError('OCR_CANCELLED', t('Đã huỷ quét ảnh.'))
 }
 
 /**
- * Lượt 2 (02 §3 bước 2): đọc lại từng từ số tiền của lượt 1 bằng bộ đọc chỉ-chữ-số, rồi ghép lại văn bản.
- * Không có toạ độ từ hoặc không có từ số nào thì giữ nguyên văn bản lượt 1.
+ * Gửi một yêu cầu và chờ phản hồi cùng `requestId`. `settle` trả về giá trị khi phản hồi là kết quả cuối,
+ * hoặc `undefined` để tiếp tục chờ. PROGRESS gọi `onProgress`. Huỷ bằng `signal` thì ném OCR_CANCELLED.
  */
-async function rereadNumbers(prepared: Blob, data: { text: string; blocks?: OcrBlockLike[] | null }, onProgress?: OcrProgressHandler): Promise<string> {
-  const lines = collectLines(data.blocks)
-  const targets = selectRereadTargets(lines)
-  if (targets.length === 0) return data.text
-
-  const worker = await getDigitWorker()
-  const bitmap = await createImageBitmap(prepared)
-  const replaced = new Map<string, string>()
-  try {
-    for (let i = 0; i < targets.length; i++) {
-      const { line, word } = targets[i]
-      onProgress?.(Math.round((i / targets.length) * 100), t('Đang đọc lại số…'))
-      const original = lines[line][word]
-      const { data: out } = await worker.recognize(await cropBlob(bitmap, original))
-      const accepted = acceptReread(original.text, out.text)
-      if (accepted !== undefined) replaced.set(`${line}:${word}`, accepted)
+function ask<T>(
+  worker: Worker,
+  request: VietOcrWorkerRequest,
+  settle: (msg: VietOcrWorkerResponse) => { value: T } | undefined,
+  options: { signal: AbortSignal; onProgress?: (percent: number) => void },
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const finish = (fn: () => void) => {
+      worker.removeEventListener('message', onMessage)
+      worker.removeEventListener('error', onError)
+      options.signal.removeEventListener('abort', onAbort)
+      fn()
     }
-  } finally {
-    bitmap.close()
-  }
-  return replaced.size === 0 ? data.text : buildText(lines, replaced)
+    const onMessage = (event: MessageEvent<VietOcrWorkerResponse>) => {
+      const msg = event.data
+      if (msg.requestId !== request.requestId) return
+      if (msg.type === 'PROGRESS') {
+        options.onProgress?.(msg.percent)
+        return
+      }
+      if (msg.type === 'ERROR') {
+        finish(() => reject(new PeopleError('OCR_FAILED', t('Không quét được ảnh. Bạn vẫn có thể nhập tay.'))))
+        return
+      }
+      const done = settle(msg)
+      if (done) finish(() => resolve(done.value))
+    }
+    const onError = () => finish(() => reject(new PeopleError('OCR_FAILED', t('Không quét được ảnh. Bạn vẫn có thể nhập tay.'))))
+    const onAbort = () => finish(() => reject(cancelled()))
+
+    worker.addEventListener('message', onMessage)
+    worker.addEventListener('error', onError)
+    options.signal.addEventListener('abort', onAbort, { once: true })
+    if (options.signal.aborted) onAbort()
+    else worker.postMessage(request)
+  })
 }
 
-/** Dừng worker (khi huỷ hoặc khi rảnh lâu). Lần quét sau sẽ tạo lại. */
-export async function terminateOcrWorker(): Promise<void> {
+/** Tạo worker và nạp model. Worker được ghi nhận ngay để `terminateOcrWorker` luôn dừng được nó. */
+function createSession(): Session {
+  const worker = new Worker(new URL('../workers/vietOcrWorker.ts', import.meta.url), { type: 'module' })
+  const abort = new AbortController()
+  const ready = ask(
+    worker,
+    { type: 'INIT', requestId: generateId(), baseUrl: BASE },
+    (msg) => (msg.type === 'READY' ? { value: undefined } : undefined),
+    { signal: abort.signal },
+  )
+  // Lỗi khởi tạo được báo qua `ready`; tránh unhandled rejection khi chưa có ai await.
+  ready.catch(() => undefined)
+  return { worker, abort, ready }
+}
+
+function getSession(): Session {
+  if (!session) session = createSession()
+  return session
+}
+
+/** Dừng worker và huỷ mọi yêu cầu đang chờ. Lần quét sau sẽ tạo lại worker. */
+export function terminateOcrWorker(): void {
   clearTimeout(idleTimer)
-  const pending = [workerPromise, digitWorkerPromise]
-  workerPromise = null
-  digitWorkerPromise = null
-  for (const promise of pending) {
-    if (!promise) continue
-    try {
-      const worker = await promise
-      await worker.terminate()
-    } catch {
-      // Worker chưa khởi tạo xong hoặc đã lỗi: không còn gì để dừng.
-    }
-  }
+  idleTimer = undefined
+  const current = session
+  session = null
+  if (!current) return
+  current.abort.abort()
+  current.worker.terminate()
 }
 
 function scheduleIdleStop(): void {
   clearTimeout(idleTimer)
-  idleTimer = setTimeout(() => void terminateOcrWorker(), IDLE_MS)
+  idleTimer = setTimeout(terminateOcrWorker, IDLE_MS)
 }
 
+registerMemoryCleaner(terminateOcrWorker)
+
 /**
- * Quét văn bản từ từng ảnh theo thứ tự. Trả về văn bản của từng ảnh.
+ * Quét văn bản từ từng ảnh theo thứ tự, trả về văn bản đã ghép thành dòng và cột của từng ảnh.
  * Huỷ bằng `signal`: worker bị dừng và ném `OCR_CANCELLED`.
  */
 export async function runOcr(
@@ -156,37 +120,38 @@ export async function runOcr(
   options: { onProgress?: OcrProgressHandler; signal?: AbortSignal } = {},
 ): Promise<string[]> {
   const { onProgress, signal } = options
-  const aborted = () => signal?.aborted === true
-  const cancelled = () => new PeopleError('OCR_CANCELLED', t('Đã huỷ quét ảnh.'))
-
-  if (aborted()) throw cancelled()
-  const onAbort = () => void terminateOcrWorker()
+  if (signal?.aborted) throw cancelled()
+  const onAbort = () => terminateOcrWorker()
   signal?.addEventListener('abort', onAbort, { once: true })
-  currentProgress = onProgress
 
   try {
     onProgress?.(0, t('Đang khởi tạo bộ đọc chữ…'))
-    const worker = await getWorker()
+    const current = getSession()
+    await current.ready
+
     const texts: string[] = []
     for (let i = 0; i < images.length; i++) {
-      if (aborted()) throw cancelled()
-      onProgress?.(Math.round((i / images.length) * 100), t('Đang chuẩn bị ảnh {v}/{length}…', { v: i + 1, length: images.length }))
+      if (signal?.aborted) throw cancelled()
+      const share = (percent: number) => Math.round(((i + percent / 100) / images.length) * 100)
+      onProgress?.(share(0), t('Đang chuẩn bị ảnh {v}/{length}…', { v: i + 1, length: images.length }))
       const prepared = await prepareForOcr(images[i])
-      if (aborted()) throw cancelled()
-      const { data } = await worker.recognize(prepared, {}, { text: true, blocks: true })
-      if (aborted()) throw cancelled()
-      texts.push(await rereadNumbers(prepared, data, onProgress))
+      const lines = await ask<OcrWord[]>(
+        current.worker,
+        { type: 'RECOGNIZE', requestId: generateId(), image: prepared },
+        (msg) => (msg.type === 'RESULT' ? { value: msg.lines } : undefined),
+        { signal: current.abort.signal, onProgress: (percent) => onProgress?.(share(percent), t('Đang đọc chữ…')) },
+      )
+      texts.push(layoutOcrText(lines))
     }
     onProgress?.(100, t('Xong'))
     return texts
   } catch (err) {
-    if (aborted()) throw cancelled()
+    if (signal?.aborted) throw cancelled()
     if (err instanceof PeopleError) throw err
     throw new PeopleError('OCR_FAILED', t('Không quét được ảnh. Bạn vẫn có thể nhập tay.'))
   } finally {
     signal?.removeEventListener('abort', onAbort)
-    currentProgress = undefined
-    if (aborted()) await terminateOcrWorker()
+    if (signal?.aborted) terminateOcrWorker()
     else scheduleIdleStop()
   }
 }

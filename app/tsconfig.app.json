@@ -10,6 +10,10 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
+    // onnxruntime-web không khai báo "types" trong exports; trỏ thẳng tới file khai báo của gói (chỉ dùng cho kiểu, không ảnh hưởng bundle).
+    "paths": {
+      "onnxruntime-web": ["./node_modules/onnxruntime-web/types.d.ts"]
+    },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
