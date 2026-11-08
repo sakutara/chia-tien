@@ -4,9 +4,28 @@
     {
       "name": "fee-calculator",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5173"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5173"
+      ],
       "cwd": "app",
       "port": 5173
+    },
+    {
+      "name": "fee-calculator-prod",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "cwd": "app",
+      "port": 4173
     }
   ]
 }

@@ -3,7 +3,7 @@
  * Worker giữ session trong RAM giữa các lần quét và được terminate khi rảnh hoặc khi rời màn (memoryLifecycle).
  * Giao thức: `VietOcrWorkerRequest` / `VietOcrWorkerResponse`.
  */
-import * as ort from 'onnxruntime-web'
+import * as ort from 'onnxruntime-web/wasm'
 import {
   detectTextBoxes,
   detectorInputSize,
