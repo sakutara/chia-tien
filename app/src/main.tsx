@@ -4,6 +4,10 @@ import './index.css'
 import App from './App.tsx'
 import { loadStoredLang } from './db/languageStore'
 import { initLanguage } from './i18n'
+import { installMemoryLifecycleHooks } from './services/memoryLifecycle'
+
+// Trả RAM của worker AI về hệ điều hành khi app ẩn hoặc đóng tab (memoryLifecycle).
+installMemoryLifecycleHooks()
 
 // iOS Safari bỏ qua `user-scalable=no`, nên chặn thêm cử chỉ chụm (gesture*) và chạm đúp để không zoom được.
 for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
