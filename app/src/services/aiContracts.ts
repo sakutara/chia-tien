@@ -3,14 +3,8 @@
  * Chỉ khai báo kiểu, không có logic, để các module phát triển song song mà không lệch giao diện.
  */
 
-/** Một từ OCR kèm hộp bao (toạ độ pixel trên ảnh). */
-export interface OcrWord {
-  text: string
-  x0: number
-  y0: number
-  x1: number
-  y1: number
-}
+/** Từ OCR kèm hộp bao; định nghĩa gốc nằm ở domain/ocrDigits.ts. */
+export type { OcrWord } from '../domain/ocrDigits'
 
 /** Loại kết nối mạng hiện tại; `unknown` khi trình duyệt không cho biết (ví dụ iOS Safari). */
 export type ConnectionKind = 'wifi' | 'cellular' | 'unknown'

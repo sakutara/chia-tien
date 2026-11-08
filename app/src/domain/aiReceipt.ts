@@ -52,27 +52,44 @@ export const AI_RESPONSE_SCHEMA = {
   required: ['items', 'total', 'itemRowCount'],
 } as const
 
-/** Gợi ý OCR gửi kèm ảnh. */
+/** Gợi ý OCR gửi cho Local SLM: văn bản VietOCR và kết quả Rule Parser. */
 export interface AiHints {
   ocrText: string
   parsed?: ParsedReceipt
   notes?: string[]
 }
 
-const MAX_HINT_CHARS = 6000
+const MAX_HINT_CHARS = 3000
 
-export function buildAiPrompt(hints: AiHints): string {
-  const parts = ['Read the attached invoice image(s) and return the JSON described. All pages belong to ONE invoice.']
+/*
+ * Prompt cho Qwen2.5-0.5B (chỉ văn bản, không có ảnh): ngắn, một ví dụ, chỉ yêu cầu JSON.
+ * Mô hình 0.5B dễ nhiễu khi prompt dài hoặc có hướng dẫn về ảnh.
+ */
+export const LOCAL_SLM_SYSTEM_PROMPT = `You correct Vietnamese receipt text read by OCR and output ONLY one JSON object.
+Fields: vendorName, invoiceDate (YYYY-MM-DD or null), items (name, quantity, unitPrice, amount), discountAmount, serviceAmount, vatAmount, vatIncludedInPrices, subtotal, total, itemRowCount, notes.
+Rules:
+1. Amounts are integers in VND: "1.234.000" is 1234000.
+2. One item per numbered row of the table. Keep names as printed; fix obvious OCR typos only.
+3. Discounts go to discountAmount as a positive number, never as items.
+4. Check: sum(items.amount) - discountAmount + serviceAmount + vatAmount must equal total. If not, fix the misread number.
+5. Do not invent rows or numbers. Output JSON only.
+Example OCR text: "Bún bò 1 50.000 50.000 / Tổng 50.000"
+Example output: {"items":[{"name":"Bún bò","quantity":1,"unitPrice":50000,"amount":50000}],"discountAmount":0,"serviceAmount":0,"vatAmount":0,"vatIncludedInPrices":false,"total":50000,"itemRowCount":1}`
+
+/** Prompt người dùng cho Local SLM: văn bản OCR, các dòng Rule Parser đọc được, và lỗi đối soát (nếu có). */
+export function buildLocalSlmPrompt(hints: AiHints): string {
+  const parts: string[] = []
   const text = hints.ocrText.trim()
-  if (text) parts.push(`OCR text of the pages (may contain errors, columns may be scrambled):\n"""\n${text.slice(0, MAX_HINT_CHARS)}\n"""`)
+  if (text) parts.push(`OCR text (may contain errors, columns may be scrambled):\n"""\n${text.slice(0, MAX_HINT_CHARS)}\n"""`)
   const parsed = hints.parsed
   if (parsed && parsed.items.length > 0) {
     const rows = parsed.items.map((i) => `- ${i.name} | qty ${i.quantity} | unit ${i.unitPrice} | amount ${i.rawAmount}`).join('\n')
-    parts.push(`Our OCR parser read these rows (may be incomplete or wrong):\n${rows}`)
-    if (parsed.billTotal !== undefined) parts.push(`OCR parser total: ${parsed.billTotal}`)
+    parts.push(`Rule parser rows (may be incomplete or wrong):\n${rows}`)
+    if (parsed.billTotal !== undefined) parts.push(`Rule parser total: ${parsed.billTotal}`)
   }
-  if (parsed?.tableRows) parts.push(`The OCR counted ${parsed.tableRows.expected} numbered rows in the table and read ${parsed.tableRows.read}.`)
-  if (hints.notes && hints.notes.length > 0) parts.push(`Problems our checker found in the OCR result:\n${hints.notes.map((n) => `- ${n}`).join('\n')}`)
+  if (parsed?.tableRows) parts.push(`The table has ${parsed.tableRows.expected} numbered rows; ${parsed.tableRows.read} were read.`)
+  if (hints.notes && hints.notes.length > 0) parts.push(`Problems found in the OCR result:\n${hints.notes.map((n) => `- ${n}`).join('\n')}`)
+  parts.push('Return the JSON object now.')
   return parts.join('\n\n')
 }
 
