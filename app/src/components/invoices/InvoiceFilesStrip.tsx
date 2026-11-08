@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Camera, Download, Eye, ImagePlus, Trash2 } from 'lucide-react'
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { planCompression } from '../../domain/imageQuality'
 import { formatBytes } from '../../lib/bytes'
 import { probeImage } from '../../lib/imageCompress'
@@ -28,20 +28,10 @@ interface Props {
   sessionId: string
   /** Khoá thao tác thêm ảnh (ví dụ đang quét OCR). */
   disabled?: boolean
-  /**
-   * Gọi sau khi một đợt ảnh đã được lưu. `via` = 'ai' khi ảnh được chọn từ luồng "Đọc bill bằng AI" (chỉ đọc bằng AI,
-   * OCR chỉ là dự phòng); ngược lại 'ocr' để form tự quét OCR những ảnh mới (BR-4.17).
-   */
-  onAdded: (fileIds: string[], via: 'ocr' | 'ai') => void
-  /** Cho form mở chụp/chọn ảnh từ bên ngoài (luồng AI khi chưa có ảnh). */
-  controlRef?: Ref<FilesStripControl>
+  /** Gọi sau khi một đợt ảnh đã được lưu, để form tự quét OCR những ảnh mới (BR-4.17). */
+  onAdded: (fileIds: string[]) => void
   /** Nút phụ cạnh nút chụp/tải (ví dụ quét lại OCR). */
   actions?: React.ReactNode
-}
-
-export interface FilesStripControl {
-  /** Mở chụp ảnh hoặc chọn tệp; ảnh thêm vào sẽ báo `onAdded(…, 'ai')`. */
-  pickForAi: (source: 'camera' | 'gallery') => void
 }
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf'
@@ -81,7 +71,7 @@ function Thumb({ fileId, alt }: { fileId: string; alt: string }) {
  * Ảnh của một hoá đơn: chụp hoặc tải lên, xem/tải/xoá từng ảnh (BR-4.6).
  * Mọi ảnh được nén ở mức Cân bằng (BR-4.16) và lưu ngay khi thêm; hoá đơn đang soạn bỏ đi thì ảnh tạm được dọn khi đóng form.
  */
-export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabled, onAdded, actions, controlRef }: Props) {
+export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabled, onAdded, actions }: Props) {
   const files = useLiveQuery(() => listFilesByInvoice(invoiceId), [invoiceId])
   const [sample, setSample] = useState<{ width: number; height: number; bytes: number } | null>(null)
   const [busy, setBusy] = useState(false)
@@ -94,28 +84,17 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
   const galleryInput = useRef<HTMLInputElement>(null)
   const cameraInput = useRef<HTMLInputElement>(null)
 
-  // Đặt khi ảnh được chọn từ luồng AI; mọi thao tác chọn ảnh trực tiếp trên các nút của khung này đặt lại về false.
-  const aiPick = useRef(false)
-  const openGallery = () => {
-    aiPick.current = false
-    galleryInput.current?.click()
-  }
-  useImperativeHandle(controlRef, () => ({
-    pickForAi: (source) => {
-      if (source === 'camera') openCamera()
-      else galleryInput.current?.click()
-      aiPick.current = true
-    },
-  }))
-
   const count = files?.length ?? 0
   const locked = busy || disabled === true
   const full = count >= MAX_IMAGES_PER_INVOICE
   const warnings = sample ? planCompression(sample.width, sample.height, sample.bytes, IMAGE_COMPRESSION).warnings : []
 
+  function openGallery() {
+    galleryInput.current?.click()
+  }
+
   /** Ưu tiên camera trong trang (không rời app); không có thì mở ứng dụng camera của máy. */
   function openCamera() {
-    aiPick.current = false
     if (window.isSecureContext && typeof navigator.mediaDevices?.getUserMedia === 'function') setCameraOpen(true)
     else cameraInput.current?.click()
   }
@@ -164,9 +143,7 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
       if (galleryInput.current) galleryInput.current.value = ''
       if (cameraInput.current) cameraInput.current.value = ''
       if (failed.length > 0) setProblems(failed)
-      const via = aiPick.current ? 'ai' : 'ocr'
-      aiPick.current = false
-      if (added.length > 0) onAdded(added, via)
+      if (added.length > 0) onAdded(added)
     }
   }
 

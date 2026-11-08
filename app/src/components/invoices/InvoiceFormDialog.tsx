@@ -1,11 +1,11 @@
-import { ClipboardPaste, KeyRound, ScanText, Sparkles, Trash2, X } from 'lucide-react'
+import { ClipboardPaste, ScanText, Trash2, X } from 'lucide-react'
 import { generateId } from '../../lib/id'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { computeInvoice, VENDOR_NAME_MAX, type ComputedInvoice } from '../../domain/invoiceRules'
 import { reflowBlockText } from '../../domain/blockTextReceipt'
 import { parseReceipt } from '../../domain/receiptParser'
-import { needsBetterRead, validateReceipt } from '../../domain/receiptValidation'
+import { validateReceipt } from '../../domain/receiptValidation'
 import type { InvoiceRow } from '../../hooks/useMealSessions'
 import { MAX_YMD, MIN_YMD } from '../../lib/dates'
 import { formatMoney } from '../../lib/money'
@@ -18,7 +18,6 @@ import {
   type DuplicateImage,
 } from '../../services/invoiceFileService'
 import { createInvoice, updateInvoice, type InvoiceDraft, type InvoiceResult } from '../../services/invoiceService'
-import { hasGeminiKey, readReceiptWithGemini } from '../../services/geminiService'
 import { runOcr } from '../../services/ocrService'
 import { PeopleError } from '../../services/peopleErrors'
 import type { InvoiceFileRecord, InvoiceInputMode, InvoiceSplitType, Member, SessionKeo } from '../../types'
@@ -28,9 +27,8 @@ import DialogActions from '../ui/DialogActions'
 import IconButton from '../ui/IconButton'
 import Switch from '../ui/Switch'
 import Modal from '../ui/Modal'
-import GeminiSettingsDialog from './GeminiSettingsDialog'
 import InvoiceAdjustments from './InvoiceAdjustments'
-import InvoiceFilesStrip, { type FilesStripControl } from './InvoiceFilesStrip'
+import InvoiceFilesStrip from './InvoiceFilesStrip'
 import InvoiceItemsEditor from './InvoiceItemsEditor'
 import OcrProgress from './OcrProgress'
 import {
@@ -71,7 +69,6 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
   const [draftId] = useState(() => invoice?.id ?? generateId())
   const savedRef = useRef(false)
   const scanRef = useRef<AbortController | null>(null)
-  const stripRef = useRef<FilesStripControl>(null)
 
   const [inputMode, setInputMode] = useState<InvoiceInputMode>(invoice?.inputMode ?? 'ITEMIZED')
   // Cách chia (Epic 5): chỉ có ý nghĩa với ITEMIZED; TOTAL_ONLY luôn ép về EQUAL_TOTAL (BR-5.2).
@@ -98,11 +95,6 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
   const [pasteOpen, setPasteOpen] = useState(false)
   const [pasteText, setPasteText] = useState('')
   const [pendingFill, setPendingFill] = useState<ReceiptFill | null>(null)
-  // OCR đọc chưa chuẩn → gợi ý đọc lại bằng AI. `aiSettings` mở hộp nhập khoá; `readAfterSave` đọc ngay sau khi lưu khoá.
-  const [aiSuggested, setAiSuggested] = useState(false)
-  // Bấm "Đọc bill bằng AI" khi chưa có ảnh: hỏi chụp hay tải ảnh.
-  const [aiChoice, setAiChoice] = useState(false)
-  const [aiSettings, setAiSettings] = useState<{ readAfterSave: boolean } | null>(null)
   const images = useLiveQuery(() => listFilesByInvoice(draftId), [draftId])
   const imageCount = images?.length ?? 0
   const [duplicates, setDuplicates] = useState<Array<DuplicateImage & { file: InvoiceFileRecord }>>([])
@@ -172,12 +164,10 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
     const check = validateReceipt(parseReceipt(rawText), rawText)
     const fill = fillFromReceipt(check.receipt)
     if (Object.keys(fill).length === 0) {
-      setAiSuggested(true)
       setScanNotice(emptyNotice)
       return
     }
     fill.check = { status: check.status, notes: check.notes }
-    setAiSuggested(needsBetterRead(check))
     const hasData = hasUserEntries({ vendorName: vendor, invoiceDate: date, rows, subtotal, discount, service, vat })
     if (hasData) setPendingFill(fill)
     else applyFill(fill)
@@ -188,8 +178,8 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
    * Chỉ quét ảnh chưa có văn bản OCR (kết quả đã lưu được dùng lại); `force` quét lại tất cả.
    * Sau khi quét, báo ảnh trùng với ảnh đã có trong bữa (BR-4.18).
    */
-  async function scanImages(force = false, notice: string | null = null) {
-    setScanNotice(notice)
+  async function scanImages(force = false) {
+    setScanNotice(null)
     const files = await listFilesByInvoice(draftId)
     if (files.length === 0) {
       setScanNotice(t('Chưa có ảnh để quét. Hãy chụp hoặc tải ảnh bill trước.'))
@@ -238,68 +228,6 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       scanRef.current = null
       setScan(null)
     }
-  }
-
-  /**
-   * Đọc lại hoá đơn bằng AI (Gemini): gửi ảnh kèm văn bản OCR và kết quả phân tích làm gợi ý; AI tự đối chiếu tổng tiền.
-   * Chưa có khoá API thì mở hộp nhập khoá trước.
-   */
-  async function startAi() {
-    setScanNotice(null)
-    if (!hasGeminiKey()) {
-      setAiSettings({ readAfterSave: true })
-      return
-    }
-    if ((await listFilesByInvoice(draftId)).length === 0) setAiChoice(true)
-    else await readWithAi()
-  }
-
-  /** Đọc bằng AI; AI không đọc được (mất mạng, hết hạn mức, kết quả hỏng…) thì tự chuyển sang OCR. */
-  async function readWithAi() {
-    setScanNotice(null)
-    if (!hasGeminiKey()) {
-      setAiSettings({ readAfterSave: true })
-      return
-    }
-    const files = await listFilesByInvoice(draftId)
-    if (files.length === 0) {
-      setScanNotice(t('Chưa có ảnh để quét. Hãy chụp hoặc tải ảnh bill trước.'))
-      return
-    }
-    const controller = new AbortController()
-    scanRef.current = controller
-    setScan({ percent: 5, stage: t('Đang chuẩn bị…') })
-    let fallbackReason: string | null = null
-    try {
-      const blobs: Blob[] = []
-      for (const file of files) {
-        const blob = await getFileBlob(file.id)
-        if (blob) blobs.push(blob)
-      }
-      const rawText = files.map((f) => f.ocrRawText ?? '').join('\n')
-      const ocr = rawText.trim() === '' ? undefined : validateReceipt(parseReceipt(rawText), rawText)
-      const result = await readReceiptWithGemini(
-        blobs,
-        { ocrText: rawText, parsed: ocr?.receipt, notes: ocr?.notes },
-        { signal: controller.signal, onStage: (stage) => setScan((s) => ({ percent: Math.min(90, (s?.percent ?? 0) + 30), stage })) },
-      )
-      const fill = fillFromReceipt(result.receipt)
-      fill.check = result.check
-      setAiSuggested(false)
-      if (hasUserEntries({ vendorName: vendor, invoiceDate: date, rows, subtotal, discount, service, vat })) setPendingFill(fill)
-      else applyFill(fill)
-    } catch (err) {
-      if (err instanceof PeopleError && err.code === 'OCR_CANCELLED') return
-      if (err instanceof PeopleError && err.code === 'AI_NO_KEY') {
-        setAiSettings({ readAfterSave: true })
-        return
-      }
-      fallbackReason = err instanceof PeopleError ? err.message : t('Không đọc được hoá đơn bằng AI.')
-    } finally {
-      scanRef.current = null
-      setScan(null)
-    }
-    if (fallbackReason !== null) await scanImages(false, t('AI chưa đọc được ({reason}) nên chuyển sang OCR.', { reason: fallbackReason }))
   }
 
   async function removeDuplicate(file: InvoiceFileRecord) {
@@ -352,8 +280,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
             mealId={session.mealId}
             sessionId={session.id}
             disabled={scan !== null}
-            controlRef={stripRef}
-            onAdded={(_ids, via) => void (via === 'ai' ? readWithAi() : scanImages())}
+            onAdded={() => void scanImages()}
             actions={
               <>
                 <IconButton
@@ -370,14 +297,6 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
                   disabled={scan !== null}
                   onClick={() => setPasteOpen(true)}
                 />
-                <IconButton
-                  icon={Sparkles}
-                  label={t('Đọc bill bằng AI')}
-                  tone="outline"
-                  disabled={scan !== null}
-                  onClick={() => void startAi()}
-                />
-                <IconButton icon={KeyRound} label={t('Cài đặt AI (khoá Gemini)')} tone="outline" onClick={() => setAiSettings({ readAfterSave: false })} />
               </>
             }
           />
@@ -416,16 +335,6 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
               {ocrCheck.notes.map((note, i) => (
                 <p key={i}>{note}</p>
               ))}
-            </div>
-          )}
-
-          {aiSuggested && scan === null && (
-            <div role="status" className="flex items-start gap-2 rounded-lg border border-usd-green-700 bg-usd-paper-100 p-2 text-sm">
-              <p className="min-w-0 flex-1">
-                {t('OCR đọc chưa chuẩn (lệch tổng hoặc có thể thiếu món). Đọc lại bằng AI Gemini để chính xác hơn: ảnh và gợi ý OCR sẽ được gửi tới Google.')}
-              </p>
-              <IconButton icon={Sparkles} label={t('Đọc lại bằng AI')} tone="primary" onClick={() => void readWithAi()} />
-              <IconButton icon={X} label={t('Bỏ qua')} onClick={() => setAiSuggested(false)} />
             </div>
           )}
 
@@ -516,17 +425,6 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
         </form>
       </Modal>
 
-      {aiSettings && (
-        <GeminiSettingsDialog
-          onClose={() => setAiSettings(null)}
-          onSaved={(hasKey) => {
-            const read = aiSettings.readAfterSave && hasKey
-            setAiSettings(null)
-            if (read) void startAi()
-          }}
-        />
-      )}
-
       <Modal open={pasteOpen} title={t('Dán text OCR từ công cụ ngoài')} onClose={() => setPasteOpen(false)} size="lg">
         <div className="space-y-3">
           <p className="text-sm text-usd-green-700">{t('Dán văn bản đã quét từ AI/OCR bên ngoài. App sẽ phân tích và điền vào hoá đơn như khi tự quét ảnh.')}</p>
@@ -553,20 +451,6 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
               }}
             >
               {t('Điền vào hoá đơn')}
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal open={aiChoice} title={t('Chọn cách thêm ảnh bill')} onClose={() => setAiChoice(false)}>
-        <div className="space-y-3">
-          <p className="text-sm text-usd-green-700">{t('Ảnh sẽ được AI đọc trực tiếp, không qua OCR. OCR chỉ chạy khi AI không đọc được.')}</p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn-primary" onClick={() => { setAiChoice(false); stripRef.current?.pickForAi('camera') }}>
-              {t('Chụp ảnh')}
-            </button>
-            <button type="button" className="btn-secondary" onClick={() => { setAiChoice(false); stripRef.current?.pickForAi('gallery') }}>
-              {t('Tải ảnh hoặc PDF lên')}
             </button>
           </div>
         </div>

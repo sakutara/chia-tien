@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@huggingface/transformers": "3.8.1",
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^4.4.0",
     "fflate": "^0.8.3",
