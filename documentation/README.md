@@ -77,7 +77,7 @@ Toàn bộ tài liệu thiết kế hệ thống được chia thành 5 phần c
    - Chia nhỏ toàn bộ tính năng thành 9 Epics độc lập kèm User Stories, Acceptance Criteria và thứ tự ưu tiên phát triển.
 5. [**05. Hệ thống đọc hoá đơn: OCR + AI Gemini (`05-ocr-and-receipt-reading.md`)**](./05-ocr-and-receipt-reading.md)
    - Tổng hợp theo mã nguồn toàn bộ chuỗi ảnh/PDF → dữ liệu hoá đơn: nhập & quét ảnh, PDF, Tesseract, bộ phân tích, đối chiếu tự sửa, đọc bằng Gemini, phát hiện ảnh trùng, hằng số, bản đồ mã nguồn, hạn chế.
-6. **Tài liệu theo Epic** (`documentation/epic-<n>/`, mỗi Epic gồm 2 file — xem quy tắc bắt buộc ở mục 5 bên dưới):
+6. **Tài liệu theo Epic** (`documentation/epic-<n>/`, mỗi Epic gồm 2 file; đây là tài liệu lịch sử — đặc tả hiện hành nằm ở `openspec/specs/`, xem mục 5 bên dưới):
    - Epic 1: [**BR — Yêu cầu nghiệp vụ**](./epic-1/BR.md) · [**SA — Phân tích hệ thống**](./epic-1/SA.md)
    - Epic 2: [**BR — Yêu cầu nghiệp vụ**](./epic-2/BR.md) · [**SA — Phân tích hệ thống**](./epic-2/SA.md) *(đã triển khai, còn kiểm thủ công trước khi đóng)*
    - Epic 3: [**BR — Yêu cầu nghiệp vụ**](./epic-3/BR.md) · [**SA — Phân tích hệ thống**](./epic-3/SA.md) *(đã triển khai, còn kiểm thủ công trước khi đóng)*
@@ -90,65 +90,38 @@ Toàn bộ tài liệu thiết kế hệ thống được chia thành 5 phần c
 
 ---
 
-## 5. Quy tắc BR & SA cho từng Epic (BẮT BUỘC)
+## 5. Quy trình đặc tả & phát triển tính năng: OpenSpec (BẮT BUỘC)
 
-Mỗi Epic **phải** có đủ 2 tài liệu trước khi bắt đầu code và được cập nhật trước khi đóng Epic. Epic thiếu BR hoặc SA, hoặc hai file không đúng cấu trúc dưới đây, **không được coi là hoàn thành**.
+Từ 2026-11, dự án dùng [OpenSpec](https://github.com/Fission-AI/OpenSpec) thay cho bộ đôi BR/SA theo Epic.
 
-### 5.1. Vị trí & đặt tên
-```text
-documentation/epic-<n>/
-├─ BR.md   # Business Requirements — "làm gì & vì sao"
-└─ SA.md   # System Analysis — "làm thế nào"
-```
-- `<n>` là số Epic trong [`04-epics-and-roadmap.md`](./04-epics-and-roadmap.md) (không đệm số 0: `epic-1`, `epic-8`).
-- Chỉ đúng 2 file này; không gộp BR và SA vào một file, không đặt ở nơi khác.
-- Tiêu đề: `# Epic <n> — Business Requirements (BR)` / `# Epic <n> — System Analysis (SA)`, ngay dưới là tên Epic, trạng thái và link chéo BR ↔ SA.
+### 5.1. Nguồn sự thật
+- **`openspec/specs/<capability>/spec.md`** mô tả hành vi hiện tại của app, chia theo 13 capability (xem `openspec list --specs`). Khi tài liệu trong `documentation/` và spec mâu thuẫn, spec đúng.
+- **`openspec/changes/<tên-change>/`** chứa từng thay đổi đang làm: `proposal.md` (làm gì, vì sao), `specs/` (delta so với spec chính), `design.md` (làm thế nào), `tasks.md` (các bước).
+- **`openspec/config.yaml`** giữ bối cảnh và quy tắc dự án áp cho mọi artifact.
+- `documentation/epic-1` … `epic-9` (BR/SA) và các file 01–05 là **tài liệu lịch sử**: giữ nguyên để tra cứu, không còn bắt buộc cập nhật, không viết BR/SA cho tính năng mới.
 
-### 5.2. Thứ tự thực hiện
-1. **Viết BR** từ mục tiêu, User Stories và Acceptance Criteria của Epic trong file 04.
-2. **Viết SA** dựa trên BR + 01/02/03; mọi BR phải có chỗ được giải quyết trong SA.
-3. **Code & test** theo SA.
-4. **Cập nhật BR/SA** cho khớp thực tế (trạng thái, rủi ro, kết quả kiểm thử) rồi mới đóng Epic.
-5. Nếu thiết kế dùng chung (01/02/03) đổi, sửa file đó trước, rồi cập nhật BR/SA của các Epic bị ảnh hưởng.
+### 5.2. Quy trình cho tính năng mới
+Dùng skill `new-feature` trong Claude Code (`.claude/skills/new-feature/SKILL.md`), hoặc làm tay theo đúng thứ tự:
 
-### 5.3. Cấu trúc bắt buộc của `BR.md`
+1. **Đề xuất** — `/opsx:propose`: tạo change với proposal, delta spec, design, tasks. Chưa code.
+2. **Duyệt** — người phụ trách đọc và đồng ý đề xuất.
+3. **Triển khai** — `/opsx:apply`: code và test theo `tasks.md`.
+4. **Kiểm tra** — trong `app/`: `npm test`, `npm run lint`, `npm run build`; `openspec validate <tên-change> --strict`.
+5. **Archive** — `/opsx:archive`: gộp delta vào `openspec/specs/`, chuyển change vào `openspec/changes/archive/`.
 
-| Mục | Nội dung |
-| :-: | :--- |
-| **A.1** | Bối cảnh & mục tiêu nghiệp vụ |
-| **A.2** | Các bên liên quan (vai trò – điều quan tâm) |
-| **A.3** | Yêu cầu nghiệp vụ `BR-<n>.<k>`, mỗi dòng truy vết tới `US-<n>.x` và yêu cầu người dùng (YC#) trong ma trận file 04 |
-| **A.4** | Quy tắc nghiệp vụ `R-<k>` (ràng buộc, công thức, trường hợp biên) |
-| **A.5** | Tiêu chí nghiệm thu `AC-<k>` (dạng checkbox, kiểm chứng được) |
-| **A.6** | Ngoài phạm vi (những gì Epic này cố ý không làm) |
+Sửa lỗi đưa hành vi về đúng spec và refactor không đổi hành vi thì không cần change.
 
-### 5.4. Cấu trúc bắt buộc của `SA.md`
+### 5.3. Quy ước
+- Viết tiếng Việt; giữ tiêu đề cấu trúc (`### Requirement:`, `#### Scenario:`) và từ khoá SHALL/MUST, WHEN/THEN bằng tiếng Anh; tên kiểu/hàm/bảng giữ tiếng Anh trong dấu `code`.
+- Mỗi Requirement có ít nhất một Scenario kiểm chứng được; spec mô tả hành vi quan sát được, không mô tả cài đặt.
+- Ghi trung thực: điều chưa kiểm chứng phải ghi "chưa thực hiện".
+- Cài CLI: `npm i -g @fission-ai/openspec@1.17.0` (cần Node 22.12 trở lên). Tắt thống kê ẩn danh bằng `openspec config set telemetry.enabled false`.
 
-| Mục | Nội dung |
-| :-: | :--- |
-| **B.1** | Công nghệ / thư viện sử dụng |
-| **B.2** | Cấu trúc mã nguồn (cây thư mục các file thuộc Epic) |
-| **B.3** | Thành phần & trách nhiệm (bảng: thành phần – trách nhiệm – phụ thuộc) |
-| **B.4** | Thiết kế dữ liệu (bảng/index/trường mới hoặc thay đổi; ghi "không đổi" nếu không có) |
-| **B.5** | Luồng xử lý chính (sơ đồ Mermaid: sequence/flowchart) |
-| **B.6** | Giao diện lập trình nội bộ (hàm/service/component: chữ ký, hành vi lỗi) |
-| **B.7** | Yêu cầu phi chức năng (bền vững, hiệu năng, tương thích, bảo mật, khả dụng) |
-| **B.8** | Rủi ro & hạn chế đã biết (kèm hướng xử lý) |
-| **B.9** | Ma trận truy vết kiểm thử: User Story → BR → bài test cụ thể (hoặc "chưa thực hiện") |
-| **B.10** | Việc còn lại để đóng Epic |
-
-### 5.5. Quy ước chung
-- Viết tiếng Việt; tên kiểu/hàm/bảng giữ nguyên tiếng Anh trong dấu `code`.
-- Mã định danh ổn định, không tái sử dụng: `BR-<n>.<k>`, `R-<k>`, `AC-<k>` (đánh số trong phạm vi Epic), `US-<n>.<k>` lấy từ file 04.
-- Mỗi User Story trong file 04 phải xuất hiện ít nhất một lần ở cột truy vết của BR (A.3) **và** ở ma trận B.9.
-- Ghi trung thực: mục chưa kiểm chứng phải ghi "chưa thực hiện", không đánh dấu đạt khi chưa chạy.
-- Không lặp lại nội dung đã có ở 01/02/03; chỉ dẫn link tới mục tương ứng.
-
-### 5.6. Điều kiện đóng Epic (Definition of Done)
-- [ ] `documentation/epic-<n>/BR.md` và `SA.md` tồn tại, đủ các mục theo 5.3 và 5.4.
-- [ ] Mọi User Story của Epic được truy vết trong BR (A.3) và SA (B.9).
-- [ ] Mọi tiêu chí nghiệm thu trong file 04 có `AC-<k>` tương ứng và trạng thái thật.
-- [ ] Code, test và build đạt; kết quả được ghi vào B.9; việc còn lại (B.10) rỗng hoặc đã chuyển sang Epic khác có ghi chú.
+### 5.4. Điều kiện hoàn thành một thay đổi (Definition of Done)
+- [ ] Change có đủ proposal, delta spec, design, tasks và đạt `openspec validate --strict`.
+- [ ] Mọi task trong `tasks.md` đã đánh dấu xong; mỗi Requirement mới hoặc đổi có test.
+- [ ] `npm test`, `npm run lint`, `npm run build` đạt.
+- [ ] Change đã archive; `openspec validate --specs --strict` đạt.
 
 ---
 

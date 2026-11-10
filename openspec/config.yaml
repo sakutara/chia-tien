@@ -1,0 +1,49 @@
+schema: spec-driven
+
+context: |
+  Language: Vietnamese
+  All artifacts must be written in Vietnamese.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+
+  Dự án: "Chia tiền" (Fee Calculator) — ứng dụng web chạy hoàn toàn phía client,
+  chia tiền nhóm bạn theo 3 tầng: Bữa (Meal) → Kèo (Session) → Món (Item).
+  Không có backend; dữ liệu nằm trong trình duyệt của người dùng.
+
+  Công nghệ: React 19 + TypeScript + Vite, Tailwind CSS, Dexie (IndexedDB),
+  OPFS cho file hoá đơn, onnxruntime-web (VietOCR), @huggingface/transformers
+  (AI cục bộ), pdfjs-dist, lz-string (Snapshot URL), Vitest + Testing Library, oxlint.
+
+  Cấu trúc mã nguồn (trong app/src):
+  - domain/     quy tắc nghiệp vụ thuần, không phụ thuộc UI hay DB
+  - services/   thao tác dữ liệu (Dexie, file, OCR, AI, snapshot)
+  - db/         schema Dexie, chuẩn hoá, seed
+  - components/ pages/ hooks/   giao diện React
+  - i18n/       từ điển vi (index.ts) và en (en.ts), phải cùng tập khoá
+  - lib/        tiện ích (tiền, ngày, ảnh, PDF)
+  - workers/    web worker cho OCR và AI
+
+  Quy ước:
+  - Tiền là VNĐ, số nguyên; mọi phép chia phải khớp tổng tuyệt đối (không lệch 1 đồng).
+  - Mọi chuỗi giao diện đi qua i18n, có đủ ở cả vi và en.
+  - Bữa đã lưu trữ (ARCHIVED) và trang Snapshot là chỉ đọc.
+  - Tên kiểu/hàm/bảng giữ nguyên tiếng Anh trong dấu `code`.
+  - Lệnh kiểm tra chạy trong app/: `npm test`, `npm run lint`, `npm run build`.
+  - Thư mục docs/ là bản build GitHub Pages do hook sinh ra, không sửa tay.
+  - Không commit thẳng lên main; mọi thay đổi qua branch riêng và Pull Request.
+  - documentation/ là tài liệu thiết kế lịch sử (9 epic, BR/SA); nguồn sự thật
+    về hành vi hiện tại là openspec/specs/.
+
+rules:
+  proposal:
+    - Nêu rõ phần ngoài phạm vi (Non-goals).
+    - Ghi capability trong openspec/specs/ bị ảnh hưởng, đúng tên thư mục hiện có.
+  specs:
+    - Mỗi Requirement có ít nhất một Scenario dạng WHEN/THEN kiểm chứng được.
+    - Mô tả hành vi quan sát được, không mô tả chi tiết cài đặt.
+  design:
+    - Chỉ rõ thay đổi schema Dexie (bảng, index, version) hoặc ghi "không đổi".
+    - Chỉ rõ ảnh hưởng tới Snapshot URL và khả năng mở link cũ.
+  tasks:
+    - Có task viết test (Vitest) cho từng Requirement mới hoặc thay đổi.
+    - Có task thêm khoá i18n cho cả vi và en khi có chuỗi giao diện mới.
+    - Task cuối chạy `npm test`, `npm run lint`, `npm run build` trong app/.
