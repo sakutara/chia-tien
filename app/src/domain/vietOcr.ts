@@ -46,6 +46,10 @@ export const DET_LIMIT_SIDE = 960
 export const DET_THRESH = 0.3
 /** Điểm trung bình tối thiểu của một vùng để nhận là chữ. */
 export const DET_BOX_THRESH = 0.5
+/** Góc nghiêng (độ) dưới ngưỡng này thì không xoay. */
+export const SKEW_MIN_DEGREES = 0.5
+/** Góc nghiêng tối đa được sửa; lớn hơn coi như ước lượng sai. */
+export const SKEW_MAX_DEGREES = 30
 /** Hệ số mở rộng hộp (unclip) để bao trọn dấu tiếng Việt. */
 export const DET_UNCLIP = 2.0
 /** Chuẩn hoá ImageNet cho detector (PaddleOCR DB). */
@@ -88,55 +92,121 @@ export function toRecognizerTensor(rgba: Uint8ClampedArray, w: number, h: number
   return out
 }
 
-/**
- * Tìm các hộp chữ trên bản đồ xác suất (DB rút gọn): vùng liên thông trên ngưỡng, lọc theo điểm trung bình,
- * bbox của vùng được mở rộng theo unclip. Toạ độ trả về cùng hệ với bản đồ.
- */
-export function findTextBoxes(prob: Float32Array, w: number, h: number): TextBox[] {
+/** Vùng liên thông trên ngưỡng, kèm tổng để tính điểm trung bình và mô-men để đo hướng (toạ độ pixel trên bản đồ). */
+interface Component {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+  count: number
+  scoreSum: number
+  sumX: number
+  sumY: number
+  sumXX: number
+  sumYY: number
+  sumXY: number
+}
+
+/** Duyệt các vùng liên thông (4 hướng) của bản đồ đã ngưỡng hoá, gọi `visit` với từng vùng theo thứ tự quét. */
+function forEachComponent(prob: Float32Array, w: number, h: number, visit: (c: Component) => void): void {
   const mask = new Uint8Array(w * h)
   for (let i = 0; i < prob.length; i++) mask[i] = prob[i] > DET_THRESH ? 1 : 0
   const seen = new Uint8Array(w * h)
-  const boxes: TextBox[] = []
   const stack: number[] = []
 
   for (let start = 0; start < mask.length; start++) {
     if (!mask[start] || seen[start]) continue
     seen[start] = 1
     stack.push(start)
-    let x0 = w, y0 = h, x1 = -1, y1 = -1, count = 0, scoreSum = 0
+    const c: Component = { x0: w, y0: h, x1: -1, y1: -1, count: 0, scoreSum: 0, sumX: 0, sumY: 0, sumXX: 0, sumYY: 0, sumXY: 0 }
     while (stack.length > 0) {
       const idx = stack.pop() as number
       const x = idx % w
       const y = (idx - x) / w
-      count++
-      scoreSum += prob[idx]
-      if (x < x0) x0 = x
-      if (x > x1) x1 = x
-      if (y < y0) y0 = y
-      if (y > y1) y1 = y
+      c.count++
+      c.scoreSum += prob[idx]
+      c.sumX += x
+      c.sumY += y
+      c.sumXX += x * x
+      c.sumYY += y * y
+      c.sumXY += x * y
+      if (x < c.x0) c.x0 = x
+      if (x > c.x1) c.x1 = x
+      if (y < c.y0) c.y0 = y
+      if (y > c.y1) c.y1 = y
       if (x > 0 && mask[idx - 1] && !seen[idx - 1]) { seen[idx - 1] = 1; stack.push(idx - 1) }
       if (x < w - 1 && mask[idx + 1] && !seen[idx + 1]) { seen[idx + 1] = 1; stack.push(idx + 1) }
       if (y > 0 && mask[idx - w] && !seen[idx - w]) { seen[idx - w] = 1; stack.push(idx - w) }
       if (y < h - 1 && mask[idx + w] && !seen[idx + w]) { seen[idx + w] = 1; stack.push(idx + w) }
     }
-    if (count < 4 || scoreSum / count < DET_BOX_THRESH) continue
-    const bw = x1 - x0 + 1
-    const bh = y1 - y0 + 1
+    visit(c)
+  }
+}
+
+/**
+ * Tìm các hộp chữ trên bản đồ xác suất (DB rút gọn): vùng liên thông trên ngưỡng, lọc theo điểm trung bình,
+ * bbox của vùng được mở rộng theo unclip. Toạ độ trả về cùng hệ với bản đồ.
+ */
+export function findTextBoxes(prob: Float32Array, w: number, h: number): TextBox[] {
+  const boxes: TextBox[] = []
+  forEachComponent(prob, w, h, (c) => {
+    if (c.count < 4 || c.scoreSum / c.count < DET_BOX_THRESH) return
+    const bw = c.x1 - c.x0 + 1
+    const bh = c.y1 - c.y0 + 1
     const offset = (bw * bh * DET_UNCLIP) / (2 * (bw + bh))
     boxes.push({
-      x0: Math.max(0, x0 - offset),
-      y0: Math.max(0, y0 - offset),
-      x1: Math.min(w, x1 + 1 + offset),
-      y1: Math.min(h, y1 + 1 + offset),
+      x0: Math.max(0, c.x0 - offset),
+      y0: Math.max(0, c.y0 - offset),
+      x1: Math.min(w, c.x1 + 1 + offset),
+      y1: Math.min(h, c.y1 + 1 + offset),
     })
-  }
+  })
   return boxes
+}
+
+/** Vùng có ít pixel hơn chừng này thì không đủ để đo hướng. */
+const SKEW_MIN_PIXELS = 50
+/** Vùng dài: trị riêng lớn gấp chừng này lần trị riêng nhỏ (tỉ lệ dài/rộng ≥ 4). */
+const SKEW_ASPECT = 16
+/** Số vùng dài tối thiểu để tin vào góc ước lượng. */
+const SKEW_MIN_LINES = 3
+
+/**
+ * Ước lượng góc nghiêng (độ) của dòng chữ từ các vùng dài trên bản đồ xác suất: trung vị hướng trục chính của
+ * những vùng dài. Dương là dòng đi xuống về bên phải (nghiêng theo chiều kim đồng hồ). Không đủ vùng hoặc góc quá lớn thì trả 0.
+ */
+export function estimateSkewAngle(prob: Float32Array, w: number, h: number): number {
+  const angles: number[] = []
+  forEachComponent(prob, w, h, (c) => {
+    if (c.count < SKEW_MIN_PIXELS) return
+    const n = c.count
+    const mx = c.sumX / n
+    const my = c.sumY / n
+    const sxx = c.sumXX / n - mx * mx
+    const syy = c.sumYY / n - my * my
+    const sxy = c.sumXY / n - mx * my
+    const mean = (sxx + syy) / 2
+    const spread = Math.hypot((sxx - syy) / 2, sxy)
+    const l1 = mean + spread
+    const l2 = mean - spread
+    if (l1 < SKEW_ASPECT * Math.max(l2, 1e-6)) return
+    angles.push((0.5 * Math.atan2(2 * sxy, sxx - syy) * 180) / Math.PI)
+  })
+  if (angles.length < SKEW_MIN_LINES) return 0
+  angles.sort((a, b) => a - b)
+  const mid = angles.length >> 1
+  const median = angles.length % 2 === 1 ? angles[mid] : (angles[mid - 1] + angles[mid]) / 2
+  return Math.abs(median) > SKEW_MAX_DEGREES ? 0 : median
+}
+
+/** Chạy detector trên ảnh RGBA đã resize về (w, h) và trả về bản đồ xác suất (w × h). */
+export async function detectProbability(engine: VietOcrEngine, rgba: Uint8ClampedArray, w: number, h: number): Promise<Float32Array> {
+  return engine.detect(toDetectorTensor(rgba, w, h), w, h)
 }
 
 /** Phát hiện các dòng chữ trên ảnh RGBA đã resize về (w, h) và trả về hộp trên hệ toạ độ detector. */
 export async function detectTextBoxes(engine: VietOcrEngine, rgba: Uint8ClampedArray, w: number, h: number): Promise<TextBox[]> {
-  const prob = await engine.detect(toDetectorTensor(rgba, w, h), w, h)
-  return findTextBoxes(prob, w, h)
+  return findTextBoxes(await detectProbability(engine, rgba, w, h), w, h)
 }
 
 function argmax(values: Float32Array): number {

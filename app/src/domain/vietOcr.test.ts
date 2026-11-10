@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   detectorInputSize,
+  detectProbability,
   detectTextBoxes,
+  estimateSkewAngle,
   findTextBoxes,
   greedyDecode,
   recognizerWidth,
@@ -116,6 +118,71 @@ describe('greedyDecode', () => {
     const engine = fakeEngine(new Array(100).fill(4))
     const text = await greedyDecode(engine, meta, { hidden: new Float32Array(4), encoderOutputs: new Float32Array(8), encoderSteps: 2 })
     expect(text).toHaveLength(meta.max_seq_length)
+  })
+})
+
+/** Vẽ một dải chữ dày ~6 px dài `length`, tâm (cx, cy), nghiêng `angleDeg` (dương là đi xuống về bên phải). */
+function drawStripe(prob: Float32Array, w: number, angleDeg: number, cx: number, cy: number, length: number): void {
+  const rad = (angleDeg * Math.PI) / 180
+  for (let t = -length / 2; t <= length / 2; t += 0.5) {
+    const px = Math.round(cx + t * Math.cos(rad))
+    const py = Math.round(cy + t * Math.sin(rad))
+    for (let dy = -3; dy < 3; dy++) for (let dx = -3; dx < 3; dx++) prob[(py + dy) * w + px + dx] = 0.9
+  }
+}
+
+describe('estimateSkewAngle', () => {
+  const w = 400
+  const h = 300
+
+  it('dải nằm ngang cho góc ≈ 0', () => {
+    const prob = new Float32Array(w * h)
+    for (const cy of [50, 100, 150, 200]) drawStripe(prob, w, 0, 200, cy, 200)
+    expect(Math.abs(estimateSkewAngle(prob, w, h))).toBeLessThan(0.3)
+  })
+
+  it('dải nghiêng +5° (xuống về phải) cho ≈ +5', () => {
+    const prob = new Float32Array(w * h)
+    for (const cy of [60, 110, 160, 210]) drawStripe(prob, w, 5, 200, cy, 200)
+    expect(Math.abs(estimateSkewAngle(prob, w, h) - 5)).toBeLessThan(0.7)
+  })
+
+  it('dải nghiêng −8° (lên về phải) cho ≈ −8', () => {
+    const prob = new Float32Array(w * h)
+    for (const cy of [60, 110, 160, 210]) drawStripe(prob, w, -8, 200, cy, 200)
+    expect(Math.abs(estimateSkewAngle(prob, w, h) + 8)).toBeLessThan(0.7)
+  })
+
+  it('ít hơn 3 vùng dài thì trả về 0', () => {
+    const prob = new Float32Array(w * h)
+    drawStripe(prob, w, 5, 200, 80, 200)
+    drawStripe(prob, w, 5, 200, 180, 200)
+    expect(estimateSkewAngle(prob, w, h)).toBe(0)
+  })
+
+  it('bỏ qua vùng gần vuông (không dài)', () => {
+    const prob = new Float32Array(w * h)
+    for (const cy of [60, 110, 160]) drawStripe(prob, w, 5, 200, cy, 200)
+    // Khối vuông 20×20 ở góc, không được tính vào góc của dòng chữ
+    for (let y = 250; y < 270; y++) for (let x = 40; x < 60; x++) prob[y * w + x] = 0.9
+    expect(Math.abs(estimateSkewAngle(prob, w, h) - 5)).toBeLessThan(0.7)
+  })
+})
+
+describe('detectProbability', () => {
+  it('chạy detector với tensor đúng kích thước và trả về bản đồ của engine', async () => {
+    let inputLength = 0
+    const engine: VietOcrEngine = {
+      ...fakeEngine([]),
+      detect: async (input, w, h) => {
+        inputLength = input.length
+        return new Float32Array(w * h).fill(0.7)
+      },
+    }
+    const prob = await detectProbability(engine, new Uint8ClampedArray(4 * 4 * 4), 4, 4)
+    expect(inputLength).toBe(3 * 4 * 4)
+    expect(prob).toHaveLength(16)
+    expect(prob[0]).toBeCloseTo(0.7)
   })
 })
 

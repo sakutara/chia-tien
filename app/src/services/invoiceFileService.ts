@@ -56,7 +56,7 @@ export async function addInvoiceImage(input: AddInvoiceImageInput): Promise<Invo
     throw new PeopleError('TOO_MANY_FILES', t('Mỗi hoá đơn tối đa {MAX_IMAGES_PER_INVOICE} ảnh.', { MAX_IMAGES_PER_INVOICE }))
   }
 
-  // Ảnh được xử lý như máy quét: cắt theo 4 góc hoá đơn, trắng đen nền trắng, chữ dày (giúp OCR). Không xử lý được
+  // Ảnh được cắt theo 4 góc hoá đơn và nắn thẳng, giữ thang xám (VietOCR cần ảnh xám, không nhị phân hoá). Không xử lý được
   // (ảnh quá tối, lỗi Canvas...) thì rơi về nén ảnh như cũ; nén lỗi thì vẫn lưu ảnh gốc: không bao giờ làm mất ảnh vừa chụp.
   let stored = file
   let compression: CompressionPreset | undefined

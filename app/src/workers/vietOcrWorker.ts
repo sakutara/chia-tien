@@ -5,10 +5,13 @@
  */
 import * as ort from 'onnxruntime-web/wasm'
 import {
-  detectTextBoxes,
+  detectProbability,
   detectorInputSize,
+  estimateSkewAngle,
+  findTextBoxes,
   recognizeLine,
   recognizerWidth,
+  SKEW_MIN_DEGREES,
   toRecognizerTensor,
   type EncodeResult,
   type VietOcrEngine,
@@ -68,21 +71,44 @@ async function init(baseUrl: string): Promise<void> {
   }
 }
 
-/** Cắt (nếu có) và resize một vùng của bitmap về dw × dh, trả về RGBA. */
-function regionRgba(bitmap: ImageBitmap, sx: number, sy: number, sw: number, sh: number, dw: number, dh: number): Uint8ClampedArray {
+/** Cắt (nếu có) và resize một vùng của ảnh nguồn về dw × dh, trả về RGBA. Thu nhỏ bằng lọc chất lượng cao để chữ mượt. */
+function regionRgba(source: ImageBitmap | OffscreenCanvas, sx: number, sy: number, sw: number, sh: number, dw: number, dh: number): Uint8ClampedArray {
   const canvas = new OffscreenCanvas(dw, dh)
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('OffscreenCanvas 2D không khả dụng')
-  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, dw, dh)
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, dw, dh)
   return ctx.getImageData(0, 0, dw, dh).data
+}
+
+/** Xoay ảnh quanh tâm để làm thẳng dòng chữ (góc dương là nghiêng theo chiều kim đồng hồ, nên xoay ngược lại); nền trắng. */
+function straighten(bitmap: ImageBitmap, angle: number): OffscreenCanvas {
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('OffscreenCanvas 2D không khả dụng')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, bitmap.width, bitmap.height)
+  ctx.translate(bitmap.width / 2, bitmap.height / 2)
+  ctx.rotate((-angle * Math.PI) / 180)
+  ctx.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2)
+  return canvas
 }
 
 async function recognize(requestId: string, image: Blob): Promise<OcrWord[]> {
   if (!engine || !meta) throw new Error('VietOCR chưa khởi tạo')
   const bitmap = await createImageBitmap(image)
   try {
+    // Dò góc nghiêng trên ảnh gốc; nghiêng đáng kể thì xoay thẳng rồi dò lại, và mọi bước sau dùng ảnh đã xoay.
     const det = detectorInputSize(bitmap.width, bitmap.height)
-    const boxes = await detectTextBoxes(engine, regionRgba(bitmap, 0, 0, bitmap.width, bitmap.height, det.w, det.h), det.w, det.h)
+    let source: ImageBitmap | OffscreenCanvas = bitmap
+    let prob = await detectProbability(engine, regionRgba(bitmap, 0, 0, bitmap.width, bitmap.height, det.w, det.h), det.w, det.h)
+    const angle = estimateSkewAngle(prob, det.w, det.h)
+    if (Math.abs(angle) >= SKEW_MIN_DEGREES) {
+      source = straighten(bitmap, angle)
+      prob = await detectProbability(engine, regionRgba(source, 0, 0, bitmap.width, bitmap.height, det.w, det.h), det.w, det.h)
+    }
+    const boxes = findTextBoxes(prob, det.w, det.h)
     const scaleX = bitmap.width / det.w
     const scaleY = bitmap.height / det.h
     const lines: OcrWord[] = []
@@ -94,7 +120,7 @@ async function recognize(requestId: string, image: Blob): Promise<OcrWord[]> {
       const bh = (box.y1 - box.y0) * scaleY
       if (bw >= 1 && bh >= 1) {
         const width = recognizerWidth(meta, bw, bh)
-        const tensor = toRecognizerTensor(regionRgba(bitmap, x0, y0, bw, bh, width, REC_HEIGHT), width, REC_HEIGHT)
+        const tensor = toRecognizerTensor(regionRgba(source, x0, y0, bw, bh, width, REC_HEIGHT), width, REC_HEIGHT)
         const text = (await recognizeLine(engine, meta, tensor, width)).trim()
         if (text !== '') lines.push({ text, x0, y0, x1: x0 + bw, y1: y0 + bh })
       }

@@ -1,9 +1,10 @@
 import { decodeBounded, encodeJpegWithin, TARGET_IMAGE_BYTES } from './imageCompress'
-import { RECEIPT_SCAN_CONTRAST, scanDocument, type GrayImage } from './documentScan'
+import { scanDocument, type GrayImage } from './documentScan'
 import { t } from '../i18n'
 
 /*
- * Chụp/tải ảnh hoá đơn → ảnh kiểu máy quét (cắt theo 4 góc, nắn thẳng, trắng đen, chữ dày) để OCR đọc rõ hơn.
+ * Chụp/tải ảnh hoá đơn → ảnh xám đã cắt theo 4 góc và nắn thẳng (không nhị phân hoá) để VietOCR đọc.
+ * Mô hình học sâu cần ảnh xám; nhị phân hoá làm đứt nét mờ nên detector bỏ sót dòng.
  * Phần số học ở lib/documentScan; tệp này chỉ làm cầu nối với Canvas nên chỉ chạy trên trình duyệt.
  */
 
@@ -30,13 +31,13 @@ export function pickScanEncoding(pngBytes: number | null, limit: number = TARGET
 
 export interface ScannedImage {
   file: File
-  /** Đã cắt theo 4 góc tờ hoá đơn (false: không thấy tờ giấy rõ, chỉ nhị phân hoá cả ảnh). */
+  /** Đã cắt theo 4 góc tờ hoá đơn (false: không thấy tờ giấy rõ, giữ nguyên cả ảnh). */
   cropped: boolean
 }
 
 /**
- * Biến ảnh chụp hoá đơn thành ảnh quét PNG đen trắng. Trả `null` khi kết quả đáng ngờ (ví dụ ảnh quá tối),
- * lúc đó người gọi giữ ảnh gốc.
+ * Biến ảnh chụp hoá đơn thành ảnh xám đã cắt và nắn thẳng (PNG, hoặc JPEG nếu PNG quá nặng). Trả `null` khi không xử lý
+ * được, lúc đó người gọi giữ ảnh gốc.
  */
 export async function scanReceiptImage(file: File): Promise<ScannedImage | null> {
   const bitmap = await decodeBounded(file)
@@ -46,8 +47,8 @@ export async function scanReceiptImage(file: File): Promise<ScannedImage | null>
   } finally {
     bitmap.close()
   }
-  // Nhị phân thích nghi contrast 0,25, không làm dày chữ trừ khi nét đứt (02 §3 bước 1).
-  const result = scanDocument(gray, { contrast: RECEIPT_SCAN_CONTRAST })
+  // Giữ thang xám: chỉ cắt và nắn thẳng, không nhị phân hoá (VietOCR cần ảnh xám).
+  const result = scanDocument(gray, { keepGray: 'always' })
   if (!result) return null
 
   const { image } = result
@@ -63,7 +64,7 @@ export async function scanReceiptImage(file: File): Promise<ScannedImage | null>
   }
   ctx.putImageData(out, 0, 0)
   const base = file.name.replace(/\.[^.]+$/, '') + '-scan'
-  // PNG giữ nét chữ đen trắng không mất chi tiết (thường 200–500 KB); quá ~1 MB (ảnh xám của tài liệu sạch) thì JPEG hạ dần (BR-4.16).
+  // PNG giữ nguyên chi tiết ảnh xám; quá ~1 MB thì JPEG hạ dần (BR-4.16).
   const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
   if (png && pickScanEncoding(png.size) === 'png') return { file: new File([png], `${base}.png`, { type: 'image/png' }), cropped: result.cropped }
   const jpeg = await encodeJpegWithin(canvas)

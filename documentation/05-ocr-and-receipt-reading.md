@@ -1,6 +1,6 @@
 # 05. Hệ Thống Đọc Hoá Đơn (OCR + AI Gemini) — Tổng Hợp Tính Năng
 
-> Tài liệu **tổng hợp theo hiện trạng mã nguồn** (đã đối chiếu với `app/src`). Đây là điểm vào duy nhất để hiểu toàn bộ chuỗi "ảnh/PDF → dữ liệu hoá đơn". Chi tiết nghiệp vụ nằm ở [`epic-4/BR.md`](./epic-4/BR.md) (BR-4.6 … BR-4.18, R-7, R-11, R-13, R-18, R-19) và [`epic-4/SA.md`](./epic-4/SA.md); công thức tiền ở [`02-business-logic-and-algorithms.md`](./02-business-logic-and-algorithms.md) §2–§3. Mô tả riêng pipeline OCR offline (xử lý ảnh, hai lượt nhận diện, bộ phân tích và đối soát tổng) nằm ở [`ocr-pipeline.md`](./ocr-pipeline.md).
+> Tài liệu **tổng hợp theo hiện trạng mã nguồn** (đã đối chiếu với `app/src`). Đây là điểm vào duy nhất để hiểu toàn bộ chuỗi "ảnh/PDF → dữ liệu hoá đơn". Chi tiết nghiệp vụ nằm ở [`epic-4/BR.md`](./epic-4/BR.md) (BR-4.6 … BR-4.18, R-7, R-11, R-13, R-18, R-19) và [`epic-4/SA.md`](./epic-4/SA.md); công thức tiền ở [`02-business-logic-and-algorithms.md`](./02-business-logic-and-algorithms.md) §2–§3. Mô tả riêng pipeline OCR offline (xử lý ảnh, nhận diện VietOCR có xoay thẳng dòng nghiêng, bộ phân tích và đối soát tổng) nằm ở [`ocr-pipeline.md`](./ocr-pipeline.md).
 
 ---
 
@@ -11,7 +11,7 @@ Người dùng chụp/tải ảnh hoặc PDF hoá đơn; app trích **ngày, tê
 | Đường đọc | Khi dùng | Chạy ở đâu | Cần mạng / khoá |
 | :--- | :--- | :--- | :--- |
 | **1. Lớp chữ PDF** | Tải PDF có sẵn chữ (hoá đơn điện tử) | Trình duyệt (pdf.js) | Không |
-| **2. OCR offline** (mặc định) | Ảnh chụp/tải lên, PDF ảnh quét | Trình duyệt (Tesseract.js, WASM) | Không |
+| **2. OCR offline** (mặc định) | Ảnh chụp/tải lên, PDF ảnh quét | Trình duyệt (VietOCR ONNX, WASM) | Không |
 | **3. AI Gemini** (tuỳ chọn) | OCR lệch/thiếu, hoặc người dùng chọn "Đọc bill bằng AI" | Trình duyệt → gọi thẳng Google | Có: mạng + khoá API của người dùng |
 
 Nguyên tắc xuyên suốt:
@@ -28,7 +28,7 @@ Nguyên tắc xuyên suốt:
 flowchart TD
     In["Chụp / Tải ảnh hoặc PDF<br/>(≤ 40 MB, ≤ 10 ảnh/hoá đơn)"] --> Type{PDF?}
     Type -- Có --> Pdf["importPdf: mỗi trang → ảnh JPEG 2800px<br/>+ lấy lớp chữ (pdfText)"]
-    Type -- Không --> Scan["scanReceiptImage: cắt 4 góc, nắn thẳng,<br/>nhị phân hoá, làm dày nét"]
+    Type -- Không --> Scan["scanReceiptImage: cắt 4 góc, nắn thẳng,<br/>giữ ảnh xám"]
     Scan -- null / lỗi --> Comp["compressImage (Cân bằng 2000px, q0.80)"]
     Comp -- lỗi --> Raw["Lưu ảnh gốc"]
     Pdf --> Store[("invoice_files<br/>OPFS + Blob dự phòng")]
@@ -36,7 +36,7 @@ flowchart TD
     Comp --> Store
     Raw --> Store
     Store --> HasText{Ảnh đã có<br/>ocrRawText?}
-    HasText -- Chưa --> Ocr["runOcr: prepareForOcr → Tesseract.js<br/>(vie+eng, PSM 4)"]
+    HasText -- Chưa --> Ocr["runOcr: prepareForOcr → VietOCR<br/>(xoay thẳng nếu nghiêng, dò lại)"]
     Ocr --> Save["saveOcrText → ocrRawText"]
     HasText -- Rồi / PDF có chữ --> Dup
     Save --> Dup["findDuplicateImages (Jaccard ≥ 0,8)"]
@@ -66,10 +66,8 @@ Thứ tự **thử và rơi về**:
 1. **`scanReceiptImage`** (ưu tiên): giải mã ảnh (tối đa 4096 px cạnh dài) → chuyển xám → `scanDocument`:
    1. `findDocumentQuad`: dò 4 góc tờ giấy (vùng sáng lớn nhất, ≥ 12% diện tích ảnh, lấp đầy tứ giác ≥ 65%); nếu tờ giấy đã chiếm > 97% ảnh và gần thẳng thì bỏ qua cắt.
    2. `warpToRect`: nắn phối cảnh thành hình chữ nhật, đưa cạnh dài về **2800 px** (phóng tối đa 3×).
-   3. **Tài liệu điện tử sạch** (`isCleanDocument`: nền rất sáng và đồng đều, ví dụ ảnh chụp màn hình PDF) → chỉ cắt khung + kéo giãn tương phản, **giữ thang xám**.
-   4. Ảnh chụp thường → `binarize` (Bradley thích nghi, ngưỡng tương phản 0,12: chữ đen, nền trắng hoàn toàn, không đổ bóng); nếu đen > 40% diện tích thì coi là đáng ngờ (`null`).
-   5. `thicken`: nếu độ dày nét trung vị ≤ 2 px thì làm dày để bắt được chữ in nhiệt mờ.
-   6. Lưu **PNG** nếu ≤ **1 MB** (`TARGET_IMAGE_BYTES`), không thì JPEG hạ chất lượng/thu nhỏ dần (`encodeJpegWithin`). Tên tệp thêm hậu tố `-scan`.
+   3. **Giữ thang xám** (`keepGray: 'always'`): chỉ cắt và nắn thẳng, không nhị phân hoá, không làm dày nét. VietOCR là mạng học sâu cần ảnh xám; nhị phân hoá làm đứt nét mờ nên detector bỏ sót dòng.
+   4. Lưu **PNG** nếu ≤ **1 MB** (`TARGET_IMAGE_BYTES`), không thì JPEG hạ chất lượng/thu nhỏ dần (`encodeJpegWithin`). Tên tệp thêm hậu tố `-scan`.
 2. Nếu bước 1 trả `null`/lỗi → **`compressImage`** mức *Cân bằng* cố định (cạnh dài ≤ 2000 px, JPEG 0,80; không phóng to; ảnh ≤ 400 KB không nén; bản nén lớn hơn gốc thì giữ gốc; ảnh < 1000 px cạnh dài cảnh báo "OCR có thể đọc sai"). Xem `domain/imageQuality.ts`.
 3. Nén lỗi → **lưu ảnh gốc**.
 
@@ -87,9 +85,9 @@ Bản gốc không được giữ khi đã quét/nén; dung lượng trước/sa
 
 1. **Tự động chạy** ngay sau khi ảnh được lưu; chỉ quét ảnh **chưa có `ocrRawText`** (đã có thì dùng lại). Nút "Quét lại bill (OCR)" ép quét lại (`force`), và hỏi trước khi ghi đè nếu form đã có dữ liệu do người dùng nhập (R-13).
 2. **Tiền xử lý (`prepareForOcr`)**: giải mã theo EXIF → đưa cạnh dài về **2800 px** (phóng tối đa 3×, thu nếu lớn hơn) → thang xám `Y = 0,299R + 0,587G + 0,114B` → kéo giãn tương phản theo phân vị 2%/98% → PNG. Chỉ phục vụ OCR, không đổi ảnh đã lưu. *(Cần chữ cao tối thiểu ~25 px.)*
-3. **Tesseract.js v7**, ngôn ngữ `vie` + `eng`; worker, lõi WASM (3 biến thể LSTM: `relaxedsimd`, `simd`, thường) và `traineddata` đóng gói trong `app/public/ocr/` ⇒ **không cần mạng khi quét**.
-4. Tham số: `tessedit_pageseg_mode = 4` (một cột, giữ thứ tự dòng/cột giá), `preserve_interword_spaces = 1` (cột đơn giá/SL/thành tiền không dính nhau), `user_defined_dpi = 300`.
-5. **Vòng đời worker**: tạo ở lần quét đầu, dùng lại, tự dừng sau **60 giây rảnh**; huỷ (`AbortSignal`) dừng worker và ném `OCR_CANCELLED`. Nhiều ảnh quét lần lượt, tiến trình theo từng ảnh (`OcrProgress`, có nút Huỷ).
+3. **VietOCR ONNX** (`workers/vietOcrWorker.ts`): detector DB (`det.onnx`) tìm dòng chữ, ước lượng góc nghiêng và xoay thẳng nếu ≥ 0,5° rồi dò lại; recognizer (`vietocr_encoder.onnx`, `vietocr_decoder.onnx`) đọc từng dòng cao 32 px. Model đóng gói trong `app/public/ocr/vietocr/`, chạy WASM ⇒ **không cần mạng khi quét**. Chi tiết ở [`ocr-pipeline.md`](./ocr-pipeline.md) bước 2.
+4. Dòng nhận được ghép thành văn bản theo toạ độ (`ocrLayout`) để parser đọc.
+5. **Vòng đời worker**: tạo ở lần quét đầu, dùng lại, tự dừng sau **15 giây rảnh**; huỷ (`AbortSignal`) dừng worker và ném `OCR_CANCELLED`. Nhiều ảnh quét lần lượt, tiến trình theo từng ảnh (`OcrProgress`, có nút Huỷ).
 6. Lỗi khác → `OCR_FAILED` ("Không quét được ảnh. Bạn vẫn có thể nhập tay"); ảnh vẫn được giữ.
 
 ---
@@ -198,13 +196,13 @@ app/src/
 │  ├─ documentScan.ts        # Hình học + nhị phân hoá + làm dày (thuần, test được)
 │  ├─ imageScan.ts           # Cầu nối Canvas cho documentScan, chọn PNG/JPEG ≤ ~1 MB
 │  ├─ imageCompress.ts       # Giải mã giới hạn, nén JPEG (TARGET_IMAGE_BYTES)
-│  ├─ imagePreprocess.ts     # Tiền xử lý riêng cho Tesseract (xám, giãn tương phản, 2800 px)
+│  ├─ imagePreprocess.ts     # Tiền xử lý trước VietOCR (xám, giãn tương phản, 2800 px)
 │  ├─ pdfImport.ts           # PDF → ảnh trang + lớp chữ (pdf.js, nạp lười)
 │  ├─ pdfText.ts             # Mảnh chữ có toạ độ → dòng (thuần)
 │  └─ textFold.ts            # Bỏ dấu tiếng Việt cho so khớp
 ├─ services/
 │  ├─ invoiceFileService.ts  # addInvoiceImage / addInvoicePdf / saveOcrText / findDuplicateImages
-│  ├─ ocrService.ts          # Worker Tesseract.js, runOcr, huỷ, tự dừng
+│  ├─ ocrService.ts          # Gọi worker VietOCR (runOcr), huỷ, tự dừng
 │  └─ geminiService.ts       # Khoá/mô hình, gọi API, đọc lại 1 lần
 ├─ domain/
 │  ├─ receiptParser.ts       # Văn bản → ParsedReceipt
@@ -219,7 +217,7 @@ app/src/
    ├─ OcrProgress.tsx            # Thanh tiến trình + Huỷ
    ├─ GeminiSettingsDialog.tsx   # Khoá & mô hình Gemini
    └─ receiptFormState.ts        # fillFromReceipt, hasUserEntries
-app/public/ocr/                 # worker.min.js, tesseract-core-*.{js,wasm}, vie/eng.traineddata
+app/public/ocr/vietocr/         # det.onnx, vietocr_encoder.onnx, vietocr_decoder.onnx, vietocr.json, ort/ (WASM)
 ```
 
 ---
@@ -269,4 +267,4 @@ app/public/ocr/                 # worker.min.js, tesseract-core-*.{js,wasm}, vie
 | Lưu file | `services/fileStorageService.test.ts`, `services/invoiceService.test.ts` |
 | Form | `components/invoices/InvoiceFormDialog.test.tsx`, `receiptFormState.test.ts` |
 
-> pdf.js, Canvas và Tesseract thật không chạy trong jsdom nên phần này được kiểm bằng thủ công / fixture văn bản.
+> pdf.js, Canvas và VietOCR thật không chạy trong jsdom nên phần này được kiểm bằng thủ công / fixture văn bản.
