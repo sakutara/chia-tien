@@ -19,7 +19,7 @@ import {
 } from '../../services/invoiceFileService'
 import { createInvoice, updateInvoice, type InvoiceDraft, type InvoiceResult } from '../../services/invoiceService'
 import { runOcr } from '../../services/ocrService'
-import { releaseAllAiMemory } from '../../services/memoryLifecycle'
+import { releaseWorkerMemory } from '../../services/memoryLifecycle'
 import { PeopleError } from '../../services/peopleErrors'
 import type { InvoiceFileRecord, InvoiceInputMode, InvoiceSplitType, Member, SessionKeo } from '../../types'
 import Collapse from '../ui/Collapse'
@@ -104,8 +104,8 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
   useEffect(
     () => () => {
       scanRef.current?.abort()
-      // Đóng form: trả RAM của mọi worker OCR/AI ngay (architecture §4.2, lớp 2).
-      void releaseAllAiMemory()
+      // Đóng form: trả RAM của worker OCR ngay.
+      void releaseWorkerMemory()
       if (!savedRef.current) void discardDraftFiles(draftId).catch(() => {})
     },
     [draftId],

@@ -1,10 +1,10 @@
 /*
- * Quản lý vòng đời RAM của các worker OCR (architecture §5.2): mỗi worker đăng ký một hàm dọn,
+ * Quản lý vòng đời RAM của các worker OCR: mỗi worker đăng ký một hàm dọn,
  * và hàm dọn được gọi khi form đóng, hoặc khi app bị ẩn/đóng tab.
  * Chỉ `worker.terminate()` mới trả lại RAM cho hệ điều hành, nên các cleaner phải terminate worker
  * và huỷ mọi promise đang chờ từ worker đó.
  */
-import type { CleanupCallback } from './aiContracts'
+import type { CleanupCallback } from './workerContracts'
 
 const cleaners = new Set<CleanupCallback>()
 let uninstallHooks: (() => void) | null = null
@@ -18,7 +18,7 @@ export function registerMemoryCleaner(cleaner: CleanupCallback): () => void {
 }
 
 /** Giải phóng tức thì mọi worker OCR đang đăng ký. Lỗi của một cleaner không chặn các cleaner khác. */
-export async function releaseAllAiMemory(): Promise<void> {
+export async function releaseWorkerMemory(): Promise<void> {
   await Promise.allSettled(Array.from(cleaners, async (cleaner) => cleaner()))
 }
 
@@ -27,11 +27,11 @@ function isHidden(): boolean {
 }
 
 function onVisibilityChange() {
-  if (isHidden()) void releaseAllAiMemory()
+  if (isHidden()) void releaseWorkerMemory()
 }
 
 function onPageHide() {
-  void releaseAllAiMemory()
+  void releaseWorkerMemory()
 }
 
 /**

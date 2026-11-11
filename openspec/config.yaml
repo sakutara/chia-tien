@@ -10,17 +10,17 @@ context: |
   Không có backend; dữ liệu nằm trong trình duyệt của người dùng.
 
   Công nghệ: React 19 + TypeScript + Vite, Tailwind CSS, Dexie (IndexedDB),
-  OPFS cho file hoá đơn, onnxruntime-web (VietOCR), @huggingface/transformers
-  (AI cục bộ), pdfjs-dist, lz-string (Snapshot URL), Vitest + Testing Library, oxlint.
+  OPFS cho file hoá đơn, onnxruntime-web (VietOCR),
+  pdfjs-dist, lz-string (Snapshot URL), Vitest + Testing Library, oxlint.
 
   Cấu trúc mã nguồn (trong app/src):
   - domain/     quy tắc nghiệp vụ thuần, không phụ thuộc UI hay DB
-  - services/   thao tác dữ liệu (Dexie, file, OCR, AI, snapshot)
+  - services/   thao tác dữ liệu (Dexie, file, OCR, snapshot)
   - db/         schema Dexie, chuẩn hoá, seed
   - components/ pages/ hooks/   giao diện React
   - i18n/       từ điển vi (index.ts) và en (en.ts), phải cùng tập khoá
   - lib/        tiện ích (tiền, ngày, ảnh, PDF)
-  - workers/    web worker cho OCR và AI
+  - workers/    web worker cho OCR
 
   Quy ước:
   - Tiền là VNĐ, số nguyên; mọi phép chia phải khớp tổng tuyệt đối (không lệch 1 đồng).

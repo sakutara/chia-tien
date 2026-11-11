@@ -500,11 +500,6 @@ export function validateReceipt(parsed: ParsedReceipt, rawText?: string): Receip
   }
 }
 
-/** Kết quả đọc còn đáng ngờ (lệch tổng, không có tổng để đối chiếu, không có món, thiếu dòng): nên gợi ý đọc lại bằng AI. */
-export function needsBetterRead(check: Pick<ReceiptCheck, 'status' | 'receipt' | 'missingRows'>): boolean {
-  return check.status === 'MISMATCH' || check.status === 'UNVERIFIED' || check.receipt.items.length === 0 || (check.missingRows?.length ?? 0) > 0
-}
-
 /** Dòng đọc thành món nhưng là khoản điều chỉnh bị mất/đổi nhãn: lấy từ khoá còn sót trong tên (OCR đọc hỏng nhãn). */
 const DISCOUNT_LOOSE_RE = /gi\w?m|chi\w*t kh|\bck\b|khuyen|disc/
 const VAT_LOOSE_RE = /\bvat\b|gtgt|\bthue\b/
