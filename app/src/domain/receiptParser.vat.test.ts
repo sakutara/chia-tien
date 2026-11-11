@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseReceipt } from './receiptParser'
-import { needsBetterRead, validateReceipt } from './receiptValidation'
+import { validateReceipt } from './receiptValidation'
 
 /** Lớp chữ của hoá đơn GTGT Grab (đã bỏ thông tin người mua): tên hàng xuống dòng trước dòng số, mã chuyến xuống dòng sau. */
 const GRAB = `CÔNG TY TNHH GRAB
@@ -73,7 +73,6 @@ describe('hoá đơn GTGT dạng bảng', () => {
 
     const check = validateReceipt(parsed, GRAB)
     expect(check.status).toBe('OK')
-    expect(needsBetterRead(check)).toBe(false)
   })
 
   it('phòng nghỉ: giữ tên có ngày và số phòng, đủ 4 dòng, VAT ở chân bill khớp tổng', () => {
@@ -92,11 +91,10 @@ describe('hoá đơn GTGT dạng bảng', () => {
     expect(validateReceipt(parsed, HOTEL).status).toBe('OK')
   })
 
-  it('đếm dòng: dòng đánh số 3 hỏng thì báo thiếu món và gợi ý đọc lại', () => {
+  it('đếm dòng: dòng đánh số 3 hỏng thì báo thiếu món', () => {
     const broken = HOTEL.replace('3   Giặt ủi   Lượt   1   150.000   150.000', '3   Giặt ủi   Lượt')
     const check = validateReceipt(parseReceipt(broken), broken)
     expect(check.missingRows?.length).toBe(1)
     expect(check.notes.join('\n')).toContain('thiếu món')
-    expect(needsBetterRead(check)).toBe(true)
   })
 })

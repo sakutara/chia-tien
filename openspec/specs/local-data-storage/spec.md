@@ -1,7 +1,7 @@
 # local-data-storage Specification
 
 ## Purpose
-Lớp lưu trữ cục bộ của ứng dụng: mở cơ sở dữ liệu IndexedDB `usd-split` qua Dexie, tạo dữ liệu mặc định ở lần khởi tạo đầu tiên (hồ sơ "Tôi" và cài đặt), chuẩn hoá tên khi lưu và đổi tên mặc định theo ngôn ngữ khi hiển thị, lưu/đọc/tải/xoá file hoá đơn bằng OPFS với bản Blob dự phòng trong IndexedDB, dọn file hoá đơn mồ côi, và giải phóng bộ nhớ của các worker AI/OCR khi không còn dùng. Capability này phục vụ mọi phần còn lại của app vì dữ liệu chỉ nằm trên trình duyệt của người dùng, không có máy chủ. Nghiệp vụ của bữa, kèo và hoá đơn thuộc các capability khác.
+Lớp lưu trữ cục bộ của ứng dụng: mở cơ sở dữ liệu IndexedDB `usd-split` qua Dexie, tạo dữ liệu mặc định ở lần khởi tạo đầu tiên (hồ sơ "Tôi" và cài đặt), chuẩn hoá tên khi lưu và đổi tên mặc định theo ngôn ngữ khi hiển thị, lưu/đọc/tải/xoá file hoá đơn bằng OPFS với bản Blob dự phòng trong IndexedDB, dọn file hoá đơn mồ côi, và giải phóng bộ nhớ của các worker OCR khi không còn dùng. Capability này phục vụ mọi phần còn lại của app vì dữ liệu chỉ nằm trên trình duyệt của người dùng, không có máy chủ. Nghiệp vụ của bữa, kèo và hoá đơn thuộc các capability khác.
 
 ## Requirements
 
@@ -208,8 +208,8 @@ Hệ thống SHALL xoá các file hoá đơn của một bữa mà hoá đơn ch
 - **WHEN** người dùng đóng form mà không lưu
 - **THEN** mọi file của hoá đơn nháp đó bị xoá
 
-### Requirement: Đăng ký và giải phóng bộ nhớ của worker AI/OCR
-Mỗi worker AI/OCR SHALL đăng ký một hàm dọn bộ nhớ khi khởi tạo và nhận lại hàm huỷ đăng ký. Khi giải phóng, mọi hàm đang đăng ký MUST được gọi; hàm đã huỷ đăng ký không được gọi. Lỗi của một hàm dọn, kể cả lỗi ném ngay lập tức, không được ngăn các hàm khác chạy, và việc giải phóng không ném lỗi ra ngoài.
+### Requirement: Đăng ký và giải phóng bộ nhớ của worker OCR
+Mỗi worker OCR SHALL đăng ký một hàm dọn bộ nhớ khi khởi tạo và nhận lại hàm huỷ đăng ký. Khi giải phóng, mọi hàm đang đăng ký MUST được gọi; hàm đã huỷ đăng ký không được gọi. Lỗi của một hàm dọn, kể cả lỗi ném ngay lập tức, không được ngăn các hàm khác chạy, và việc giải phóng không ném lỗi ra ngoài.
 
 #### Scenario: Giải phóng tất cả worker đang đăng ký
 - **WHEN** hai hàm dọn đang đăng ký và hệ thống giải phóng bộ nhớ
@@ -225,26 +225,22 @@ Mỗi worker AI/OCR SHALL đăng ký một hàm dọn bộ nhớ khi khởi tạ
 
 #### Scenario: Đóng form soạn hoá đơn
 - **WHEN** người dùng đóng form soạn hoá đơn
-- **THEN** mọi worker AI/OCR đang đăng ký được giải phóng ngay
+- **THEN** mọi worker OCR đang đăng ký được giải phóng ngay
 
 ### Requirement: Giải phóng bộ nhớ khi ứng dụng bị ẩn hoặc đóng trang
-Hệ thống SHALL giải phóng bộ nhớ AI khi ứng dụng chuyển sang trạng thái ẩn, và giải phóng ngay khi trang nhận sự kiện `pagehide`. Khi ứng dụng bị ẩn và không có tác vụ nào đang chạy, bộ nhớ được giải phóng ngay. Khi ứng dụng bị ẩn lúc đang có tác vụ, hệ thống MUST chờ tối đa 5 giây (`MAX_BACKGROUND_GRACE_MS`) rồi mới giải phóng, trừ khi người dùng quay lại trước đó.
+Hệ thống SHALL giải phóng ngay bộ nhớ của mọi worker OCR đang đăng ký khi ứng dụng chuyển sang trạng thái ẩn và khi trang nhận sự kiện `pagehide`. Khi ứng dụng hiện trở lại, hệ thống không giải phóng gì.
 
-#### Scenario: Ẩn ứng dụng khi không có tác vụ
-- **WHEN** ứng dụng bị ẩn và không có tác vụ AI nào đang chạy
+#### Scenario: Ẩn ứng dụng
+- **WHEN** ứng dụng chuyển sang trạng thái ẩn
 - **THEN** bộ nhớ được giải phóng ngay
 
-#### Scenario: Ẩn ứng dụng khi đang có tác vụ
-- **WHEN** ứng dụng bị ẩn lúc tác vụ AI đang chạy
-- **THEN** bộ nhớ chưa được giải phóng trong 5 giây đầu và được giải phóng khi đủ 5 giây
-
-#### Scenario: Quay lại trước khi hết thời gian chờ
-- **WHEN** người dùng quay lại ứng dụng trước khi hết 5 giây
-- **THEN** hẹn giờ bị huỷ và bộ nhớ không được giải phóng
+#### Scenario: Ứng dụng hiện trở lại
+- **WHEN** ứng dụng chuyển từ ẩn sang hiện
+- **THEN** không có hàm dọn nào được gọi
 
 #### Scenario: Trang bị đóng hoặc điều hướng
 - **WHEN** trang nhận sự kiện `pagehide`
-- **THEN** bộ nhớ AI được giải phóng ngay
+- **THEN** bộ nhớ được giải phóng ngay
 
 ### Requirement: Dọn dữ liệu AI trên máy cũ khi khởi động
 Hệ thống SHALL xoá một lần khi khởi động cache Cache Storage tên `transformers-cache` và bốn khoá localStorage `fee-calculator.useLocalAi`, `fee-calculator.localAiCached`, `fee-calculator.geminiApiKey` và `fee-calculator.geminiModel`, để giải phóng 480–790 MB mà người dùng đã tải trước đó. Lỗi khi truy cập Cache Storage hoặc localStorage MUST NOT chặn khởi động ứng dụng và MUST NOT được hiện ra cho người dùng.

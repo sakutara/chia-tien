@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { installMemoryLifecycleHooks, registerMemoryCleaner, releaseAllAiMemory } from './memoryLifecycle'
+import { installMemoryLifecycleHooks, registerMemoryCleaner, releaseWorkerMemory } from './memoryLifecycle'
 
 let visibility: 'visible' | 'hidden' = 'visible'
 const unregisters: Array<() => void> = []
@@ -28,13 +28,13 @@ afterEach(() => {
   visibility = 'visible'
 })
 
-describe('registerMemoryCleaner và releaseAllAiMemory', () => {
+describe('registerMemoryCleaner và releaseWorkerMemory', () => {
   it('giải phóng gọi mọi cleaner đang đăng ký', async () => {
     const a = vi.fn()
     const b = vi.fn()
     register(a)
     register(b)
-    await releaseAllAiMemory()
+    await releaseWorkerMemory()
     expect(a).toHaveBeenCalledTimes(1)
     expect(b).toHaveBeenCalledTimes(1)
   })
@@ -43,7 +43,7 @@ describe('registerMemoryCleaner và releaseAllAiMemory', () => {
     const a = vi.fn()
     const unregister = registerMemoryCleaner(a)
     unregister()
-    await releaseAllAiMemory()
+    await releaseWorkerMemory()
     expect(a).not.toHaveBeenCalled()
   })
 
@@ -53,7 +53,7 @@ describe('registerMemoryCleaner và releaseAllAiMemory', () => {
       throw new Error('worker đã chết')
     })
     register(good)
-    await expect(releaseAllAiMemory()).resolves.toBeUndefined()
+    await expect(releaseWorkerMemory()).resolves.toBeUndefined()
     expect(good).toHaveBeenCalledTimes(1)
   })
 })

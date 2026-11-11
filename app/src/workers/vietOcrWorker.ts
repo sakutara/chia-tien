@@ -18,7 +18,7 @@ import {
   type VietOcrMeta,
 } from '../domain/vietOcr'
 import type { OcrWord } from '../domain/ocrLayout'
-import type { VietOcrWorkerRequest, VietOcrWorkerResponse } from '../services/aiContracts'
+import type { VietOcrWorkerRequest, VietOcrWorkerResponse } from '../services/workerContracts'
 
 /** Chiều cao cố định đầu vào của encoder (xem vietocr.json). */
 const REC_HEIGHT = 32

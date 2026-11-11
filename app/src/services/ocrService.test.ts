@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OcrWord } from '../domain/ocrLayout'
-import type { VietOcrWorkerRequest, VietOcrWorkerResponse } from './aiContracts'
+import type { VietOcrWorkerRequest, VietOcrWorkerResponse } from './workerContracts'
 
 vi.mock('../lib/imagePreprocess', () => ({ prepareForOcr: vi.fn(async (b: Blob) => b) }))
 

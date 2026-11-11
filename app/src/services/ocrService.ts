@@ -2,7 +2,7 @@ import { prepareForOcr } from '../lib/imagePreprocess'
 import { generateId } from '../lib/id'
 import { layoutOcrText, type OcrWord } from '../domain/ocrLayout'
 import { t } from '../i18n'
-import type { VietOcrWorkerRequest, VietOcrWorkerResponse } from './aiContracts'
+import type { VietOcrWorkerRequest, VietOcrWorkerResponse } from './workerContracts'
 import { registerMemoryCleaner } from './memoryLifecycle'
 import { PeopleError } from './peopleErrors'
 
