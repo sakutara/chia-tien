@@ -147,7 +147,7 @@ Hệ thống SHALL chuyển kết quả AI thành dữ liệu hoá đơn theo c�
 - **THEN** bill được đánh dấu VAT đã gồm trong giá và không có VAT cố định
 
 ### Requirement: Đối chiếu kết quả AI với phép tính của app
-Hệ thống SHALL đối chiếu kết quả AI theo hai điều kiện: số món phải bằng `itemRowCount` mà AI đã đếm, và tổng tính được (tổng các món trừ giảm giá, cộng phí phục vụ và VAT) phải bằng tổng trên bill. Khi cả hai đều khớp, trạng thái là `OK`. Khi tổng lệch, trạng thái là `MISMATCH`. Khi bill không có tổng để đối chiếu, hoặc không có món nào, trạng thái là `UNVERIFIED`. Mọi kết quả AI đều kèm ghi chú yêu cầu người dùng xem lại các món so với ảnh.
+Hệ thống SHALL đối chiếu kết quả AI theo hai điều kiện: số món phải bằng `itemRowCount` mà AI đã đếm, và tổng tính được (tổng các món trừ giảm giá, cộng phí phục vụ và VAT) phải bằng tổng trên bill. Khi cả hai đều khớp, trạng thái là `OK`. Khi tổng lệch hoặc số món khác `itemRowCount`, trạng thái là `MISMATCH`. Khi bill không có tổng để đối chiếu, hoặc không có món nào, trạng thái là `UNVERIFIED`. Mọi kết quả AI đều kèm ghi chú yêu cầu người dùng xem lại các món so với ảnh.
 
 #### Scenario: Tổng khớp và số dòng khớp
 - **WHEN** AI trả về một món 50 000, `itemRowCount` là 1 và tổng bill là 50 000
@@ -158,12 +158,17 @@ Hệ thống SHALL đối chiếu kết quả AI theo hai điều kiện: số m
 - **WHEN** các món cộng lại 50 000 nhưng tổng bill ghi 60 000
 - **THEN** trạng thái đối chiếu là `MISMATCH`
 
+#### Scenario: Số món không khớp số dòng AI đếm
+- **WHEN** AI đếm `itemRowCount` là 3 nhưng chỉ trả về 2 món hợp lệ, và tổng các món khớp tổng bill
+- **THEN** trạng thái đối chiếu là `MISMATCH`
+- **AND** ghi chú cho biết AI đếm 3 dòng nhưng trả về 2 món
+
 #### Scenario: Bill không ghi tổng
 - **WHEN** kết quả AI không có tổng bill
 - **THEN** trạng thái đối chiếu là `UNVERIFIED` và ghi chú nhắc người dùng tự so với ảnh
 
 ### Requirement: Đọc lại tối đa hai vòng và giữ kết quả tốt hơn
-Hệ thống SHALL hỏi mô hình tối đa hai vòng cho mỗi lần đọc. Nếu vòng đầu chưa khớp, hệ thống gửi lại các vấn đề đối soát và hỏi đọc lại. Khi hai vòng đều chạy, hệ thống giữ kết quả có ít vấn đề đối soát hơn, và khi số vấn đề bằng nhau thì giữ kết quả của vòng sau.
+Hệ thống SHALL hỏi mô hình tối đa hai vòng cho mỗi lần đọc. Một lượt được coi là chưa khớp khi còn vấn đề đối soát; khi đó hệ thống gửi lại các vấn đề và hỏi đọc lại. Khi hai vòng đều chạy, hệ thống giữ kết quả có ít vấn đề đối soát hơn, và khi số vấn đề bằng nhau thì giữ kết quả của vòng sau.
 
 #### Scenario: Vòng đầu lệch, vòng hai khớp
 - **GIVEN** vòng đầu cho tổng lệch và vòng hai cho kết quả khớp
@@ -174,8 +179,23 @@ Hệ thống SHALL hỏi mô hình tối đa hai vòng cho mỗi lần đọc. N
 - **WHEN** vòng đầu cho kết quả khớp
 - **THEN** hệ thống không hỏi lại và số vòng đã hỏi là 1
 
+#### Scenario: Hai vòng đều lệch, vòng hai ít vấn đề hơn
+- **GIVEN** vòng đầu có 2 vấn đề đối soát và vòng hai có 1 vấn đề đối soát
+- **WHEN** hệ thống đọc hoá đơn
+- **THEN** kết quả trả về là của vòng hai với số vòng đã hỏi là 2
+
+#### Scenario: Hai vòng đều lệch, số vấn đề bằng nhau
+- **GIVEN** vòng đầu có 1 vấn đề đối soát và vòng hai cũng có 1 vấn đề đối soát
+- **WHEN** hệ thống đọc hoá đơn
+- **THEN** kết quả trả về là của vòng hai với số vòng đã hỏi là 2
+
+#### Scenario: Bill không ghi tổng nhưng số món khớp
+- **GIVEN** bill không có tổng và AI trả về số món bằng `itemRowCount`
+- **WHEN** hệ thống đọc hoá đơn
+- **THEN** hệ thống không hỏi lại và số vòng đã hỏi là 1
+
 ### Requirement: Điền kết quả AI vào hoá đơn và hỏi trước khi ghi đè
-Hệ thống SHALL điền kết quả AI đã chuẩn hoá vào form hoá đơn cùng trạng thái đối chiếu. Khi form đã có dữ liệu người dùng nhập (tên, ngày, dòng món, tổng, giảm giá, phí, VAT), hệ thống SHALL hỏi trước khi ghi đè và chỉ điền khi người dùng đồng ý. Nếu form còn trống, kết quả được điền ngay.
+Hệ thống SHALL điền kết quả AI đã chuẩn hoá vào form hoá đơn cùng trạng thái đối chiếu. Khi form đã có dữ liệu người dùng nhập (tên, ngày, dòng món, tiền hàng, giảm giá, phí, VAT), hệ thống SHALL giữ kết quả làm bản chờ điền và chỉ điền khi người dùng xác nhận ghi đè. Nếu form còn trống, kết quả được điền ngay.
 
 #### Scenario: Form còn trống
 - **WHEN** kết quả AI đọc xong và form chưa có dữ liệu người dùng nhập
@@ -185,13 +205,39 @@ Hệ thống SHALL điền kết quả AI đã chuẩn hoá vào form hoá đơn
 - **WHEN** kết quả AI đọc xong và người dùng đã nhập tên hoặc dòng món
 - **THEN** kết quả được giữ làm bản chờ điền và người dùng phải xác nhận trước khi ghi đè
 
+#### Scenario: Người dùng từ chối ghi đè
+- **GIVEN** bản chờ điền đang chờ xác nhận trong hộp thoại "Ghi đè dữ liệu đã nhập?"
+- **WHEN** người dùng bấm huỷ trong hộp thoại
+- **THEN** form giữ nguyên dữ liệu người dùng đã nhập và trạng thái đối chiếu cũ
+- **AND** kết quả AI bị bỏ, không có thông báo lỗi
+
 ### Requirement: Tự đọc lại bằng AI khi OCR chưa chuẩn
-Hệ thống SHALL tự đọc lại bằng AI sau khi OCR xong khi kết quả OCR chưa chuẩn và công tắc AI trên máy đang BẬT. Người dùng cũng SHALL có nút "Đọc lại bằng AI trên máy" để chạy thủ công từ văn bản OCR đã có. Nếu chưa có ảnh nào hoặc ảnh chưa có chữ OCR, hệ thống báo người dùng quét ảnh trước và không chạy AI.
+Hệ thống SHALL tự đọc lại bằng AI sau khi OCR xong khi công tắc AI trên máy đang BẬT và kết quả kiểm tra OCR cần đọc tốt hơn, tức có trạng thái `MISMATCH` hoặc `UNVERIFIED`, không có món nào, hoặc còn dòng bảng chưa đọc được. Người dùng cũng SHALL có nút "Đọc lại bằng AI trên máy" để chạy thủ công từ văn bản OCR đã có, kể cả khi công tắc đang TẮT. Nếu chưa có ảnh nào hoặc ảnh chưa có chữ OCR, hệ thống báo người dùng quét ảnh trước và không chạy AI.
 
 #### Scenario: OCR chưa chuẩn và công tắc đang bật
 - **GIVEN** công tắc AI trên máy đang BẬT
-- **WHEN** OCR xong và bộ phân tích thấy kết quả chưa đủ tin cậy
+- **WHEN** OCR xong và kiểm tra cho trạng thái `MISMATCH`
 - **THEN** hệ thống tự đọc lại bằng AI trên máy
+
+#### Scenario: OCR đã khớp thì không tự đọc lại
+- **GIVEN** công tắc AI trên máy đang BẬT
+- **WHEN** OCR xong, kiểm tra cho trạng thái `OK` và đủ món, không có dòng bảng chưa đọc được
+- **THEN** hệ thống không tự đọc lại bằng AI
+
+#### Scenario: Công tắc đang TẮT thì không tự đọc lại
+- **GIVEN** công tắc AI trên máy đang TẮT
+- **WHEN** OCR xong và kiểm tra cho trạng thái `MISMATCH`
+- **THEN** hệ thống không tự đọc lại bằng AI
+
+#### Scenario: Ảnh trùng với ảnh cùng hoá đơn
+- **GIVEN** công tắc AI trên máy đang BẬT và ảnh vừa quét trùng với ảnh đã có trong cùng hoá đơn
+- **WHEN** OCR xong
+- **THEN** dữ liệu không được điền lại và hệ thống không tự đọc lại bằng AI
+
+#### Scenario: Đọc lại thủ công khi công tắc đang TẮT
+- **GIVEN** công tắc AI trên máy đang TẮT và ảnh đã có chữ OCR
+- **WHEN** người dùng bấm "Đọc lại bằng AI trên máy"
+- **THEN** việc đọc bằng AI chạy bình thường
 
 #### Scenario: Chưa có chữ OCR
 - **WHEN** người dùng bấm đọc lại bằng AI nhưng ảnh chưa có văn bản OCR
@@ -224,4 +270,3 @@ Hệ thống SHALL báo lỗi theo mã sau: `AI_OUT_OF_MEMORY` khi trình duyệ
 #### Scenario: Worker gặp lỗi không xác định
 - **WHEN** worker phát sinh sự kiện lỗi
 - **THEN** hệ thống báo `AI_FAILED` với thông báo "Không đọc được hoá đơn bằng AI."
-</content>

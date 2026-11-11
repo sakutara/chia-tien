@@ -6,7 +6,7 @@ Capability này cho phép chủ bữa chia sẻ thông báo thanh toán của m�
 ## Requirements
 
 ### Requirement: Tạo link chia sẻ gọn cho một bữa
-Hệ thống SHALL tạo Snapshot URL từ kết quả quyết toán của bữa, kể cả bữa đang hoạt động lẫn bữa đã lưu trữ. Link chỉ mang các khoản chuyển tiền, và khi người chủ chọn chia sẻ kèm món thì thêm danh sách món theo người phải trả. Ảnh hoá đơn, văn bản OCR và đường dẫn file không bao giờ được đưa vào link.
+Hệ thống SHALL tạo Snapshot URL từ kết quả quyết toán của bữa, kể cả bữa đang hoạt động lẫn bữa đã lưu trữ. Link mang các khoản chuyển tiền của những người được chọn kèm danh sách món mà từng người đó phải trả. Ảnh hoá đơn, văn bản OCR và đường dẫn file không bao giờ được đưa vào link.
 
 #### Scenario: Bữa đang hoạt động
 - **WHEN** người chủ bấm chia sẻ thông báo thanh toán cho một bữa có kèo và hoá đơn
@@ -148,7 +148,7 @@ Hệ thống SHALL mở hộp thoại chia sẻ có bản xem trước tin nhắ
 - **THEN** trình duyệt mở liên kết chia sẻ Facebook mang Snapshot URL
 
 ### Requirement: Sao chép tin nhắn hoặc link
-Hệ thống SHALL cho sao chép toàn bộ tin nhắn hoặc riêng Snapshot URL vào bộ nhớ tạm. Sau khi sao chép thành công, nút hiện trạng thái "Đã sao chép" trong 2 giây rồi trở lại nhãn ban đầu. Nếu API bộ nhớ tạm không được cấp quyền thì dùng cách dự phòng; nếu cả hai cách đều thất bại thì hiện lỗi "Không sao chép được. Hãy chọn và sao chép thủ công."
+Hệ thống SHALL cho sao chép toàn bộ tin nhắn hoặc riêng Snapshot URL vào bộ nhớ tạm. Sau khi sao chép thành công, hộp thoại hiện trạng thái "Đã sao chép" cạnh các nút trong 2 giây rồi tự ẩn. Nếu API bộ nhớ tạm không được cấp quyền thì dùng cách dự phòng; nếu cả hai cách đều thất bại thì hiện lỗi "Không sao chép được. Hãy chọn và sao chép thủ công."
 
 #### Scenario: Sao chép thành công
 - **WHEN** người chủ bấm "Sao chép toàn bộ tin nhắn"
@@ -214,6 +214,10 @@ Hệ thống SHALL cho người nhận có tài khoản bấm "Thanh toán bằn
 - **THEN** thông tin chuyển khoản được sao chép vào bộ nhớ tạm
 - **AND** hệ thống hiện thông điệp cho biết thiết bị không hỗ trợ chia sẻ trực tiếp và đã sao chép thông tin
 
+#### Scenario: Ngân hàng chưa được hỗ trợ mở app
+- **WHEN** slide có tài khoản người nhận nhưng BIN của ngân hàng không nằm trong danh sách app hỗ trợ
+- **THEN** slide không có liên kết "Mở app" và vẫn có nút "Thanh toán bằng ngân hàng"
+
 #### Scenario: Người nhận chưa có tài khoản
 - **WHEN** slide không có tài khoản người nhận
 - **THEN** không có nút "Thanh toán bằng ngân hàng"
@@ -228,3 +232,54 @@ Hệ thống SHALL xuất các khoản chuyển đang chọn thành một ảnh 
 #### Scenario: Tải ảnh về máy
 - **WHEN** người chủ bấm "Tải ảnh QR (PNG)"
 - **THEN** tệp PNG được tải về với tên là tên bữa đã cắt khoảng trắng và đuôi `.png`, hoặc `chia-tien.png` nếu bữa không có tên
+
+### Requirement: Mã hoá nhị phân cho link gọn
+Hệ thống SHALL mã hoá link gọn theo thứ tự sau: số nguyên dạng varint, các chuỗi gom vào một bảng và mỗi chuỗi chỉ lưu một lần, nén deflate với từ điển dựng sẵn, đổi sang base64url, rồi đặt tiền tố `~` ở đầu dữ liệu. Hệ thống SHALL giải mã được dữ liệu đó bằng cùng quy trình ngược lại.
+
+#### Scenario: Nhiều khoản chuyển cho cùng một người
+- **WHEN** hai khoản chuyển cùng gửi cho An trong một link gọn
+- **THEN** tên An chỉ xuất hiện một lần trong bảng tên của dữ liệu đã mã hoá
+
+#### Scenario: Nhiều khoản chuyển đến cùng một tài khoản
+- **WHEN** hai khoản chuyển cùng gửi đến một tài khoản ngân hàng
+- **THEN** thông tin tài khoản đó chỉ được lưu một lần trong bảng tài khoản
+
+#### Scenario: Nội dung chuyển khoản mặc định
+- **WHEN** nội dung chuyển khoản của một khoản bằng với nội dung mặc định được dựng từ tên người chuyển và tiêu đề bữa
+- **THEN** link không chứa nội dung đó
+- **AND** khi giải mã, nội dung được dựng lại từ tên người chuyển và tiêu đề bữa trong link
+
+#### Scenario: Dữ liệu nén không ngắn hơn
+- **WHEN** nén deflate không làm dữ liệu ngắn hơn
+- **THEN** hệ thống lưu dữ liệu chưa nén và tắt cờ nén trong byte đầu
+
+#### Scenario: Số không nguyên hoặc âm
+- **WHEN** một số tiền trong link không phải số nguyên không âm
+- **THEN** link rơi về dạng JSON nén lz-string của cùng dữ liệu
+- **AND** link đó vẫn mở được và hiển thị đúng số tiền
+
+### Requirement: Phiên bản định dạng và từ điển nén
+Hệ thống SHALL ghi vào byte đầu của link gọn một cờ nén deflate và số phiên bản định dạng, hiện là 1. Từ điển nén dựng sẵn SHALL giữ nguyên cho phiên bản 1, vì đổi một byte của từ điển làm mọi link đã gửi không giải mã được. Khi cần đổi định dạng, hệ thống SHALL tăng số phiên bản và giữ từ điển cũ để giải mã link của phiên bản trước.
+
+#### Scenario: Link đã gửi được mở sau này
+- **WHEN** người nhận mở một link gọn đã được tạo bởi phiên bản 1
+- **THEN** hệ thống giải mã được dữ liệu bằng từ điển dựng sẵn của phiên bản 1
+
+#### Scenario: Phiên bản không nhận biết được
+- **WHEN** byte đầu của link gọn chứa số phiên bản khác 1
+- **THEN** hệ thống báo `INVALID_SNAPSHOT` thay vì cố hiển thị
+
+### Requirement: Mở QR từng khoản chuyển tiền
+Hệ thống SHALL hiển thị nút mở QR ở từng khoản chuyển tiền chưa thanh toán trong mục quyết toán. Bấm nút mở slide của đúng khoản đó trong hộp thoại. Khoản đã được tick thanh toán không có nút này.
+
+#### Scenario: Khoản chưa chuyển
+- **WHEN** người xem bấm nút QR ở khoản Bình chuyển cho An chưa được tick thanh toán
+- **THEN** hộp thoại QR hiện slide của đúng khoản đó
+
+#### Scenario: Khoản đã chuyển
+- **WHEN** khoản chuyển đã được tick thanh toán
+- **THEN** khoản đó không có nút QR
+
+#### Scenario: Người nhận chưa có tài khoản
+- **WHEN** người nhận của khoản chưa có thông tin ngân hàng và người xem bấm nút QR
+- **THEN** slide mở ra không có mã QR và hiện lưu ý người nhận chưa có thông tin ngân hàng

@@ -13,19 +13,24 @@ Hệ thống SHALL lưu mọi người được thêm vào một bữa vào danh
 - **THEN** người đó được lưu vào danh bạ với tên đã chuẩn hoá
 - **AND** người đó được thêm vào bữa trong cùng thao tác và xuất hiện trong gợi ý của bữa khác
 
+#### Scenario: Chọn người có sẵn vào bữa
+- **GIVEN** `Bình` đã có trong danh bạ nhưng chưa tham gia bữa
+- **WHEN** người dùng chọn `Bình` từ danh sách gợi ý
+- **THEN** `Bình` được thêm vào bữa và thời điểm dùng gần nhất của `Bình` được cập nhật
+
 #### Scenario: Tải lại trang
 - **WHEN** người dùng tải lại trang sau khi đã thêm người vào danh bạ
 - **THEN** toàn bộ người đã lưu vẫn còn trong danh bạ
 
 ### Requirement: Màu avatar cố định theo người
-Hệ thống SHALL gán cho mỗi người một màu avatar lấy từ dải màu xanh USD, chọn theo khoá tìm kiếm của người đó. Cùng một người luôn có cùng màu, không cần lưu thêm trạng thái nào.
+Hệ thống SHALL gán cho mỗi người một màu avatar lấy từ dải màu xanh USD khi người đó được tạo, chọn theo khoá tìm kiếm của người đó, và lưu màu cùng bản ghi của người. Đổi tên không đổi màu đã gán.
 
 #### Scenario: Màu không đổi giữa các lần hiển thị
 - **WHEN** một người được hiển thị ở các bữa khác nhau hoặc sau khi tải lại trang
 - **THEN** màu avatar của người đó vẫn giống như lần trước
 
 ### Requirement: Chuẩn hoá và viết hoa tên người
-Hệ thống SHALL lưu tên người sau khi bỏ khoảng trắng đầu cuối, gộp khoảng trắng liên tiếp thành một, và viết hoa chữ cái đầu của mỗi từ, các chữ còn lại viết thường, bất kể người dùng gõ kiểu nào. Dấu tiếng Việt được giữ nguyên. Một từ mới bắt đầu sau khoảng trắng, dấu gạch nối hoặc dấu mở ngoặc. Tên sau chuẩn hoá phải có từ 1 đến 50 ký tự.
+Hệ thống SHALL lưu tên người sau khi bỏ ký tự điều khiển, bỏ khoảng trắng đầu cuối, gộp khoảng trắng liên tiếp thành một, và viết hoa chữ cái đầu của mỗi từ, các chữ còn lại viết thường, bất kể người dùng gõ kiểu nào. Dấu tiếng Việt được giữ nguyên. Một từ mới bắt đầu sau khoảng trắng, dấu gạch nối hoặc dấu mở ngoặc. Tên sau chuẩn hoá phải có từ 1 đến 50 ký tự.
 
 #### Scenario: Gõ chữ thường
 - **WHEN** người dùng tạo người tên `bình`
@@ -143,7 +148,7 @@ Hệ thống SHALL hiện dòng `Thêm "<tên>"` ở cuối danh sách khi ô t�
 - **THEN** hiện dòng `Thêm "Ân"` để tạo người mới
 
 ### Requirement: Không thêm trùng người đã có trong bữa
-Hệ thống SHALL không thêm một người hai lần vào cùng một bữa. Khi người dùng chọn người đã tham gia, hệ thống báo `<tên> đã tham gia bữa này.` và giữ nguyên người đó trong bữa. Danh sách chọn đánh dấu người đã tham gia bằng nhãn "Đã tham gia".
+Hệ thống SHALL không thêm một người hai lần vào cùng một bữa. Khi người dùng chọn người đã tham gia, hệ thống báo `<tên> đã tham gia bữa này.` và giữ nguyên người đó trong bữa. Danh sách chọn đánh dấu người đã tham gia bằng dấu kiểm có nhãn truy cập "Đã tham gia".
 
 #### Scenario: Chọn lại người đã tham gia
 - **GIVEN** `Bình` đã có trong bữa
@@ -154,7 +159,7 @@ Hệ thống SHALL không thêm một người hai lần vào cùng một bữa.
 #### Scenario: Đánh dấu trong danh sách chọn
 - **GIVEN** `Bình` đã có trong bữa
 - **WHEN** người dùng gõ `b` để lọc danh sách
-- **THEN** dòng `Bình` hiện nhãn "Đã tham gia"
+- **THEN** dòng `Bình` hiện dấu kiểm có nhãn "Đã tham gia"
 
 ### Requirement: Hồ sơ "Tôi" đổi được tên nhưng không xoá được
 Hệ thống SHALL cho phép đổi tên hồ sơ "Tôi" và giữ nguyên vai trò hồ sơ mặc định của chủ app sau khi đổi. Hồ sơ này không có thao tác xoá. Nếu người dùng để tên mặc định không đổi thì tên vẫn hiển thị theo ngôn ngữ đang chọn; nếu người dùng nhập đúng tên mặc định đã dịch, hệ thống lưu lại dạng gốc để vẫn đổi theo ngôn ngữ.
@@ -179,7 +184,7 @@ Hệ thống SHALL cung cấp danh sách ngân hàng và ví hỗ trợ VietQR, 
 - **THEN** danh sách hiện thông báo `Không tìm thấy ngân hàng.`
 
 #### Scenario: Chọn ngân hàng
-- **WHEN** người dùng bấm một dòng trong danh sách, hoặc chọn bằng Enter sau khi dùng mũi tên
+- **WHEN** người dùng bấm một dòng trong danh sách, hoặc nhấn Enter khi danh sách đang mở để chọn dòng được tô sáng (dòng đầu nếu chưa dùng mũi tên)
 - **THEN** ngân hàng đó được chọn và ô hiện tên kèm mã của ngân hàng
 
 ### Requirement: Lưu tài khoản ngân hàng cho thành viên

@@ -14,7 +14,7 @@ Hệ thống SHALL từ chối lưu trữ một bữa có tổng chi phí bằng
 - **AND** nút "Lưu trữ bữa" hiển thị ở trạng thái khoá kèm lý do "Bữa chưa có chi phí để lưu trữ."
 
 ### Requirement: Món chưa có người ăn chặn việc lưu trữ
-Hệ thống SHALL chặn lưu trữ khi còn món nào chưa có người ăn. Các món chia theo chế độ `BY_ITEM` mà không có người nào trong `consumers` được tính là món chưa gán.
+Hệ thống SHALL chặn lưu trữ khi còn món nào chưa có người ăn. Món chia theo chế độ `BY_ITEM` mà không có người ăn nào còn trong kèo với số phần lớn hơn 0 được tính là món chưa gán.
 
 #### Scenario: Còn món chưa gán người ăn
 - **WHEN** người dùng cố lưu trữ một bữa có ít nhất một món chưa có người ăn
@@ -40,7 +40,7 @@ Hệ thống SHALL chỉ cho phép lưu trữ khi mọi khoản chuyển tiền 
 #### Scenario: Sửa hoá đơn làm đổi số tiền khoản chuyển
 - **GIVEN** một khoản chuyển đã được tick với số tiền cũ
 - **WHEN** số tiền của khoản đó thay đổi sau khi sửa hoá đơn
-- **THEN** tick cũ không còn hiệu lực và bữa bị chặn với mã `ARCHIVE_UNPAID_ENTITIES` cho đến khi tick lại
+- **THEN** tick cũ chỉ có hiệu lực khi số tiền khoản đó bằng số tiền lúc tick; khi khác, bữa bị chặn với mã `ARCHIVE_UNPAID_ENTITIES` cho đến khi tick lại
 - **AND** sau khi tick lại, lưu trữ dùng tổng tiền mới để ghi vào `archivedSummary`
 
 ### Requirement: Bữa đã lưu trữ không thể lưu trữ lại
@@ -51,6 +51,13 @@ Hệ thống SHALL từ chối lưu trữ lần hai đối với bữa có `stat
 - **WHEN** hành động lưu trữ được gọi lại cho bữa đó
 - **THEN** hệ thống báo lỗi mã `MEAL_ARCHIVED` và không thay đổi dữ liệu nào
 
+### Requirement: Lưu trữ bữa không tồn tại báo lỗi
+Hệ thống SHALL báo lỗi mã `MEAL_NOT_FOUND` khi lưu trữ một bữa không có trong cơ sở dữ liệu, và không thay đổi dữ liệu nào.
+
+#### Scenario: Lưu trữ bữa không tồn tại
+- **WHEN** hành động lưu trữ được gọi với mã bữa không tồn tại
+- **THEN** hệ thống báo lỗi mã `MEAL_NOT_FOUND` và không xoá hoá đơn hay file ảnh nào
+
 ### Requirement: Nút lưu trữ hiển thị lý do khi bị khoá
 Hệ thống SHALL hiển thị nút "Lưu trữ bữa" ở chế độ bữa đang hoạt động. Khi điều kiện chưa đạt, nút bị khoá và lý do được đưa vào tiêu đề gợi ý và đoạn chữ dành cho trình đọc màn hình.
 
@@ -58,7 +65,8 @@ Hệ thống SHALL hiển thị nút "Lưu trữ bữa" ở chế độ bữa đ
 - **GIVEN** một bữa đang `ACTIVE` chưa đủ điều kiện lưu trữ
 - **WHEN** người dùng mở tab "Chia tiền" của bữa đó
 - **THEN** nút "Lưu trữ bữa" hiển thị ở trạng thái khoá
-- **AND** lý do khoá được gắn vào thuộc tính mô tả của nút, đồng thời có đoạn chữ "Chưa thể lưu trữ:" kèm nội dung lý do
+- **AND** lý do khoá hiện trong gợi ý "Chưa thể lưu trữ:" kèm nội dung lý do khi rê chuột lên nút
+- **AND** có đoạn chữ ẩn "Chưa thể lưu trữ:" kèm nội dung lý do, dành cho trình đọc màn hình
 
 #### Scenario: Nút được bật khi đủ điều kiện
 - **GIVEN** một bữa đang `ACTIVE` đã đủ điều kiện lưu trữ
@@ -118,21 +126,27 @@ Hệ thống SHALL chuyển `status` của bữa từ `ACTIVE` sang `ARCHIVED`, 
 - **THEN** `status` của bữa là `ARCHIVED`
 - **AND** `archivedAt` và `updatedAt` đều bằng thời điểm đó
 
-### Requirement: Lưu trữ là một giao dịch nguyên tử cho phần dữ liệu trong cơ sở dữ liệu
-Hệ thống SHALL xoá file ảnh trước, sau đó ghi lại các kèo, hoá đơn, món và bữa trong một giao dịch duy nhất. Nếu giao dịch lỗi thì bữa vẫn `ACTIVE`, các kèo, hoá đơn và món không đổi.
+### Requirement: Lưu trữ ghi cơ sở dữ liệu trong một giao dịch sau khi xoá ảnh
+Hệ thống SHALL xoá bản ghi file ảnh và thư mục ảnh vật lý của bữa trước, rồi mới ghi các kèo, hoá đơn và bữa trong một giao dịch duy nhất. Việc xoá ảnh nằm ngoài giao dịch này, nên nếu giao dịch lỗi thì ảnh đã xoá không khôi phục được; bữa vẫn `ACTIVE`.
 
-#### Scenario: Giao dịch lỗi giữa chừng
-- **GIVEN** bước ghi cơ sở dữ liệu của lưu trữ gặp lỗi
+#### Scenario: Giao dịch lỗi sau khi đã xoá ảnh
+- **GIVEN** bước ghi cơ sở dữ liệu của lưu trữ gặp lỗi sau khi các file ảnh đã bị xoá
 - **WHEN** lưu trữ được thực hiện
 - **THEN** giao dịch được huỷ và bữa vẫn có `status` là `ACTIVE`
-- **AND** hoá đơn, món và kèo của bữa không bị sửa trong cơ sở dữ liệu
+- **AND** hoá đơn, kèo và món của bữa không bị sửa trong cơ sở dữ liệu
+- **AND** các bản ghi file ảnh và file vật lý đã bị xoá và không khôi phục được, trong khi hoá đơn vẫn tham chiếu tới các ảnh đó
 
-#### Scenario: Lỗi khi xoá file ảnh
-- **WHEN** việc xoá file ảnh trước giao dịch gặp lỗi
-- **THEN** giao dịch không được thực hiện và bữa vẫn `ACTIVE`
+#### Scenario: Lỗi khi xoá bản ghi file ảnh
+- **WHEN** việc xoá bản ghi file ảnh trong cơ sở dữ liệu, trước giao dịch, gặp lỗi
+- **THEN** lưu trữ dừng, giao dịch không được thực hiện, bữa vẫn `ACTIVE` và hoá đơn, ảnh không đổi
 
-### Requirement: Bữa đã lưu trữ là chỉ đọc ở mọi service ghi dữ liệu
-Hệ thống SHALL từ chối mọi thao tác ghi vào bữa có `status` là `ARCHIVED`, gồm sửa thông tin bữa, người tham gia, nhóm thanh toán, người chủ trì, kèo, hoá đơn, món, file ảnh, chế độ quyết toán và tick "Đã chuyển". Lỗi trả về có mã `MEAL_ARCHIVED`.
+#### Scenario: Lỗi khi xoá thư mục ảnh vật lý
+- **WHEN** việc xoá thư mục ảnh vật lý gặp lỗi
+- **THEN** lỗi được bỏ qua, lưu trữ vẫn hoàn tất và bữa có `status` là `ARCHIVED`
+- **AND** các file vật lý còn sót không còn bản ghi nào trỏ tới
+
+### Requirement: Bữa đã lưu trữ không nhận các thao tác ghi thuộc bữa
+Hệ thống SHALL từ chối với mã `MEAL_ARCHIVED` các thao tác ghi sau vào bữa có `status` là `ARCHIVED`: sửa tên, ngày, ghi chú của bữa; thêm, bỏ người tham gia; đổi người chủ trì; tạo, sửa, giải tán nhóm thanh toán; đổi chế độ quyết toán; tick hoặc bỏ tick "Đã chuyển"; thêm, sửa tên, đổi người tham gia, đổi thứ tự kèo; thêm, sửa, xoá hoá đơn; thêm, sửa, xoá món; thêm, xoá ảnh hoá đơn.
 
 #### Scenario: Thử sửa kèo của bữa đã lưu trữ
 - **GIVEN** một bữa đã có `status` là `ARCHIVED`
@@ -144,6 +158,11 @@ Hệ thống SHALL từ chối mọi thao tác ghi vào bữa có `status` là `
 - **GIVEN** một bữa đã có `status` là `ARCHIVED`
 - **WHEN** hệ thống nhận yêu cầu tick hoặc bỏ tick "Đã chuyển" cho một khoản chuyển tiền
 - **THEN** yêu cầu bị từ chối với mã `MEAL_ARCHIVED`
+
+#### Scenario: Thử sửa hoá đơn hoặc món của bữa đã lưu trữ
+- **GIVEN** một bữa đã có `status` là `ARCHIVED`
+- **WHEN** hệ thống nhận yêu cầu thêm, sửa hoặc xoá hoá đơn hay món của bữa đó
+- **THEN** yêu cầu bị từ chối với mã `MEAL_ARCHIVED` và hoá đơn, món không đổi
 
 ### Requirement: Giao diện bữa đã lưu trữ chỉ hiện nhãn trạng thái và khoá các thao tác sửa
 Hệ thống SHALL hiển thị nhãn "Đã lưu trữ" có biểu tượng khoá thay cho nhãn "Đang hoạt động" ở đầu màn hình bữa. Hệ thống không hiện banner hay dòng chữ nào thông báo bữa đã khoá hoặc chỉ xem. Mọi điều khiển sửa đều bị ẩn hoặc hiển thị ở chế độ không sửa được.
@@ -177,13 +196,14 @@ Hệ thống SHALL hiển thị mỗi kèo của bữa đã lưu trữ kèm dòn
 - **THEN** hệ thống hiển thị "Bữa này không có kèo nào." và không có nút thêm kèo
 
 ### Requirement: Quyết toán của bữa đã lưu trữ là bảng đã chốt và không sửa được
-Hệ thống SHALL hiển thị bảng quyết toán của bữa đã lưu trữ lấy từ `archivedSummary`, trong đó mọi khoản chuyển tiền được hiện là đã chuyển. Bảng này không có nút tick, nút đánh dấu tất cả, hay nút đổi chế độ quyết toán.
+Hệ thống SHALL hiển thị bảng quyết toán của bữa đã lưu trữ lấy từ `archivedSummary`, trong đó mọi khoản chuyển tiền được hiện là đã chuyển. Các nút tick của từng khoản ở trạng thái khoá. Bảng này không có nút đánh dấu tất cả, và nút đổi chế độ quyết toán ở trạng thái khoá.
 
 #### Scenario: Xem quyết toán đã chốt
 - **GIVEN** một bữa đã lưu trữ có hai khoản chuyển tiền trong `archivedSummary`
 - **WHEN** người dùng mở bước "Chia tiền"
 - **THEN** hai khoản chuyển tiền hiển thị là đã chuyển
-- **AND** không có nút tick hay nút đánh dấu tất cả
+- **AND** nút tick của mỗi khoản ở trạng thái khoá
+- **AND** không có nút "Đánh dấu tất cả đã chuyển"
 
 ### Requirement: Bữa đã lưu trữ không có nút chia sẻ thanh toán
 Hệ thống SHALL ẩn nút chia sẻ thông báo thanh toán trong bước "Chia tiền" của bữa đã lưu trữ. Nút "Lưu trữ bữa" cũng không hiển thị trong bữa đã lưu trữ.

@@ -1,12 +1,12 @@
 # receipt-ocr Specification
 
 ## Purpose
-Capability này đọc ảnh chụp hoặc PDF hoá đơn thành dữ liệu có cấu trúc (ngày, tên quán, món, số lượng, đơn giá, thành tiền, giảm giá, phí phục vụ, VAT, tổng bill) ngay trên trình duyệt, không cần mạng. Gồm tiền xử lý ảnh, nhận diện chữ bằng VietOCR dạng ONNX chạy trong Web Worker, đọc lớp chữ có sẵn của PDF, bộ phân tích văn bản, đối chiếu tổng tiền và tự sửa số đọc sai. Kết quả được đưa vào form hoá đơn để người dùng kiểm tra trước khi lưu. Capability dành cho người dùng nhập hoá đơn bữa ăn chung.
+Capability này đọc ảnh chụp hoặc PDF hoá đơn thành dữ liệu có cấu trúc (ngày, tên quán, món, số lượng, đơn giá, thành tiền, giảm giá, phí phục vụ, VAT, tổng bill) ngay trên trình duyệt, không cần mạng. Gồm tiền xử lý ảnh, nhận diện chữ bằng VietOCR dạng ONNX chạy trong Web Worker, đọc lớp chữ có sẵn của PDF, bộ phân tích văn bản, đối chiếu tổng tiền và tự sửa số đọc sai. Kết quả được đưa vào form hoá đơn để người dùng kiểm tra trước khi lưu. Ngoài ra người dùng có thể dán văn bản OCR đã có từ công cụ ngoài. Capability dành cho người dùng nhập hoá đơn bữa ăn chung.
 
 ## Requirements
 
 ### Requirement: Cắt và nắn thẳng tờ hoá đơn khi thêm ảnh chụp
-Hệ thống SHALL dò bốn góc của tờ giấy sáng lớn nhất trong ảnh chụp hoá đơn, cắt và nắn phối cảnh thành hình chữ nhật không còn nền, rồi đưa cạnh dài về 2800 px (phóng tối đa 3 lần). Ảnh sau xử lý là ảnh xám, không nhị phân hoá, để chữ in nhiệt mờ không bị đứt nét. Nếu không tìm thấy tờ giấy rõ ràng, hệ thống giữ cả ảnh và chỉ thu về cạnh dài 2800 px.
+Hệ thống SHALL dò bốn góc của tờ giấy sáng lớn nhất trong ảnh chụp hoá đơn, cắt và nắn phối cảnh thành hình chữ nhật không còn nền, rồi đưa cạnh dài về 2800 px (phóng tối đa 3 lần). Ảnh sau xử lý là ảnh xám, không nhị phân hoá, để chữ in nhiệt mờ không bị đứt nét. Nếu không tìm thấy tờ giấy rõ ràng, hệ thống giữ cả ảnh và cũng đưa cạnh dài về 2800 px (phóng tối đa 3 lần).
 
 #### Scenario: Ảnh chụp nghiêng trên nền tối
 - **WHEN** người dùng thêm ảnh chụp tờ hoá đơn nghiêng trên nền tối
@@ -15,7 +15,7 @@ Hệ thống SHALL dò bốn góc của tờ giấy sáng lớn nhất trong ả
 
 #### Scenario: Không tách được tờ giấy khỏi nền
 - **WHEN** ảnh gần như đồng nhất hoặc tờ giấy không tách rõ khỏi nền
-- **THEN** hệ thống giữ cả ảnh và chỉ thu về cạnh dài 2800 px
+- **THEN** hệ thống giữ cả ảnh và đưa cạnh dài về 2800 px (phóng tối đa 3 lần)
 
 #### Scenario: Tờ giấy đã chiếm gần hết khung ảnh
 - **WHEN** tờ giấy chiếm trên 97% diện tích ảnh và gần thẳng
@@ -130,7 +130,7 @@ Hệ thống SHALL báo tiến trình quét bằng phần trăm tổng cộng v�
 - **AND** form vẫn cho người dùng nhập tay
 
 ### Requirement: Ghép từ nhận dạng thành dòng theo toạ độ
-Hệ thống SHALL gom các từ có tâm dọc lệch không quá 0,55 lần chiều cao chữ trung vị vào cùng một dòng, rồi sắp các dòng từ trên xuống và từ trong mỗi dòng từ trái sang phải. Khoảng trắng ngang giữa hai từ liền kề lớn hơn 1,5 lần chiều cao chữ được thể hiện bằng hai khoảng trắng, để bộ phân tích nhận ra ranh giới cột. Từ rỗng bị bỏ.
+Hệ thống SHALL gom các từ có tâm dọc lệch không quá 0,55 lần chiều cao chữ trung vị vào cùng một dòng, rồi sắp các dòng từ trên xuống và từ trong mỗi dòng từ trái sang phải. Khoảng trắng ngang giữa hai từ liền kề lớn hơn 1,5 lần chiều cao chữ được thể hiện bằng hai khoảng trắng trong văn bản dòng đó. Từ rỗng bị bỏ. Bộ phân tích gộp mọi khoảng trắng liền nhau nên không dựa vào hai khoảng trắng này để tách cột.
 
 #### Scenario: Tên món và giá tách cột
 - **WHEN** tên món và số tiền nằm ở hai đầu xa nhau trên cùng một hàng
@@ -141,7 +141,7 @@ Hệ thống SHALL gom các từ có tâm dọc lệch không quá 0,55 lần ch
 - **THEN** dòng được sắp đúng từ trái sang phải
 
 ### Requirement: Đọc trực tiếp lớp chữ của PDF
-Với PDF, nếu một trang có ít nhất 20 ký tự không tính khoảng trắng, hệ thống SHALL dùng văn bản của lớp chữ thay cho OCR. Các mảnh chữ có đường cơ sở lệch nhau không quá nửa chiều cao chữ (tối thiểu 1,5 đơn vị) được gom thành một dòng, dòng sắp từ trên xuống. Trong dòng, các mảnh liền nhau không chèn khoảng trắng; mảnh cách xa hơn 2,5 lần cỡ chữ được ngăn bằng ba khoảng trắng. Trang có dưới 20 ký tự được coi là ảnh quét và phải qua OCR.
+Với PDF, nếu một trang có ít nhất 20 ký tự không tính khoảng trắng, hệ thống SHALL dùng văn bản của lớp chữ thay cho OCR. Các mảnh chữ có đường cơ sở lệch nhau không quá nửa chiều cao chữ (tối thiểu 1,5 đơn vị) được gom thành một dòng, dòng sắp từ trên xuống. Trong dòng, mảnh cách mảnh trước dưới 0,15 lần cỡ chữ được ghép liền không chèn khoảng trắng; mảnh cách xa hơn 2,5 lần cỡ chữ được ngăn bằng ba khoảng trắng. Trang có dưới 20 ký tự được coi là ảnh quét và phải qua OCR.
 
 #### Scenario: Hoá đơn điện tử có lớp chữ
 - **WHEN** trang PDF có ít nhất 20 ký tự chữ
@@ -170,8 +170,15 @@ Bộ phân tích SHALL chuẩn hoá từng dòng trước khi đọc: bỏ đơn
 - **WHEN** dòng tổng ghi "Téng thanh toán 176.000đ"
 - **THEN** dòng đó được nhận là dòng tổng
 
+### Requirement: Chia món theo gạch phân cách
+Khi văn bản OCR có dòng gạch phân cách (ít nhất 5 ký tự gạch, dấu bằng, chấm hoặc tương tự), hệ thống SHALL coi dòng sau gạch là khối mới: dòng chữ phía trên gạch không được ghép vào món phía dưới gạch. Dòng gạch bị bỏ khỏi nội dung đọc.
+
+#### Scenario: Các món ngăn bằng gạch
+- **WHEN** văn bản gồm "Cơm 50.000", một dòng gạch, "Phở 60.000", một dòng gạch, "Cà phê 25.000"
+- **THEN** có ba món là "Cơm", "Phở" và "Cà phê", mỗi món đúng tên và số tiền của dòng mình
+
 ### Requirement: Nhận ngày hoá đơn và tên quán
-Hệ thống SHALL lấy ngày hoá đơn ở dạng dd/mm/yyyy, dd-mm-yy hoặc "Ngày d tháng m năm yyyy", kể cả khi có chú thích trong ngoặc. Chỉ nhận ngày có thật và năm từ 2000 đến 2099; ngày không có thật thì để trống. Tên quán lấy từ phần sau nhãn "Đơn vị bán hàng" nếu có; nếu không, chọn trong bốn dòng đầu một dòng không phải địa chỉ, điện thoại hoặc tiêu đề, ưu tiên dòng có từ khoá như nhà hàng, quán, cafe, lẩu, bbq và dòng viết hoa.
+Hệ thống SHALL lấy ngày hoá đơn ở dạng dd/mm/yyyy, dd-mm-yy hoặc "Ngày d tháng m năm yyyy", kể cả khi có chú thích trong ngoặc. Chỉ nhận ngày có thật và năm từ 2000 đến 2099; ngày không có thật thì để trống. Tên quán lấy từ phần sau nhãn "Đơn vị bán hàng" nếu có; nếu không, chọn trong bốn dòng đầu một dòng không phải địa chỉ, điện thoại hoặc tiêu đề và có từ khoá (nhà hàng, quán, cafe, lẩu, bbq, phở, bún, cơm và tương tự) hoặc phần lớn là chữ hoa; dòng có nhiều dấu hiệu hơn được ưu tiên.
 
 #### Scenario: Ngày không có thật
 - **WHEN** bill ghi ngày 30/02/2026
@@ -235,8 +242,8 @@ Khi bill có tiêu đề bảng gồm cột STT và tên hàng, hệ thống SHA
 - **THEN** kết quả nêu dòng bị thiếu theo số thứ tự và cảnh báo có thể thiếu món
 
 #### Scenario: Cột trước thuế và sau thuế
-- **WHEN** bảng có cả giá trước thuế, tiền thuế và thành tiền sau thuế, và SL × đơn giá khớp cột trước thuế
-- **THEN** thành tiền lấy theo cột trước thuế và giá từng dòng được đánh dấu đã gồm VAT, VAT không được cộng thêm
+- **WHEN** bảng có giá trước thuế, tiền thuế và thành tiền sau thuế, và SL × đơn giá khớp cột trước thuế
+- **THEN** thành tiền của dòng lấy theo cột sau thuế, đơn giá dòng là thành tiền chia số lượng, bill được đánh dấu giá đã gồm VAT và VAT không được cộng thêm
 
 #### Scenario: Dòng giảm trừ trong bảng
 - **WHEN** một dòng của bảng là chiết khấu, giảm giá, khuyến mãi hoặc có thành tiền âm
@@ -272,9 +279,9 @@ Hệ thống SHALL đọc VAT, giảm giá, phí phục vụ và tổng bill t�
 - **WHEN** ba dòng tổng cùng ghi 550.000 và một dòng khác ghi 540.000
 - **THEN** tổng bill là 550.000
 
-#### Scenario: Tổng đã gồm VAT
-- **WHEN** dòng tổng ghi "Tổng cộng số tiền đã có thuế GTGT"
-- **THEN** bill được đánh dấu giá đã gồm VAT và tiền hàng trước thuế không dùng để đối chiếu
+#### Scenario: Dòng tổng ghi đã có thuế
+- **WHEN** dòng tổng ghi "Tổng cộng số tiền đã có thuế GTGT" kèm số tiền
+- **THEN** số tiền đó là tổng bill
 
 #### Scenario: Không có dòng tổng
 - **WHEN** bill không có dòng nhãn tổng và không có dòng tiền hàng
@@ -300,8 +307,19 @@ Hệ thống SHALL đối chiếu tổng bill bằng phép tính của app, đú
 - **WHEN** mọi cách sửa đều không làm tổng khớp bill, kể cả khi lệch trên 10%
 - **THEN** trạng thái là MISMATCH, không món nào được tự thêm hay bớt, và người dùng được yêu cầu chỉnh tay
 
+### Requirement: Dán văn bản OCR từ công cụ ngoài
+Form hoá đơn SHALL có nút "Dán text OCR ngoài" mở hộp thoại dán văn bản đã quét từ công cụ bên ngoài. Nút "Điền vào hoá đơn" chỉ bật khi văn bản không rỗng. Khi điền, văn bản được đưa qua bước ghép khối (khi có đủ tiêu đề cột SL, ĐG và Thành tiền) rồi qua cùng bộ phân tích và đối chiếu như ảnh quét. Văn bản không nhận ra dữ liệu hoá đơn thì báo người dùng kiểm tra lại hoặc nhập tay.
+
+#### Scenario: Văn bản copy theo khối
+- **WHEN** văn bản dán có tiêu đề SL, ĐG, Thành tiền và các ô số đứng riêng từng dòng, ví dụ "2", "50.000", "100.000" rồi "1 Phở bò"
+- **THEN** ghép lại thành món "Phở bò" với số lượng 2, đơn giá 50.000 và thành tiền 100.000
+
+#### Scenario: Văn bản không có bố cục khối
+- **WHEN** văn bản dán không có đủ ba tiêu đề cột
+- **THEN** văn bản được phân tích nguyên bản, không ghép lại
+
 ### Requirement: Đưa kết quả vào form hoá đơn để người dùng kiểm tra
-Hệ thống SHALL điền kết quả đọc vào form hoá đơn ở trạng thái chưa lưu, kèm thông báo đối chiếu và cờ cần xem trên từng món. Nếu form đã có dữ liệu do người dùng nhập, hệ thống MUST hỏi trước khi ghi đè. Trường không đọc được được để trống, không điền 0.
+Hệ thống SHALL điền kết quả đọc vào form hoá đơn ở trạng thái chưa lưu, kèm thông báo đối chiếu và cờ cần xem trên từng món. Nếu form đã có dữ liệu do người dùng nhập (tên quán, ngày, món, tiền hàng hoặc giảm giá, phí, VAT), hệ thống MUST hỏi trước khi ghi đè. Trường không đọc được được để trống, không điền 0.
 
 #### Scenario: Form trống
 - **WHEN** form hoá đơn chưa có dữ liệu nào và người dùng quét xong
@@ -318,3 +336,26 @@ Hệ thống SHALL điền kết quả đọc vào form hoá đơn ở trạng t
 #### Scenario: Không đọc được số tiền
 - **WHEN** một khoản như VAT không đọc được số tiền hay phần trăm
 - **THEN** ô tương ứng trong form để trống và không điền 0
+
+### Requirement: Ghép văn bản dán theo khối thành dòng món
+Hệ thống SHALL ghép lại văn bản dán khi mỗi ô của bảng nằm trên một dòng riêng, thành từng dòng món dạng "STT. Tên SL ĐG Thành tiền" trước khi phân tích. Văn bản không có ít nhất ba loại tiêu đề cột trong SL, ĐG, Thành tiền và Tên món, hoặc không có món nào, được giữ nguyên văn. Hệ thống không đoán tên hay giá.
+
+#### Scenario: Ô số lượng bị đọc sai
+- **WHEN** một món có hai ô tiền, thành tiền chia hết cho đơn giá và thương từ 1 đến 99
+- **THEN** số lượng là thương đó, không lấy theo ô SL
+
+#### Scenario: Tên kết thúc bằng số trùng số lượng
+- **WHEN** tên món kết thúc bằng số đúng bằng số lượng lớn hơn 1, ví dụ "Miso Soup 4" với số lượng 4
+- **THEN** số đó bị bỏ khỏi tên món
+
+#### Scenario: Phần tổng bị tách khối
+- **WHEN** nhãn "Tiền hàng" và "Tổng thanh toán" nằm trong một nhóm dòng và các số tiền nằm trong nhóm dòng sau
+- **THEN** văn bản được ghép thành dòng "Tiền hàng" với số tiền hàng và dòng "Tổng thanh toán" với số cuối
+
+#### Scenario: Không phải bố cục khối
+- **WHEN** văn bản dán không có đủ ba loại tiêu đề cột hoặc không có món nào
+- **THEN** văn bản giữ nguyên và được phân tích như văn bản thường
+
+#### Scenario: Món chỉ có một ô tiền
+- **WHEN** một món trong văn bản dán theo khối chỉ có một ô tiền
+- **THEN** số lượng lấy từ ô SL, và là 1 khi không có ô SL

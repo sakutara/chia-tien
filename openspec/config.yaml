@@ -28,10 +28,22 @@ context: |
   - Bữa đã lưu trữ (ARCHIVED) và trang Snapshot là chỉ đọc.
   - Tên kiểu/hàm/bảng giữ nguyên tiếng Anh trong dấu `code`.
   - Lệnh kiểm tra chạy trong app/: `npm test`, `npm run lint`, `npm run build`.
-  - Thư mục docs/ là bản build GitHub Pages do hook sinh ra, không sửa tay.
   - Không commit thẳng lên main; mọi thay đổi qua branch riêng và Pull Request.
-  - documentation/ là tài liệu thiết kế lịch sử (9 epic, BR/SA); nguồn sự thật
-    về hành vi hiện tại là openspec/specs/.
+    Không dùng --no-verify hay SKIP_PAGES_BUILD=1 để lách, trừ khi người phụ trách đồng ý.
+  - Thư mục docs/ là bản build GitHub Pages (phục vụ từ main, thư mục /docs, base ./),
+    không sửa tay. Hook .githooks/post-merge tự build và commit "Build docs (<sha>)"
+    sau mỗi merge hoặc pull vào main; build tay bằng .githooks/build-docs.sh.
+    Hook được bật qua core.hooksPath=.githooks (tự đặt khi npm install trong app/).
+  - File mô hình lớn (app/public/ocr/vietocr/vietocr_encoder.onnx) dùng Git LFS;
+    hook .githooks/pre-push đẩy file LFS khi push.
+
+  Tài liệu của dự án:
+  - openspec/specs/<capability>/spec.md là nguồn sự thật về hành vi hiện tại (14 capability).
+  - openspec/changes/archive/ giữ lịch sử: thiết kế gốc (initial-system-design, epic-1 đến
+    epic-9, kèm nguyên văn tài liệu cũ trong design.md) và các thay đổi sau đó theo ngày.
+  - Không có thư mục tài liệu riêng; không viết tài liệu thiết kế ngoài OpenSpec.
+  - Tính năng mới đi qua skill new-feature (.claude/skills/new-feature/SKILL.md).
+  - CLI: npm i -g @fission-ai/openspec@1.17.0 (Node 22.12 trở lên).
 
 rules:
   proposal:

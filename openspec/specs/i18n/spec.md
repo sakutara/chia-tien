@@ -141,7 +141,7 @@ Hệ thống SHALL sắp xếp danh bạ thành viên theo quy tắc tiếng Vi�
 - **THEN** hồ sơ "Tôi" đứng đầu, sau đó là `An` rồi `Bình` theo quy tắc tiếng Việt
 
 ### Requirement: Giá trị mặc định do hệ thống sinh
-Hệ thống SHALL hiển thị theo ngôn ngữ đang chọn các giá trị mặc định do hệ thống tạo: hồ sơ chủ app có tên `Tôi` hiển thị là `Me` ở `en`, và kèo mặc định `Kèo n` hiển thị là `Venue n` ở `en`. Dữ liệu được lưu vẫn là tiếng Việt. Tên do người dùng tự đặt SHALL giữ nguyên, không bao giờ bị dịch.
+Hệ thống SHALL hiển thị theo ngôn ngữ đang chọn các giá trị mặc định do hệ thống tạo: hồ sơ chủ app có tên `Tôi` hiển thị là `Me` ở `en`, và kèo mặc định `Kèo n` hiển thị là `Venue n` ở `en`. Dữ liệu được lưu vẫn là tiếng Việt. Tên do người dùng tự đặt SHALL giữ nguyên và không bị dịch, trừ khi tên kèo trùng đúng mẫu `Kèo n` hoặc `Venue n`.
 
 #### Scenario: Hồ sơ Tôi và tên tự đặt
 - **WHEN** ngôn ngữ là `en` và hồ sơ chủ app đang mang tên mặc định `Tôi`
@@ -154,19 +154,23 @@ Hệ thống SHALL hiển thị theo ngôn ngữ đang chọn các giá trị m�
 - **AND** kèo đặt tên riêng như `Lẩu bò` không bị thay đổi
 
 ### Requirement: Tin nhắn thanh toán theo ngôn ngữ
-Tin nhắn thông báo thanh toán SHALL được sinh theo ngôn ngữ truyền vào, mặc định là ngôn ngữ giao diện lúc chia sẻ. Tin nhắn SHALL gồm dòng tên bữa, mỗi người cần chuyển một dòng dạng `- <người>: chuyển cho <người nhận> <số tiền>` (ở `en` là `transfer to`), và dòng link Snapshot ở cuối. Nếu không còn khoản nào cần chuyển thì tin nhắn có một dòng báo đã hoàn tất thanh toán theo ngôn ngữ đã chọn.
+Tin nhắn thông báo thanh toán SHALL được sinh theo ngôn ngữ truyền vào, mặc định là ngôn ngữ giao diện lúc chia sẻ. Tin nhắn SHALL gồm dòng tên bữa, mỗi người có khoản cần chuyển một dòng dạng `- <người>: chuyển cho <người nhận> <số tiền>` (ở `en` là `transfer to`), các khoản của cùng một người nối bằng dấu phẩy, và dòng link Snapshot ở cuối. Nếu không còn khoản nào cần chuyển thì tin nhắn có một dòng báo đã hoàn tất thanh toán theo ngôn ngữ đã chọn.
 
 #### Scenario: Tin nhắn tiếng Anh
 - **WHEN** ngôn ngữ là `en`, bữa tên `Lẩu cuối tuần` có An cần chuyển 50000 cho Bình
 - **THEN** tin nhắn có dòng `- An: transfer to Bình 50,000 ₫`
 - **AND** dòng cuối là link Snapshot
 
+#### Scenario: Nhiều khoản của cùng một người
+- **WHEN** ngôn ngữ là `vi` và An cần chuyển cho Bình 50000 và cho Cường 30000
+- **THEN** tin nhắn có dòng `- An: chuyển cho Bình 50.000 ₫, chuyển cho Cường 30.000 ₫`
+
 #### Scenario: Không còn khoản cần chuyển
 - **WHEN** tất cả các khoản đã thanh toán và tin nhắn được sinh ở `vi`
 - **THEN** tin nhắn có dòng `- Tất cả các khoản thanh toán đã hoàn tất.` trước link Snapshot
 
 ### Requirement: Nội dung chuyển khoản
-Nội dung chuyển khoản mặc định SHALL được dựng từ câu `{tên người chuyển} thanh toán {tên bữa}` theo ngôn ngữ của người xem khi trong link không có nội dung riêng. Nội dung do người dùng hoặc link đã mang theo SHALL giữ nguyên.
+Nội dung chuyển khoản mặc định SHALL được dựng từ câu `{tên người chuyển} thanh toán {tên bữa}` theo ngôn ngữ của người xem khi trong link không có nội dung riêng. Nội dung do người dùng hoặc link đã mang theo SHALL giữ nguyên. Khi đưa vào mã QR, nội dung được bỏ dấu, chỉ giữ chữ, số và khoảng trắng, tối đa 50 ký tự.
 
 #### Scenario: Nội dung mặc định ở Snapshot tiếng Anh
 - **WHEN** người xem mở Snapshot ở `en` và link không lưu nội dung chuyển khoản

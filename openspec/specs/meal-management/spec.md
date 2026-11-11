@@ -26,13 +26,18 @@ Hệ thống SHALL kiểm tra dữ liệu bữa trước khi ghi, cho cả tạo
 
 #### Scenario: Ngày không có thật hoặc ngoài khoảng bị từ chối
 - **WHEN** người dùng nhập ngày `2026-02-30`, hoặc một ngày trước 01/01/2000 hoặc sau 31/12/2099
-- **THEN** ô ngày hiện thông báo "Ngày không hợp lệ" ngay bên dưới
-- **AND** không có bữa nào được ghi
+- **THEN** ô ngày hiện thông báo "Ngày không hợp lệ. Hãy chọn một ngày từ 01/01/2000 đến 31/12/2099." ngay bên dưới
+- **AND** lỗi mang mã `INVALID_DATE` và không có bữa nào được ghi
 
 #### Scenario: Tên hoặc ghi chú quá dài
 - **WHEN** người dùng nhập tên dài 101 ký tự hoặc ghi chú dài 501 ký tự rồi lưu
-- **THEN** thông báo lỗi hiện ngay bên dưới ô tương ứng
-- **AND** bữa không bị tạo mới hoặc sửa
+- **THEN** thông báo "Tên bữa tối đa 100 ký tự." hoặc "Ghi chú tối đa 500 ký tự." hiện ngay bên dưới ô tương ứng
+- **AND** lỗi mang mã `INVALID_TITLE` hoặc `INVALID_NOTE`, và bữa không bị tạo mới hoặc sửa
+
+#### Scenario: Ô tên chặn độ dài nhập vào
+- **WHEN** người dùng dán chuỗi dài 150 ký tự vào ô tên
+- **THEN** ô tên trong hộp thoại tạo bữa chỉ nhận tối đa 120 ký tự, còn ô tên sửa tại chỗ chỉ nhận tối đa 140 ký tự
+- **AND** tên dài 101 đến 120 ký tự vẫn bị từ chối khi lưu với thông báo "Tên bữa tối đa 100 ký tự."
 
 #### Scenario: Ngày mặc định theo giờ địa phương
 - **WHEN** người dùng mở form tạo bữa lúc 00:30 ngày 19/10/2026 giờ địa phương
@@ -48,8 +53,12 @@ Hệ thống SHALL cho sửa tên, ngày và ghi chú của bữa `ACTIVE` ngay 
 
 #### Scenario: Tên không hợp lệ giữ nguyên tên cũ
 - **WHEN** người dùng nhập tên dài hơn 100 ký tự rồi nhấn Enter
-- **THEN** thông báo lỗi hiện cạnh ô tên
+- **THEN** thông báo "Tên bữa tối đa 100 ký tự." hiện cạnh ô tên
 - **AND** bữa vẫn giữ tên cũ
+
+#### Scenario: Xoá trắng tên bữa
+- **WHEN** người dùng xoá hết tên bữa ngày 19/10/2026 tại bước Bữa rồi nhấn Enter
+- **THEN** tên bữa được đặt là "Bữa 19/10/2026"
 
 ### Requirement: Bữa đã lưu trữ chỉ đọc
 Hệ thống SHALL hiển thị bữa `ARCHIVED` với huy hiệu khoá "Đã lưu trữ" và không cho sửa tên, ngày, ghi chú, chủ trì hay người tham gia của bữa đó. Bữa đã lưu trữ vẫn được mở để xem và vẫn có thể xoá. Thao tác đưa một bữa vào trạng thái lưu trữ thuộc capability `meal-archive`.
@@ -81,17 +90,17 @@ Hệ thống SHALL yêu cầu xác nhận trước khi xoá bữa, với cả b�
 - **THEN** hộp chỉ nêu tên bữa và ngày, không có dòng "Sẽ mất kèm theo"
 
 ### Requirement: Xoá sạch dữ liệu con của bữa
-Hệ thống SHALL khi xoá bữa, xoá toàn bộ kèo, hoá đơn, món, bản ghi file hoá đơn và file ảnh vật lý thuộc bữa đó, không để lại bản ghi mồ côi. Dữ liệu của các bữa khác và danh bạ thành viên không bị ảnh hưởng.
+Hệ thống SHALL khi xoá bữa, xoá toàn bộ kèo, hoá đơn, món và bản ghi file hoá đơn thuộc bữa đó, đồng thời xoá thư mục file ảnh vật lý của bữa trong bộ nhớ riêng của trình duyệt, không để lại bản ghi con nào trỏ tới bữa đã xoá. Dữ liệu của các bữa khác và danh bạ thành viên không bị ảnh hưởng.
 
 #### Scenario: Xoá bữa có đầy đủ dữ liệu con
 - **WHEN** người dùng xác nhận xoá một bữa có kèo, hoá đơn, món và file ảnh
 - **THEN** mọi bản ghi và file thuộc bữa đó bị xoá
 - **AND** các bữa khác và danh bạ thành viên giữ nguyên
 
-#### Scenario: Xoá file lỗi thì bữa còn nguyên
-- **WHEN** việc xoá file ảnh của bữa gặp lỗi
-- **THEN** bữa và dữ liệu con trong cơ sở dữ liệu vẫn còn nguyên
-- **AND** người dùng có thể thử xoá lại
+#### Scenario: Lỗi khi xoá file vật lý không chặn việc xoá bữa
+- **WHEN** việc xoá thư mục file ảnh của bữa gặp lỗi hoặc bộ nhớ file của trình duyệt không khả dụng
+- **THEN** lỗi không được hiện cho người dùng và bữa cùng kèo, hoá đơn, món vẫn bị xoá
+- **AND** các bản ghi file hoá đơn đã bị xoá trước khi xoá file vật lý, nên file còn sót không còn bản ghi nào trỏ tới
 
 #### Scenario: Bữa không tồn tại
 - **WHEN** yêu cầu xoá hoặc xem trước dữ liệu xoá được gửi cho mã bữa không tồn tại
@@ -121,7 +130,7 @@ Hệ thống SHALL xếp mọi bữa theo ngày giảm dần, bữa mới nhất
 - **THEN** bữa ngày 19/10/2026 đứng trước
 
 ### Requirement: Chế độ xem Lịch
-Hệ thống SHALL hiển thị lưới một tháng với tuần bắt đầu từ Thứ 2, số hàng từ 4 đến 6 tuỳ tháng để chứa đủ ngày của tháng. Các ngày của tháng liền kề hiển thị mờ nhưng vẫn bấm được. Ngày hôm nay có dấu riêng, ngày đang chọn có nền riêng. Ô của ngày có bữa hiện tên và tổng tiền của tối đa hai bữa, từ bữa thứ ba trở đi hiện "+N bữa nữa"; dưới 640 px thì ô chỉ hiện chấm và số bữa. Khung bên dưới lưới liệt kê các bữa của ngày đang chọn, kể cả bữa đã lưu trữ có biểu tượng khoá.
+Hệ thống SHALL hiển thị lưới một tháng với tuần bắt đầu từ Thứ 2, từ 4 đến 6 hàng tuỳ tháng. Các ngày của tháng liền kề hiển thị mờ nhưng vẫn bấm được. Ngày hôm nay có dấu riêng, ngày đang chọn có nền riêng. Ô của ngày có bữa hiện tên bữa và, nếu bữa có chi phí, tổng tiền của tối đa hai bữa; từ bữa thứ ba trở đi hiện "+N bữa nữa". Dưới 640 px thì ô chỉ hiện một nhãn số bữa. Khung bên dưới lưới liệt kê các bữa của ngày đang chọn, kể cả bữa đã lưu trữ có biểu tượng khoá.
 
 #### Scenario: Xem các bữa của một ngày
 - **WHEN** người dùng bấm vào ngày 19/10/2026 có hai bữa
@@ -153,11 +162,11 @@ Hệ thống SHALL cho đổi tháng bằng nút tháng trước và tháng sau,
 - **AND** mũi tên lên hoặc xuống thì đổi ngày chọn đi 7 ngày
 
 ### Requirement: Chế độ xem Danh sách
-Hệ thống SHALL hiển thị mỗi bữa thành một thẻ gồm ngày, tên bữa, huy hiệu khoá nếu bữa đã lưu trữ, số kèo, số người, tổng chi, tiến độ thanh toán khi có chi phí, nút Mở và nút Xoá. Bấm tên bữa thì mở trang làm việc của bữa đó. Khi chưa có bữa nào, chế độ Danh sách hiện lời giới thiệu và nút lớn "Tạo bữa đầu tiên" thay cho danh sách trống.
+Hệ thống SHALL hiển thị mỗi bữa thành một thẻ gồm ngày, tên bữa, huy hiệu khoá nếu bữa đã lưu trữ, số kèo, số người, tổng chi, tiến độ thanh toán khi có chi phí, nút Mở và nút Xoá. Bấm tên bữa thì mở trang làm việc của bữa đó. Khi chưa có bữa nào, chế độ Danh sách hiện lời giới thiệu và nút "Tạo bữa đầu tiên" thay cho danh sách trống.
 
 #### Scenario: Lần đầu mở ứng dụng
 - **WHEN** chưa có bữa nào trong ứng dụng
-- **THEN** màn hình hiện lời giới thiệu ngắn và nút "Tạo bữa đầu tiên"
+- **THEN** màn hình hiện lời giới thiệu ngắn và nút có nhãn "Tạo bữa đầu tiên", nút chỉ có biểu tượng dấu cộng
 - **AND** không hiện danh sách trống
 
 #### Scenario: Bấm tên bữa trên thẻ
@@ -165,7 +174,7 @@ Hệ thống SHALL hiển thị mỗi bữa thành một thẻ gồm ngày, tên
 - **THEN** ứng dụng mở trang làm việc của bữa đó theo đường dẫn `#/meal/<id>`
 
 ### Requirement: Chế độ xem Theo loại
-Hệ thống SHALL chia bữa thành hai tab "Đang hoạt động (n)" và "Đã lưu trữ (n)", với n là số bữa của tab, và chọn sẵn tab đầu tiên khi mở. Mỗi tab chỉ liệt kê bữa thuộc trạng thái của tab đó, theo thứ tự chung của ứng dụng. Mũi tên trái và phải chuyển giữa hai tab. Tab trống hiện một câu giải thích; tab "Đã lưu trữ" trống nêu rằng bữa chỉ lưu trữ được khi mọi khoản thanh toán đã hoàn tất.
+Hệ thống SHALL chia bữa thành hai tab "Đang hoạt động (n)" và "Đã lưu trữ (n)", với n là số bữa của tab, và chọn sẵn tab đầu tiên khi mở. Mỗi tab chỉ liệt kê bữa thuộc trạng thái của tab đó, theo thứ tự chung của ứng dụng. Mũi tên trái và phải chuyển giữa hai tab. Tab trống hiện một câu giải thích; tab "Đã lưu trữ" trống nêu rằng bữa chỉ lưu trữ được khi mọi khoản thanh toán đã hoàn tất. Khi chưa có bữa nào, chế độ này hiện lời giới thiệu và nút tạo bữa như chế độ Danh sách, thay cho hai tab.
 
 #### Scenario: Đếm và tách hai tab
 - **WHEN** có hai bữa đang hoạt động và một bữa đã lưu trữ
@@ -176,18 +185,26 @@ Hệ thống SHALL chia bữa thành hai tab "Đang hoạt động (n)" và "Đ�
 - **WHEN** người dùng mở tab "Đã lưu trữ" khi không có bữa nào được lưu trữ
 - **THEN** tab hiện câu giải thích về điều kiện lưu trữ bữa
 
+#### Scenario: Chưa có bữa nào trong ứng dụng
+- **WHEN** chưa có bữa nào và người dùng mở chế độ Theo loại
+- **THEN** màn hình hiện lời giới thiệu và nút "Tạo bữa đầu tiên" thay cho hai tab
+
 ### Requirement: Tổng chi và tiến độ thanh toán trên thẻ bữa
-Hệ thống SHALL tính tổng chi của bữa đang hoạt động bằng tổng tiền các hoá đơn của bữa đó. Bữa chưa có hoá đơn hiện "Chưa có chi phí" chứ không hiện số 0. Với bữa đã lưu trữ, tổng chi lấy từ bản tóm tắt lưu trữ của bữa; thiếu bản tóm tắt thì coi như chưa có chi phí. Tiến độ thanh toán chỉ hiện khi bữa có chi phí, và đếm theo số khoản chuyển tiền do quyết toán tính (xem capability `settlement`), không đếm theo số người.
+Hệ thống SHALL tính tổng chi của bữa đang hoạt động bằng tổng tiền các hoá đơn của bữa đó. Bữa chưa có hoá đơn hiện "Chưa có chi phí" chứ không hiện số 0. Với bữa đã lưu trữ, tổng chi và tiến độ lấy từ bản tóm tắt lưu trữ của bữa; thiếu bản tóm tắt thì coi như chưa có chi phí. Tiến độ thanh toán chỉ hiện khi bữa có chi phí, dạng "x/y đã trả", đếm theo số khoản chuyển tiền do quyết toán tính (xem capability `settlement`), không đếm theo số người.
 
 #### Scenario: Bữa có hoá đơn
 - **WHEN** bữa có hai hoá đơn tổng 1.620.000 đồng và 830.000 đồng
 - **THEN** thẻ hiện tổng chi "2.450.000 ₫"
-- **AND** thẻ hiện tiến độ dạng "đã trả trên tổng" của các khoản chuyển tiền
+- **AND** thẻ hiện tiến độ dạng "x/y đã trả", với x là số khoản chuyển đã trả và y là tổng số khoản chuyển tiền
 
 #### Scenario: Bữa chưa có hoá đơn
 - **WHEN** bữa đang hoạt động chưa có hoá đơn nào
 - **THEN** thẻ hiện "Chưa có chi phí" và không hiện tiến độ thanh toán
 - **AND** cột tóm tắt ở trang làm việc hiện "—" thay cho tổng chi
+
+#### Scenario: Bữa đã lưu trữ có bản tóm tắt
+- **WHEN** bữa có trạng thái `ARCHIVED` và có bản tóm tắt lưu trữ gồm n khoản chuyển tiền
+- **THEN** thẻ hiện tổng chi lấy từ bản tóm tắt và tiến độ "n/n đã trả"
 
 #### Scenario: Bữa đã lưu trữ thiếu bản tóm tắt
 - **WHEN** bữa có trạng thái `ARCHIVED` nhưng không có bản tóm tắt lưu trữ
@@ -229,7 +246,7 @@ Hệ thống SHALL dùng đường dẫn hash để chuyển giữa danh sách b
 - **THEN** ứng dụng quay về danh sách bữa theo đường dẫn `#/`
 
 ### Requirement: Trang làm việc của bữa theo bước
-Hệ thống SHALL hiển thị trang làm việc của bữa thành bốn bước theo thứ tự: 1 Bữa, 2 Người, 3 Hoá đơn, 4 Chia tiền, và mở sẵn bước 1. Bước Bữa chứa thông tin bữa sửa tại chỗ. Thanh đầu trang hiện nút quay lại, tên bữa, ngày, trạng thái và nút xoá. Từ 1024 px trở lên, trang có thêm cột tóm tắt bên phải gồm số người, số kèo, tổng chi và số khoản đã trả.
+Hệ thống SHALL hiển thị trang làm việc của bữa thành bốn bước theo thứ tự: 1 Bữa, 2 Người, 3 Hoá đơn, 4 Chia tiền, và mở sẵn bước 1. Bước Bữa chứa thông tin bữa sửa tại chỗ. Thanh đầu trang hiện nút quay lại, tên bữa, ngày, trạng thái và nút xoá. Từ 1024 px trở lên, trang có thêm cột tóm tắt bên phải gồm số người, số kèo, tổng chi và, khi bữa có chi phí, số khoản đã trả.
 
 #### Scenario: Chuyển bước bằng tab
 - **WHEN** người dùng bấm tab "2. Người"

@@ -59,7 +59,7 @@ Hệ thống SHALL cho sửa hoặc xoá từng món đã lưu của hoá đơn 
 - **THEN** hệ thống từ chối với mã lỗi `LAST_ITEM_CANNOT_DELETE`, món vẫn được giữ lại
 
 ### Requirement: Thứ tự món
-Hệ thống SHALL cho đổi vị trí một món lên hoặc xuống trong danh sách của hoá đơn `ITEMIZED`. Thứ tự được lưu thành số thứ tự liên tục bắt đầu từ 0, và việc đổi thứ tự không làm thay đổi tiền hay người ăn của bất kỳ món nào.
+Hệ thống SHALL cho đổi vị trí một món lên hoặc xuống trong danh sách của hoá đơn `ITEMIZED`. Thứ tự được lưu thành số thứ tự liên tục bắt đầu từ 0. Việc đổi thứ tự không làm thay đổi người ăn của bất kỳ món nào, nhưng thành tiền của món được tính lại theo thứ tự mới, nên phần dư 1 đồng có thể chuyển sang món khác.
 
 #### Scenario: Chuyển món lên hoặc xuống
 - **WHEN** người dùng bấm nút lên hoặc xuống của một món
@@ -158,6 +158,10 @@ Hệ thống SHALL cho gán cùng một nhóm người ăn, mỗi người một
 - **WHEN** người dùng gán người ăn hàng loạt cho hoá đơn `TOTAL_ONLY`
 - **THEN** không món nào được ghi và kết quả là danh sách rỗng
 
+#### Scenario: Gán nhóm rỗng cho tất cả món
+- **WHEN** người dùng gán cho mọi món một nhóm người ăn rỗng theo chế độ tất cả món
+- **THEN** mọi món bị xoá hết người ăn và hệ thống không báo lỗi
+
 ### Requirement: Cảnh báo món chưa có người ăn
 Hệ thống SHALL đếm số món chưa có người ăn khi hoá đơn ở chế độ `BY_ITEM` và cảnh báo người dùng về các món đó. Ở chế độ `EQUAL_TOTAL`, hệ thống không đếm và không cảnh báo món.
 
@@ -200,13 +204,6 @@ Hệ thống SHALL phân bổ giảm giá, phí phục vụ và VAT vào từng 
 - **THEN** tổng `finalAmount` của hai món bằng đúng tổng thanh toán của hoá đơn
 - **AND** tổng giảm giá, phí phục vụ và VAT phân bổ của các món lần lượt bằng đúng ba khoản của hoá đơn
 
-### Requirement: Tiền tạm tính của từng người trên món
-Hệ thống SHALL hiển thị số tiền tạm tính của mỗi người ăn trên một món, làm tròn đến đồng theo công thức `F × s / S`, trong đó F là thành tiền cuối của món sau phân bổ, s là số phần của người đó và S là tổng số phần của món. Số này chỉ dùng để tham khảo và không thay thế kết quả quyết toán.
-
-#### Scenario: Món có hai người ăn với số phần khác nhau
-- **WHEN** món có thành tiền cuối 100.000, người A có 3 phần và người B có 1 phần
-- **THEN** tiền tạm tính của A là 75.000 và của B là 25.000
-
 ### Requirement: Đọc số tiền người dùng nhập
 Hệ thống SHALL đọc số tiền người dùng gõ ở các dạng `45000`, `45.000`, `45,000`, `45k`, `1,5k` và có thể kèm ký hiệu đồng ₫. Chuỗi không đọc được, chuỗi trống hoặc số vượt 9.999.999.999 đồng MUST bị từ chối.
 
@@ -236,3 +233,14 @@ Hệ thống SHALL từ chối mọi thao tác ghi lên người ứng, chế đ
 #### Scenario: Sửa món của bữa đã lưu trữ
 - **WHEN** người dùng thêm, sửa, xoá, đổi thứ tự món, gán người ăn hoặc đổi người ứng của một hoá đơn thuộc bữa `ARCHIVED`
 - **THEN** hệ thống từ chối với mã lỗi `MEAL_ARCHIVED` và dữ liệu không đổi
+
+### Requirement: Hiển thị dòng món và số thứ tự
+Hệ thống SHALL đánh số các món của hoá đơn `ITEMIZED` từ 1 theo vị trí hiện tại trong danh sách. Số thứ tự chỉ để hiển thị và người dùng không sửa được. Mỗi dòng món hiển thị theo dạng `đơn giá × số lượng = thành tiền`.
+
+#### Scenario: Đánh số lại sau khi chuyển món
+- **WHEN** một món được chuyển lên hoặc xuống
+- **THEN** số thứ tự của mọi món được tính lại theo vị trí mới, bắt đầu từ 1
+
+#### Scenario: Dạng hiển thị của dòng món
+- **WHEN** dòng món được hiển thị với đơn giá 150.000 và số lượng 2
+- **THEN** dòng hiển thị `150.000 ₫ × 2 = 300.000 ₫`

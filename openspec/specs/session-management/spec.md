@@ -43,15 +43,21 @@ Hệ thống SHALL đặt tên mặc định cho kèo theo dạng `Kèo <n>`, tr
 - **GIVEN** kèo đang có tên mặc định `Kèo 2`
 - **WHEN** người dùng chuyển giao diện sang tiếng Anh
 - **THEN** kèo hiển thị là `Venue 2`
-- **AND** kèo có tên do người dùng đặt vẫn hiển thị đúng tên đó
+- **AND** kèo có tên không theo dạng mặc định, ví dụ `Lẩu`, vẫn hiển thị đúng tên đó
 
 ### Requirement: Đổi tên kèo bằng tay
-Hệ thống SHALL cho phép người dùng đổi tên bất kỳ kèo nào của bữa đang hoạt động vào bất cứ lúc nào. Sau khi đổi, tên mới được ghi nhận như tên do người dùng tự đặt.
+Hệ thống SHALL cho phép người dùng đổi tên bất kỳ kèo nào của bữa đang hoạt động vào bất cứ lúc nào. Tên mới được lưu sau khi làm sạch như tên người dùng nhập. Tên có dạng `Kèo <số>` hoặc `Venue <số>` vẫn bị coi là tên mặc định theo vị trí.
 
 #### Scenario: Đổi tên kèo đã có tên riêng
 - **GIVEN** kèo có tên `Lẩu`
 - **WHEN** người dùng đổi tên thành `Cafe`
 - **THEN** kèo mang tên `Cafe`
+
+#### Scenario: Đặt tên trùng dạng tên mặc định
+- **GIVEN** kèo có tên `Lẩu`
+- **WHEN** người dùng đổi tên thành `Kèo 5`
+- **THEN** kèo mang tên `Kèo 5`
+- **AND** kèo vẫn bị coi là tên mặc định, nên có thể bị đổi theo tên quán khi lưu hoá đơn có tên quán
 
 ### Requirement: Tự đổi tên kèo theo tên quán
 Hệ thống SHALL tự đổi tên kèo thành `Kèo <tên quán>` khi một hoá đơn của kèo được lưu với tên quán lấy từ OCR, nhưng chỉ khi tên kèo hiện tại vẫn là tên mặc định dạng `Kèo <n>`. Tên quán được cắt sao cho tên kèo không vượt 80 ký tự. Kèo đã có tên riêng không bị đổi.
@@ -69,7 +75,7 @@ Hệ thống SHALL tự đổi tên kèo thành `Kèo <tên quán>` khi một ho
 
 #### Scenario: Tên quán quá dài
 - **WHEN** tên quán dài 200 ký tự được dùng để đổi tên kèo mặc định
-- **THEN** tên kèo mới có đúng 80 ký tự
+- **THEN** tên kèo mới không vượt 80 ký tự
 
 ### Requirement: Sắp xếp thứ tự kèo
 Hệ thống SHALL cho phép đổi chỗ một kèo với kèo liền trên hoặc liền dưới. Thứ tự các kèo luôn liên tục bắt đầu từ 0 và kèo được hiển thị theo thứ tự này. Kèo ở đầu không thể đưa lên, kèo ở cuối không thể đưa xuống, và thao tác đó không làm thay đổi gì.
@@ -180,7 +186,52 @@ Hệ thống SHALL từ chối mọi thao tác thêm, đổi tên, đổi chỗ 
 - **WHEN** có yêu cầu thêm kèo vào bữa đó
 - **THEN** thao tác bị từ chối với mã `MEAL_ARCHIVED`
 
+### Requirement: Kèo hoặc bữa không tồn tại
+Hệ thống SHALL từ chối thao tác trên kèo không tồn tại với mã `SESSION_NOT_FOUND`, và từ chối thêm kèo vào bữa không tồn tại với mã `MEAL_NOT_FOUND`. Khi bị từ chối, dữ liệu không thay đổi.
+
+#### Scenario: Đổi tên kèo đã bị xoá
+- **GIVEN** kèo đã bị xoá khỏi dữ liệu
+- **WHEN** người dùng đổi tên kèo đó
+- **THEN** thao tác bị từ chối với mã `SESSION_NOT_FOUND`
+
 #### Scenario: Xem kèo của bữa đã lưu trữ
 - **GIVEN** bữa có trạng thái ARCHIVED và kèo đã có số đã chốt
 - **WHEN** người dùng mở bữa
-- **THEN** kèo hiển thị tổng đã chốt và danh sách hoá đơn đã chốt, không có nút sửa
+- **THEN** kèo hiển thị tổng đã chốt, số hoá đơn đã chốt, danh sách người ứng tiền với số tiền đã chốt và các món còn giữ, không có nút sửa
+
+#### Scenario: Xoá kèo của bữa đã lưu trữ
+- **GIVEN** bữa có trạng thái ARCHIVED
+- **WHEN** có yêu cầu xoá một kèo của bữa đó ở tầng dịch vụ
+- **THEN** thao tác không bị từ chối với mã `MEAL_ARCHIVED`, và kèo cùng dữ liệu con của kèo bị xoá
+- **AND** giao diện không hiển thị nút xoá kèo cho bữa đã lưu trữ
+
+### Requirement: Thu gọn và mở rộng kèo
+Hệ thống SHALL hiển thị mỗi kèo thành một khối thu gọn được. Khi thu gọn, khối hiện tên kèo và số hoá đơn của kèo. Mọi kèo mặc định ở trạng thái thu gọn, kể cả kèo vừa thêm. Người dùng bấm nút "Mở" của kèo để xem chi tiết, và bấm "Thu gọn" để đóng lại.
+
+#### Scenario: Mở bữa có nhiều kèo
+- **GIVEN** bữa có hai kèo
+- **WHEN** người dùng mở trang làm việc của bữa
+- **THEN** cả hai kèo đều thu gọn
+
+#### Scenario: Mở một kèo
+- **WHEN** người dùng bấm "Mở" trên một kèo đang thu gọn
+- **THEN** kèo đó hiện phần chi tiết, gồm dòng "Tham gia:" và danh sách hoá đơn
+
+### Requirement: Thêm hoá đơn nhanh trên kèo chưa có chi phí
+Hệ thống SHALL hiển thị nút "Thêm hoá đơn nhanh" trên kèo chưa có hoá đơn nào và bữa chưa lưu trữ. Bấm nút mở form thêm hoá đơn của kèo đó. Nút bị vô hiệu hoá khi kèo chưa có người tham gia. Nút không hiển thị ở bữa đã lưu trữ.
+
+#### Scenario: Kèo chưa có chi phí có nút thêm nhanh
+- **GIVEN** kèo có ít nhất một người tham gia và chưa có hoá đơn nào
+- **WHEN** người dùng xem kèo
+- **THEN** kèo hiển thị nút "Thêm hoá đơn nhanh" bấm được
+- **AND** bấm nút mở form thêm hoá đơn của kèo đó
+
+#### Scenario: Kèo chưa có người tham gia
+- **GIVEN** kèo chưa có người tham gia nào
+- **WHEN** người dùng xem kèo
+- **THEN** nút "Thêm hoá đơn nhanh" hiển thị nhưng bị vô hiệu hoá
+
+#### Scenario: Kèo đã có chi phí
+- **GIVEN** kèo đã có ít nhất một hoá đơn
+- **WHEN** người dùng xem kèo
+- **THEN** kèo không hiển thị nút "Thêm hoá đơn nhanh"

@@ -6,7 +6,7 @@ Capability này quản lý con người trong một bữa: thêm người có s�
 ## Requirements
 
 ### Requirement: Thêm người có sẵn trong danh bạ vào bữa
-Hệ thống SHALL thêm một người đã có trong danh bạ vào danh sách người tham gia của bữa, đồng thời cập nhật thời điểm dùng gần nhất của người đó. Người đã tham gia bữa không được thêm lần thứ hai và thao tác này không báo lỗi.
+Hệ thống SHALL thêm một người đã có trong danh bạ vào danh sách người tham gia của bữa. Khi người đó được thêm mới, thời điểm dùng gần nhất của người đó được cập nhật. Người đã tham gia bữa không được thêm lần thứ hai, thao tác này không báo lỗi và không đổi thời điểm dùng gần nhất.
 
 #### Scenario: Thêm người chưa tham gia bữa
 - **WHEN** người dùng chọn một người trong danh bạ chưa tham gia bữa
@@ -23,7 +23,7 @@ Hệ thống SHALL thêm một người đã có trong danh bạ vào danh sách
 - **AND** bữa không thay đổi
 
 ### Requirement: Tạo người mới và thêm vào bữa trong một thao tác
-Hệ thống SHALL tạo người mới từ tên người dùng nhập và thêm người đó vào bữa trong cùng một thao tác. Nếu danh bạ đã có người cùng tên hiển thị sau khi chuẩn hoá (không phân biệt hoa thường, cùng dấu) thì hệ thống dùng người đó và không tạo bản sao. Kết quả trả về cho biết người đó có vừa được tạo hay không.
+Hệ thống SHALL tạo người mới từ tên người dùng nhập và thêm người đó vào bữa trong cùng một thao tác. Tên được làm sạch khoảng trắng và viết hoa chữ đầu mỗi từ; tên rỗng hoặc dài quá 50 ký tự bị từ chối với lỗi `INVALID_NAME`. Nếu danh bạ đã có người cùng tên hiển thị (không phân biệt hoa thường, cùng dấu) thì dùng người đó và không tạo bản sao. Hồ sơ nhóm không được tính là người cùng tên. Kết quả trả về cho biết người đó có vừa được tạo hay không.
 
 #### Scenario: Tạo người mới
 - **WHEN** người dùng nhập một tên chưa có trong danh bạ
@@ -33,6 +33,15 @@ Hệ thống SHALL tạo người mới từ tên người dùng nhập và thê
 - **WHEN** người dùng nhập một tên khác hoa thường với người đã có trong danh bạ, ví dụ `CƯỜNG` khi đã có `Cường`
 - **THEN** hệ thống không tạo người thứ hai
 - **AND** người đã có được thêm vào bữa và kết quả cho biết không tạo mới
+
+#### Scenario: Tên rỗng hoặc quá dài
+- **WHEN** người dùng nhập tên rỗng hoặc dài hơn 50 ký tự sau khi làm sạch
+- **THEN** thao tác bị từ chối với lỗi `INVALID_NAME`
+- **AND** danh bạ và bữa không thay đổi
+
+#### Scenario: Tên trùng hồ sơ nhóm
+- **WHEN** người dùng nhập một tên trùng với hồ sơ nhóm đã lưu trong danh bạ, ví dụ `Cặp Đôi` khi đã có hồ sơ nhóm `Cặp Đôi`
+- **THEN** hệ thống tạo một người mới với tên đó và không dùng hồ sơ nhóm
 
 ### Requirement: Bữa lưu trữ không được đổi người, chủ trì hoặc nhóm
 Hệ thống SHALL từ chối mọi thay đổi về người tham gia, chủ trì và nhóm thanh toán của một bữa có trạng thái `ARCHIVED`, với lỗi `MEAL_ARCHIVED`, và không ghi dữ liệu nào. Khi mã bữa không tồn tại, hệ thống báo lỗi `MEAL_NOT_FOUND`.
@@ -101,6 +110,10 @@ Hệ thống SHALL gỡ người bị bỏ khỏi mọi nhóm thanh toán của 
 - **WHEN** người dùng bỏ một người khỏi nhóm ba người
 - **THEN** nhóm giữ lại hai người còn lại
 
+#### Scenario: Hồ sơ nhóm không đổi khi co nhóm
+- **WHEN** người dùng bỏ một người khỏi bữa và người đó đang thuộc một nhóm của bữa có hồ sơ trong danh bạ
+- **THEN** hồ sơ nhóm trong danh bạ vẫn giữ danh sách thành viên cũ, kể cả người vừa bị bỏ
+
 #### Scenario: Đại diện bị bỏ
 - **WHEN** người dùng bỏ người đang là đại diện của nhóm, và nhóm vẫn còn từ hai người trở lên
 - **THEN** đại diện mới là thành viên đầu tiên còn lại của nhóm
@@ -162,6 +175,10 @@ Hệ thống SHALL chọn người đầu tiên trong danh sách thành viên l�
 - **WHEN** nhóm được tạo mà không chỉ định đại diện
 - **THEN** đại diện là thành viên được chọn đầu tiên
 
+#### Scenario: Sửa nhóm bỏ đại diện cũ
+- **WHEN** người dùng sửa nhóm, bỏ người đang là đại diện, nhóm vẫn còn từ hai người trở lên và không chỉ định đại diện mới
+- **THEN** đại diện là thành viên đầu tiên còn lại của nhóm
+
 #### Scenario: Đại diện ngoài nhóm
 - **WHEN** người dùng chỉ định đại diện không thuộc nhóm
 - **THEN** thao tác bị từ chối với lỗi `NOT_IN_GROUP`
@@ -217,6 +234,11 @@ Hệ thống SHALL lưu mỗi nhóm được tạo thành một hồ sơ nhóm t
 - **THEN** nhóm được tạo
 - **AND** nhóm không được liên kết với hồ sơ nhóm nào trong danh bạ
 
+#### Scenario: Tên nhóm trùng hồ sơ nhóm đã có
+- **WHEN** người dùng tạo nhóm có tên trùng với một hồ sơ nhóm đã có trong danh bạ
+- **THEN** hồ sơ nhóm cũ được cập nhật thành thành viên của nhóm mới
+- **AND** nhóm mới được liên kết với hồ sơ đó
+
 ### Requirement: Thêm nhóm từ danh bạ vào bữa
 Hệ thống SHALL cho thêm một hồ sơ nhóm từ danh bạ vào bữa như một cá nhân: các thành viên chưa có trong bữa được thêm vào danh sách người tham gia, rồi nhóm được dựng trong bữa với tên là tên hồ sơ và đại diện là thành viên đầu tiên. Nếu bữa đã có nhóm từ hồ sơ này thì thao tác không làm gì. Nếu một thành viên đang thuộc nhóm khác trong bữa thì thao tác bị từ chối với lỗi `MEMBER_ALREADY_GROUPED`.
 
@@ -232,3 +254,7 @@ Hệ thống SHALL cho thêm một hồ sơ nhóm từ danh bạ vào bữa như
 #### Scenario: Thành viên đã ở nhóm khác
 - **WHEN** người dùng thêm hồ sơ nhóm mà một thành viên đang thuộc nhóm khác trong bữa
 - **THEN** thao tác bị từ chối với lỗi `MEMBER_ALREADY_GROUPED`
+
+#### Scenario: Hồ sơ nhóm còn ít hơn hai người trong danh bạ
+- **WHEN** người dùng thêm một hồ sơ nhóm mà chỉ còn dưới hai thành viên tồn tại trong danh bạ
+- **THEN** thao tác bị từ chối với lỗi `GROUP_TOO_SMALL`

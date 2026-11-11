@@ -5,7 +5,7 @@ description: Tạo tính năng mới hoặc thay đổi hành vi của app Chia 
 
 # Tạo tính năng mới theo OpenSpec
 
-Skill này gắn luồng OpenSpec (`/opsx:propose` → `/opsx:apply` → `/opsx:archive`) với quy tắc riêng của dự án. Nguồn sự thật về hành vi hiện tại là `openspec/specs/`; mọi thay đổi hành vi phải đi qua một change trong `openspec/changes/`.
+Skill này gắn luồng OpenSpec (`/opsx:propose` → `/opsx:apply` → `/opsx:archive`) với quy tắc riêng của dự án. Nguồn sự thật về hành vi hiện tại là `openspec/specs/`; mọi thay đổi hành vi phải đi qua một change trong `openspec/changes/`. Lịch sử thiết kế và các thay đổi trước đây nằm trong `openspec/changes/archive/` (xem bằng `openspec list --archived`); dự án không có thư mục tài liệu nào khác, nên không viết tài liệu thiết kế ngoài OpenSpec.
 
 Có ba điểm dừng bắt buộc chờ người dùng: sau bước 2 (duyệt đề xuất), sau bước 4 (duyệt kết quả), và trước khi push hoặc mở PR.
 
@@ -43,6 +43,7 @@ Bảng tra nhanh miền nào nằm ở đâu:
 | `meal-archive` | `domain/archiveRules.ts`, `services/archiveService.ts` |
 | `payment-sharing-snapshot` | `domain/shareSnapshot.ts`, `domain/snapshotCodec.ts`, `domain/vietQr.ts`, `services/snapshotService.ts`, `components/share/` |
 | `i18n` | `i18n/index.ts`, `i18n/en.ts`, `db/languageStore.ts` |
+| `design-system` | `components/ui/`, `index.css`, `app/tailwind.config.js`, `app/index.html` |
 
 ## Bước 2 — Viết đề xuất (chỉ lập kế hoạch, chưa code)
 

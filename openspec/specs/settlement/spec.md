@@ -6,7 +6,7 @@ Quyết toán toàn bữa: tổng hợp số tiền mỗi thành viên đã ứn
 ## Requirements
 
 ### Requirement: Tổng hợp số đã ứng và số phải chi của từng thành viên
-Hệ thống SHALL tính cho mỗi thành viên trong bữa hai số: tổng tiền đã ứng (`totalPaid`), là tổng `totalAmount` của các hoá đơn mà người đó là người ứng, và tổng tiền phải chi (`totalOwed`), là tổng phần chi phí của người đó trên mọi hoá đơn của các kèo đã tham gia. Số dư ròng của mỗi thành viên bằng tổng đã ứng trừ tổng phải chi. Kết quả đi kèm bảng giải trình liệt kê từng hoá đơn đã ứng và từng dòng chi phí tạo nên tổng phải chi.
+Hệ thống SHALL tính cho mỗi thành viên trong bữa hai số: tổng tiền đã ứng (`totalPaid`), là tổng `totalAmount` của các hoá đơn mà người đó là người ứng trong kèo có người đó tham gia, và tổng tiền phải chi (`totalOwed`), là tổng phần chi phí của người đó trên mọi hoá đơn của các kèo đã tham gia. Số dư ròng bằng tổng đã ứng trừ tổng phải chi. Kết quả đi kèm bảng giải trình liệt kê từng hoá đơn đã ứng và từng dòng chi phí tạo nên tổng phải chi.
 
 #### Scenario: Người ứng hoá đơn chia đều
 - **WHEN** bữa có một kèo gồm ba người và một hoá đơn 100.000 đ chia đều cho cả ba, do người A ứng
@@ -14,9 +14,9 @@ Hệ thống SHALL tính cho mỗi thành viên trong bữa hai số: tổng ti�
 - **AND** tổng phải chi của ba người cộng lại bằng 100.000 đ
 
 #### Scenario: Món được chia theo số phần
-- **WHEN** một món 100.000 đ có người A ăn 3 phần và người B ăn 1 phần
+- **WHEN** một món 100.000 đ có người A ăn 3 phần và người B ăn 1 phần, hoá đơn chứa món này do A ứng, và cả hai cùng thuộc một kèo
 - **THEN** tổng phải chi của A là 75.000 đ và của B là 25.000 đ
-- **AND** trạng thái hoàn tất của bữa vẫn chưa đúng vì chưa có khoản nào được tick
+- **AND** bữa có một khoản B chuyển cho A 25.000 đ, và bữa chưa được coi là đã thanh toán xong vì khoản này chưa được tick
 
 ### Requirement: Chi phí của kèo chỉ tính trên người tham gia kèo đó
 Hệ thống SHALL chỉ tính chi phí của một hoá đơn cho những người nằm trong danh sách tham gia của kèo chứa hoá đơn đó. Tiền ứng của người không tham gia kèo đó không được ghi nhận vào tổng đã ứng của người ấy. Hoá đơn vẫn được tính vào tổng tiền của bữa dù người ứng không thuộc kèo.
@@ -25,6 +25,11 @@ Hệ thống SHALL chỉ tính chi phí của một hoá đơn cho những ngư�
 - **WHEN** bữa có kèo 1 gồm A và B, kèo 2 gồm A, B và C, và một hoá đơn 90.000 đ ở kèo 2 do C ứng, chia đều cho ba người
 - **THEN** C chỉ phải chi 30.000 đ, là phần của hoá đơn ở kèo 2
 - **AND** tổng đã ứng của C là 90.000 đ
+
+#### Scenario: Thành viên ngoài kèo bị loại khỏi phần chia
+- **WHEN** bữa có kèo 1 gồm A và B, và một hoá đơn 60.000 đ ở kèo 1 do A ứng, chia đều cho A, B và C, trong đó C không thuộc kèo 1
+- **THEN** A và B mỗi người phải chi 30.000 đ
+- **AND** C không phải chi khoản nào từ hoá đơn này
 
 #### Scenario: Người ứng không thuộc kèo
 - **WHEN** một hoá đơn thuộc kèo có người ứng không nằm trong danh sách tham gia của kèo đó
@@ -44,13 +49,19 @@ Hệ thống SHALL làm tròn tổng phải chi của từng thành viên về s
 - **THEN** tổng phải chi của mọi thành viên bằng đúng 999.999 đ
 
 ### Requirement: Món chưa có người ăn không được tự chia cho ai
-Hệ thống SHALL không tự chia một món chưa có người ăn, tức là món không có người nào có số phần dương trong kèo của nó hoặc chỉ có người ngoài kèo. Số tiền của các món này được tách thành tiền chưa phân bổ, số món được đếm riêng, và bảng quyết toán hiển thị cảnh báo nêu số món và số tiền chưa có người ăn. Khi còn món như vậy, bữa không được coi là đã thanh toán xong.
+Hệ thống SHALL không tự chia món chưa có người ăn, tức món không có người nào có số phần dương trong kèo hoặc chỉ có người ngoài kèo. Tiền của các món này được tách thành tiền chưa phân bổ, số món được đếm riêng và bảng quyết toán cảnh báo số món và số tiền đó. Bữa không được coi là đã thanh toán xong khi số món chưa có người ăn lớn hơn 0. Hoá đơn chia đều theo tổng không có người chia hợp lệ chỉ tăng tiền chưa phân bổ, không được đếm là món.
 
 #### Scenario: Một món chưa có người ăn
 - **WHEN** một hoá đơn chi tiết có món 100.000 đ có người ăn và món 50.000 đ không có ai ăn
 - **THEN** tiền chưa phân bổ của bữa là 50.000 đ và số món chưa phân bổ là 1
 - **AND** tổng phải chi của các thành viên là 100.000 đ
 - **AND** bữa không được coi là đã thanh toán xong
+
+#### Scenario: Hoá đơn chia đều không có người chia hợp lệ
+- **WHEN** bữa có kèo gồm A và B, và một hoá đơn 100.000 đ ở kèo này do A ứng, kiểu chia đều theo tổng, mà danh sách người chia chỉ gồm người ngoài kèo
+- **THEN** tiền chưa phân bổ của bữa là 100.000 đ và số món chưa phân bổ là 0
+- **AND** bảng quyết toán không hiển thị cảnh báo chưa có người ăn
+- **AND** khi không còn khoản chuyển nào chưa được tick, bữa được coi là đã thanh toán xong
 
 ### Requirement: Gom thành viên theo nhóm thanh toán
 Hệ thống SHALL gom các thành viên thuộc cùng một nhóm thanh toán thành một thực thể thanh toán có tổng đã ứng, tổng phải chi và số dư ròng chung, và đặt tên thực thể theo tên nhóm. Chỉ nhóm còn ít nhất hai thành viên đang tham gia bữa mới được gom. Thành viên không thuộc nhóm nào, hoặc còn lại một người trong nhóm, là thực thể riêng.
@@ -77,22 +88,22 @@ Hệ thống SHALL khi bữa ở chế độ `SELF_SETTLEMENT` sinh các lệnh 
 - **THEN** danh sách lệnh chuyển tiền rỗng
 
 ### Requirement: Chế độ nhờ người chủ trì thu chi
-Hệ thống SHALL khi bữa ở chế độ `HOST_MEDIATED` quy mọi lệnh về thực thể chủ trì: thực thể đang nợ chuyển đúng số nợ cho chủ trì, còn chủ trì hoàn lại số dư dương cho thực thể được nhận. Nếu chủ trì nằm trong một nhóm thanh toán thì nhóm đó đóng vai trò đầu mối. Không bao giờ có lệnh từ chủ trì (hay nhóm chứa chủ trì) chuyển cho chính mình, và thực thể chủ trì không cần tick đã chuyển.
+Hệ thống SHALL khi bữa ở chế độ `HOST_MEDIATED` quy mọi lệnh về thực thể chủ trì: thực thể đang nợ chuyển đúng số nợ cho chủ trì, còn chủ trì hoàn lại số dư dương cho thực thể được nhận. Nếu chủ trì nằm trong một nhóm thanh toán thì nhóm đó đóng vai trò đầu mối. Không bao giờ có lệnh từ chủ trì (hay nhóm chứa chủ trì) chuyển cho chính mình. Các lệnh có chủ trì ở một đầu vẫn có ô tick "Đã chuyển" như mọi lệnh khác.
 
 #### Scenario: Chủ trì đứng riêng
 - **WHEN** chủ trì H có số dư ròng +20.000 đ, A nợ 50.000 đ và B được nhận lại 30.000 đ
 - **THEN** có hai lệnh: A chuyển H 50.000 đ, và H chuyển B 30.000 đ
-- **AND** H không phải tick đã chuyển
+- **AND** cả hai lệnh đều có ô tick "Đã chuyển" và tiến độ đếm cả hai
 
 #### Scenario: Chủ trì nằm trong một nhóm thanh toán
-- **WHEN** chủ trì H thuộc nhóm "Vợ chồng" gồm H và W, và A được nhận lại 60.000 đ
+- **WHEN** chủ trì H thuộc nhóm "Vợ chồng" gồm H và W, nhóm có số dư ròng -60.000 đ, và A được nhận lại 60.000 đ
 - **THEN** lệnh duy nhất là nhóm "Vợ chồng" chuyển cho A 60.000 đ
 
 ### Requirement: Đổi chế độ quyết toán
-Hệ thống SHALL cho đổi qua lại giữa `SELF_SETTLEMENT` và `HOST_MEDIATED` và lưu chế độ đã chọn vào bữa. Kết quả quyết toán và danh sách lệnh chuyển tiền được tính lại theo chế độ mới. Giá trị chế độ không hợp lệ bị từ chối với mã `INVALID_SETTLEMENT_MODE` và bữa không thay đổi. Chọn lại chế độ đang dùng không ghi gì vào bữa.
+Hệ thống SHALL cho đổi qua lại giữa `SELF_SETTLEMENT` và `HOST_MEDIATED` và lưu chế độ đã chọn vào bữa. Kết quả quyết toán và danh sách lệnh chuyển tiền được tính lại theo chế độ mới. Công tắc "Nhờ chủ trì thu chi" bật khi chế độ là `HOST_MEDIATED`. Giá trị chế độ không hợp lệ bị từ chối với mã `INVALID_SETTLEMENT_MODE` và bữa không thay đổi. Chọn lại chế độ đang dùng không ghi gì vào bữa.
 
 #### Scenario: Chuyển sang nhờ người chủ trì
-- **WHEN** người dùng bật công tắc "Nhờ chủ trì" khi bữa đang ở chế độ tự thanh toán
+- **WHEN** người dùng bật công tắc "Nhờ chủ trì thu chi" khi bữa đang ở chế độ tự thanh toán
 - **THEN** bữa lưu `settlementMode` là `HOST_MEDIATED`
 - **AND** danh sách lệnh chuyển tiền được tính lại theo chủ trì
 
@@ -102,10 +113,10 @@ Hệ thống SHALL cho đổi qua lại giữa `SELF_SETTLEMENT` và `HOST_MEDIA
 - **AND** bữa giữ nguyên chế độ cũ
 
 ### Requirement: Danh sách lệnh chuyển tiền
-Hệ thống SHALL hiển thị mỗi lệnh chuyển tiền thành một dòng gồm tên thực thể chuyển, tên thực thể nhận và số tiền, kèm ô tick "Đã chuyển". Khi bữa chưa có hoá đơn nào, khu quyết toán chỉ hiển thị thông báo yêu cầu thêm hoá đơn và không hiển thị công tắc chế độ hay danh sách lệnh. Nút "Đánh dấu tất cả đã chuyển" chỉ hiển thị khi còn ít nhất một khoản chưa tick.
+Hệ thống SHALL hiển thị mỗi lệnh chuyển tiền thành một dòng gồm tên thực thể chuyển, tên thực thể nhận và số tiền, kèm ô tick "Đã chuyển". Khi bữa chưa có chi phí để quyết toán (chưa có hoá đơn nào, hoặc tổng tiền các hoá đơn bằng 0), khu quyết toán chỉ hiển thị thông báo yêu cầu thêm hoá đơn và không hiển thị công tắc chế độ hay danh sách lệnh. Nút "Đánh dấu tất cả đã chuyển" chỉ hiển thị khi bữa không ở chế độ chỉ xem và còn ít nhất một khoản chưa tick.
 
-#### Scenario: Bữa chưa có hoá đơn
-- **WHEN** người dùng mở quyết toán của một bữa chưa có hoá đơn nào
+#### Scenario: Bữa chưa có chi phí
+- **WHEN** người dùng mở quyết toán của một bữa chưa có hoá đơn nào hoặc tổng tiền hoá đơn bằng 0
 - **THEN** khu quyết toán hiển thị thông báo cần thêm hoá đơn
 - **AND** không hiển thị công tắc chế độ hay danh sách lệnh chuyển tiền
 
@@ -115,7 +126,7 @@ Hệ thống SHALL hiển thị mỗi lệnh chuyển tiền thành một dòng 
 - **AND** nút "Đánh dấu tất cả đã chuyển" hiển thị
 
 ### Requirement: Tick đã chuyển theo từng khoản chuyển
-Hệ thống SHALL cho tick hoặc bỏ tick "Đã chuyển" cho từng khoản chuyển tiền có trong danh sách hiện tại. Khoản chuyển được nhận diện bằng cặp thực thể nguồn và đích, dạng `fromEntityId->toEntityId`. Khi tick, bữa ghi lại thời điểm tick và số tiền của khoản đó. Khi bỏ tick, trạng thái của khoản bị xoá. Tick một khoản không có trong danh sách hiện tại bị từ chối với mã `TRANSFER_NOT_FOUND`.
+Hệ thống SHALL cho tick hoặc bỏ tick "Đã chuyển" cho từng khoản chuyển tiền có trong danh sách hiện tại. Khoản chuyển được nhận diện bằng cặp thực thể nguồn và đích, dạng `fromEntityId->toEntityId`. Khi tick, bữa ghi lại thời điểm tick và số tiền của khoản đó. Khi bỏ tick, trạng thái của khoản bị xoá. Tick hoặc bỏ tick một khoản không có trong danh sách hiện tại bị từ chối với mã `TRANSFER_NOT_FOUND`.
 
 #### Scenario: Tick rồi bỏ tick một khoản
 - **WHEN** người dùng tick khoản Bình chuyển cho chủ app 45.000 đ, rồi bỏ tick
@@ -123,7 +134,7 @@ Hệ thống SHALL cho tick hoặc bỏ tick "Đã chuyển" cho từng khoản 
 - **AND** sau khi bỏ tick, bữa không còn trạng thái nào cho khoản đó
 
 #### Scenario: Tick khoản không tồn tại
-- **WHEN** có yêu cầu tick một khoản mà khoá không khớp với khoản chuyển nào của bữa
+- **WHEN** có yêu cầu tick hoặc bỏ tick một khoản mà khoá không khớp với khoản chuyển nào của bữa
 - **THEN** hệ thống báo không tìm thấy khoản chuyển tiền
 - **AND** bữa không bị thay đổi
 
@@ -145,7 +156,7 @@ Hệ thống SHALL coi một khoản là đã chuyển chỉ khi số tiền hi�
 - **AND** một khoản mới có cùng khoá và cùng số tiền với khoản đã tick sẽ hiển thị là đã chuyển
 
 ### Requirement: Trạng thái hoàn tất của thực thể và của bữa
-Hệ thống SHALL coi một thực thể là đã xong khi mọi khoản chuyển có nó làm nguồn hoặc đích đều đã được tick, hoặc khi nó không có khoản chuyển nào. Bữa được coi là đã thanh toán xong khi có ít nhất một hoá đơn, không còn món chưa có người ăn, và mọi khoản chuyển đều đã được tick. Tiến độ thanh toán hiển thị dưới dạng số khoản đã tick trên tổng số khoản chuyển.
+Hệ thống SHALL coi một thực thể là đã xong khi mọi khoản chuyển có nó làm nguồn hoặc đích đều đã được tick, hoặc khi nó không có khoản chuyển nào. Bữa được coi là đã thanh toán xong khi có ít nhất một hoá đơn, số món chưa có người ăn bằng 0, và mọi khoản chuyển đều đã được tick. Tiến độ thanh toán hiển thị dưới dạng số khoản đã tick trên tổng số khoản chuyển.
 
 #### Scenario: Tiến độ theo số khoản chuyển
 - **WHEN** bữa có một khoản chuyển và khoản đó chưa được tick
@@ -161,7 +172,7 @@ Hệ thống SHALL coi một thực thể là đã xong khi mọi khoản chuy�
 - **THEN** bữa không được coi là đã thanh toán xong
 
 ### Requirement: Bất biến cân đối giữa tổng thu và tổng trả
-Hệ thống SHALL bảo đảm rằng tổng tiền đã ứng của mọi thực thể bằng tổng tiền các hoá đơn của bữa, tổng phải chi của mọi thực thể bằng tiền đã phân bổ, và khi không còn món chưa phân bổ thì tổng số dư ròng của mọi thực thể bằng 0. Tổng số tiền các lệnh chuyển ở chế độ tự thanh toán bằng tổng các số dư dương. Bất biến về tổng đã ứng chỉ đúng khi người ứng của mỗi hoá đơn nằm trong danh sách tham gia kèo của hoá đơn đó.
+Hệ thống SHALL bảo đảm rằng tổng tiền đã ứng của mọi thực thể bằng tổng tiền các hoá đơn của bữa, tổng phải chi của mọi thực thể bằng tiền đã phân bổ, và tổng số dư ròng của mọi thực thể bằng tiền chưa phân bổ, nên bằng 0 khi không còn tiền chưa phân bổ. Tổng số tiền các lệnh chuyển ở chế độ tự thanh toán bằng tổng các số dư dương. Các bất biến về tổng đã ứng và tổng số dư chỉ đúng khi người ứng của mỗi hoá đơn nằm trong danh sách tham gia kèo của hoá đơn đó.
 
 #### Scenario: Tổng khớp với hai kèo
 - **WHEN** bữa có hai kèo, ba thành viên, hoá đơn 60.000 đ ở kèo 1 do A ứng và chia đều cho A và B, hoá đơn 90.000 đ ở kèo 2 do C ứng và chia đều cho A, B, C
@@ -182,9 +193,9 @@ Hệ thống SHALL khi bữa ở trạng thái `ARCHIVED` và có bản tóm t�
 - **AND** bữa không bị thay đổi
 
 ### Requirement: Chi tiết quyết toán gom theo thực thể
-Hệ thống SHALL hiển thị khối "Chi tiết quyết toán" đóng sẵn bên dưới danh sách lệnh chuyển tiền. Khi mở khối này, mỗi thực thể là một khối thu gọn có tên và số dư ròng, với nhãn "Nhận lại" kèm số tiền nếu dương, "Phải trả" kèm số tiền nếu âm, hoặc "Cân bằng" nếu bằng 0. Bên trong khối thực thể có ứng trước và chi của thực thể, cùng giải trình của từng thành viên đóng sẵn có thể mở.
+Hệ thống SHALL hiển thị khối "Chi tiết quyết toán" đóng sẵn bên dưới danh sách lệnh chuyển tiền. Khi mở khối này, mỗi thực thể là một khối thu gọn có tên và số dư ròng, với nhãn "Nhận lại" kèm số tiền nếu dương, "Phải trả" kèm số tiền nếu âm, hoặc "Cân bằng" nếu bằng 0. Khi mở khối của một thực thể, hiển thị ứng trước và chi của thực thể, cùng giải trình của từng thành viên trong thực thể, hiển thị sẵn và không thu gọn thêm.
 
 #### Scenario: Xem giải trình của một thành viên trong thực thể
-- **WHEN** người dùng mở "Chi tiết quyết toán" rồi mở khối của thực thể "Bình" có nhãn "Phải trả"
-- **THEN** khối của Bình hiển thị ứng trước và chi của Bình
-- **AND** khi người dùng mở "Chi tiết Bình", giải trình của Bình hiện ra với các hoá đơn đã ứng và các dòng chi phí
+- **WHEN** người dùng mở "Chi tiết quyết toán" rồi mở khối "Chi tiết Bình" của thực thể Bình có nhãn "Phải trả"
+- **THEN** khối của Bình hiển thị "Ứng trước" và "Chi" của Bình
+- **AND** giải trình của Bình hiện ngay trong khối, gồm các hoá đơn đã ứng và các dòng chi phí, không cần mở thêm
