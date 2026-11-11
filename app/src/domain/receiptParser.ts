@@ -154,7 +154,8 @@ function isLongNonMoney(token: string): boolean {
 }
 
 function moneyValues(line: string): number[] {
-  const withoutPercent = dropZeroDecimals(line.replace(PERCENT_RE, ' '))
+  // Nhóm nghìn bị OCR tách bởi khoảng trắng ("Tổng cộng 1 562 000") được gộp lại trước khi tách số.
+  const withoutPercent = mergeThousandGroups(dropZeroDecimals(line.replace(PERCENT_RE, ' ')).split(' ')).join(' ')
   const tokens = withoutPercent.match(MONEY_TOKEN_RE) ?? []
   return tokens
     .filter((token) => !isLongNonMoney(token))
@@ -240,17 +241,30 @@ function findSeller(lines: string[]): string | undefined {
   return undefined
 }
 
+/** Dòng siêu dữ liệu có nhãn và mã/số: "Số HĐ: 300174", "Số order: 1.11", "Mã HĐ: …". Không phải tên quán. */
+const VENDOR_METADATA_RE = /^\W*(?:so hd|so hoa don|ma hd|so bill|so order|so phieu|ngay|gio)\s*:\s*\S*\d/
+
+/** Dòng rác OCR từ logo: quá nửa số token là một chữ cái hoặc một số ("E R MAT s 38 E"). Một token không tính là rác. */
+function isNoiseLine(line: string): boolean {
+  const tokens = line.trim().split(/\s+/)
+  if (tokens.length < 2) return false
+  const noise = tokens.filter((t) => /^\p{L}$/u.test(t) || /^\d+$/.test(t)).length
+  return noise * 2 >= tokens.length
+}
+
 function findVendor(lines: string[]): string | undefined {
   const seller = findSeller(lines)
   if (seller) return seller
   let best: { name: string; score: number } | undefined
   for (const line of lines.slice(0, 4)) {
     if (hit(ADDRESS_RE, line) || hit(HEADER_RE, line) || !/[A-Za-zÀ-ỹ]/.test(line)) continue
+    if (hit(VENDOR_METADATA_RE, line) || isNoiseLine(line)) continue
     if (/\d{1,2}[/.-]\d{1,2}[/.-]\d/.test(line)) continue
     let score = 0
     if (hit(VENDOR_KEYWORD_RE, line)) score += 2
     const letters = line.replace(/[^A-Za-zÀ-ỹ]/g, '')
-    const upper = letters.replace(/[^A-ZÀ-Ỹ]/g, '')
+    // Chữ hoa theo đúng hoa/thường: dải "À-Ỹ" còn chứa cả chữ thường có dấu như "à", nên không dùng regex dải đó.
+    const upper = [...letters].filter((c) => c !== c.toLowerCase())
     if (letters.length > 0 && upper.length / letters.length >= 0.7) score += 1
     if (score > 0 && (!best || score > best.score)) {
       best = { name: line.replace(/[:-]+$/, '').trim(), score }
@@ -262,6 +276,8 @@ function findVendor(lines: string[]): string | undefined {
 function cleanItemName(raw: string): string | undefined {
   // Số thứ tự (STT) đầu dòng của bảng: "1 | Canh chua", "5 |Cơm", "_3._ Cải", "2. Bia".
   let name = raw.replace(/^[^\p{L}\p{N}]*\d{1,2}\s*(?:[.)]+[_\s]+|\|+\s*)/u, '').trim()
+  // STT dính liền dấu chấm vào chữ: "1.SALMON", "11.Coke", "0.JAPANESE". Số đầu tên không có dấu chấm ("7 Up") giữ nguyên.
+  name = name.replace(/^\d{1,3}\.(?=\p{L})/u, '')
   // Đuôi rác do OCR đọc đường kẻ/dấu chấm thành ": n :", và dấu câu rác ở hai đầu ("` Matcha", "NUI XÀO BO .").
   for (let prev = ''; prev !== name; ) {
     prev = name
@@ -295,12 +311,17 @@ const BIG_NUMBER_MIN = 3000
 /** Thành tiền một món dưới mức này (đồng) gần như chắc chắn là rác OCR (số điện thoại, số nhà...). */
 const MIN_ITEM_AMOUNT = 1000
 
-/** Gộp nhóm nghìn bị OCR tách bởi khoảng trắng: "49 000" → "49,000", "1 250 000" → "1,250,000". */
+/**
+ * Gộp nhóm nghìn bị OCR tách bởi khoảng trắng: "49 000" → "49,000", "1 250 000" → "1,250,000".
+ * Số đã tròn nghìn ("139,000") chỉ nhận thêm nhóm "000" ("12 500 000"): nhóm khác là số tiền kế tiếp của dòng,
+ * nếu không "139 000 139 000" (đơn giá và thành tiền) thành một số.
+ */
 function mergeThousandGroups(tokens: string[]): string[] {
   const out: string[] = []
   for (const token of tokens) {
     const last = out[out.length - 1]
-    if (last !== undefined && /^\d{3}$/.test(token) && /^\d{1,3}(,\d{3})*$/.test(last)) out[out.length - 1] = `${last},${token}`
+    const open = last !== undefined && /^\d{1,3}(,\d{3})*$/.test(last) && (!last.endsWith(',000') || token === '000')
+    if (open && /^\d{3}$/.test(token)) out[out.length - 1] = `${last},${token}`
     else out.push(token)
   }
   return out
@@ -437,7 +458,7 @@ function isSeparatorLine(raw: string): boolean {
 }
 
 /** Số thứ tự đứng đầu dòng món: "1. SALMON", "8 Trà đào", "10) Ebi". */
-const STT_PREFIX_RE = /^\W*(\d{1,2})\s*[.)]?\s+(?=\p{L})/u
+const STT_PREFIX_RE = /^\W*(\d{1,2})(?:\s*[.)]\s*|\s+)(?=\p{L})/u
 /** Tiêu đề cột bảng món: "Tên món | SL | ĐG | Thành tiền" (cần ít nhất hai cột để không nhầm với một dòng món). */
 const COLUMN_HEADER_PARTS = [/ten mon|ten hang|\bmon\b/, /^sl\b|\bsl\b|so luong|quantity/, /\bdg\b|don gia|unit price/, /thanh tien|t\.?\s?tien|\bamount\b/]
 
@@ -604,7 +625,10 @@ function parseItems(lines: string[], vendorName: string | undefined, origins?: M
     const repaired = tail ? repairBlankAmount(tail.numbers) : false
     const tailItem = tail ? interpretTail(tail.numbers) : null
     if (tail && tailItem) {
-      const name = [tail.name, ...tailItem.extra].join(' ')
+      // SL bị OCR đọc thành một chữ ("HITO ROLL J 139.000 139.000"): hai tiền bằng nhau nghĩa là SL 1, chữ đó bỏ khỏi tên.
+      // Không bỏ "I" hay "L" vì có thể là tên thật (cỡ L, Combo I).
+      const letterQty = tail.numbers.length === 2 && tail.numbers[0] === tail.numbers[1] ? /\s[Jl|]$/ : null
+      const name = [letterQty ? tail.name.replace(letterQty, '') : tail.name, ...tailItem.extra].join(' ')
       let { quantity, unitPrice, uncertain } = tailItem
       if (repaired) uncertain = true
       // "1x Cà phê sữa 25.000": một số tiền duy nhất là thành tiền của cả dòng.
@@ -621,8 +645,9 @@ function parseItems(lines: string[], vendorName: string | undefined, origins?: M
     }
 
     if (isNameOnly(line) && line !== vendorName) {
-      // Giữ ngoặc đầu dòng: "(BÁNH XÈO NHẬT)" là phần chú thích của món.
-      const continuation = blockMode && last !== undefined && !numbering?.rows.has(i) && cleanItemName(line) ? line.replace(/[^\p{L}\p{N})]+$/u, '').trim() : undefined
+      // Giữ ngoặc đầu dòng: "(BÁNH XÈO NHẬT)" là phần chú thích của món. Dòng có STT ("13 Miso") là món mới, không phải phần tiếp của tên trước.
+      const isNumberedRow = numbering?.rows.has(i) || STT_PREFIX_RE.test(lines[i])
+      const continuation = blockMode && last !== undefined && !isNumberedRow && cleanItemName(line) ? line.replace(/[^\p{L}\p{N})]+$/u, '').trim() : undefined
       if (last && continuation) last.name = `${last.name} ${continuation}`
       else pending.push(line)
     }

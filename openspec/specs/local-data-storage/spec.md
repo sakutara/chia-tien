@@ -227,25 +227,6 @@ Mỗi worker AI/OCR SHALL đăng ký một hàm dọn bộ nhớ khi khởi tạ
 - **WHEN** người dùng đóng form soạn hoá đơn
 - **THEN** mọi worker AI/OCR đang đăng ký được giải phóng ngay
 
-### Requirement: Giải phóng bộ nhớ khi tác vụ AI kết thúc
-Hệ thống SHALL bao mỗi tác vụ AI cục bộ trong một phạm vi bộ nhớ. Khi tác vụ cuối cùng đang chạy kết thúc, hệ thống MUST giải phóng bộ nhớ nếu phạm vi yêu cầu giải phóng ngay (mặc định) hoặc ứng dụng đang ở trạng thái ẩn. Nếu còn tác vụ khác đang chạy thì chưa giải phóng. Lỗi của tác vụ được trả lại nguyên vẹn cho nơi gọi, kể cả khi bộ nhớ đã được giải phóng.
-
-#### Scenario: Tác vụ thành công
-- **WHEN** một tác vụ AI kết thúc thành công với giải phóng ngay (mặc định)
-- **THEN** bộ nhớ được giải phóng ngay và kết quả của tác vụ được trả về
-
-#### Scenario: Tác vụ lỗi
-- **WHEN** một tác vụ AI với giải phóng ngay (mặc định) ném lỗi
-- **THEN** bộ nhớ được giải phóng và đúng lỗi đó được ném lại cho nơi gọi
-
-#### Scenario: Không yêu cầu giải phóng ngay khi app đang hiện
-- **WHEN** tác vụ kết thúc với giải phóng ngay tắt và ứng dụng đang hiện
-- **THEN** bộ nhớ không được giải phóng
-
-#### Scenario: Còn tác vụ khác đang chạy
-- **WHEN** một tác vụ kết thúc nhưng vẫn còn tác vụ khác đang chạy
-- **THEN** bộ nhớ chưa được giải phóng, và chỉ được giải phóng khi tác vụ cuối cùng kết thúc
-
 ### Requirement: Giải phóng bộ nhớ khi ứng dụng bị ẩn hoặc đóng trang
 Hệ thống SHALL giải phóng bộ nhớ AI khi ứng dụng chuyển sang trạng thái ẩn, và giải phóng ngay khi trang nhận sự kiện `pagehide`. Khi ứng dụng bị ẩn và không có tác vụ nào đang chạy, bộ nhớ được giải phóng ngay. Khi ứng dụng bị ẩn lúc đang có tác vụ, hệ thống MUST chờ tối đa 5 giây (`MAX_BACKGROUND_GRACE_MS`) rồi mới giải phóng, trừ khi người dùng quay lại trước đó.
 
@@ -264,3 +245,26 @@ Hệ thống SHALL giải phóng bộ nhớ AI khi ứng dụng chuyển sang tr
 #### Scenario: Trang bị đóng hoặc điều hướng
 - **WHEN** trang nhận sự kiện `pagehide`
 - **THEN** bộ nhớ AI được giải phóng ngay
+
+### Requirement: Dọn dữ liệu AI trên máy cũ khi khởi động
+Hệ thống SHALL xoá một lần khi khởi động cache Cache Storage tên `transformers-cache` và bốn khoá localStorage `fee-calculator.useLocalAi`, `fee-calculator.localAiCached`, `fee-calculator.geminiApiKey` và `fee-calculator.geminiModel`, để giải phóng 480–790 MB mà người dùng đã tải trước đó. Lỗi khi truy cập Cache Storage hoặc localStorage MUST NOT chặn khởi động ứng dụng và MUST NOT được hiện ra cho người dùng.
+
+#### Scenario: Thiết bị còn cache mô hình cũ
+- **GIVEN** Cache Storage có cache `transformers-cache` và localStorage có bốn khoá cũ
+- **WHEN** ứng dụng khởi động
+- **THEN** cache `transformers-cache` bị xoá và bốn khoá cũ bị xoá khỏi localStorage
+
+#### Scenario: Trình duyệt không có Cache Storage
+- **GIVEN** trình duyệt không có đối tượng `caches`
+- **WHEN** ứng dụng khởi động
+- **THEN** việc dọn cache bị bỏ qua, các khoá localStorage vẫn được xoá và ứng dụng khởi động bình thường
+
+#### Scenario: Xoá cache bị từ chối
+- **GIVEN** thao tác xoá cache `transformers-cache` bị từ chối
+- **WHEN** ứng dụng khởi động
+- **THEN** lỗi được nuốt, ứng dụng vẫn khởi động bình thường và không có thông báo lỗi cho người dùng
+
+#### Scenario: localStorage bị chặn
+- **GIVEN** trình duyệt chặn truy cập localStorage (ví dụ chế độ riêng tư)
+- **WHEN** ứng dụng khởi động
+- **THEN** việc xoá khoá bị bỏ qua và ứng dụng khởi động bình thường

@@ -5,9 +5,13 @@ import App from './App.tsx'
 import { loadStoredLang } from './db/languageStore'
 import { initLanguage } from './i18n'
 import { installMemoryLifecycleHooks } from './services/memoryLifecycle'
+import { cleanUpLegacyLocalAi } from './services/legacyAiCleanup'
 
-// Trả RAM của worker AI về hệ điều hành khi app ẩn hoặc đóng tab (memoryLifecycle).
+// Trả RAM của worker OCR về hệ điều hành khi app ẩn hoặc đóng tab (memoryLifecycle).
 installMemoryLifecycleHooks()
+
+// Xoá một lần mô hình AI trên máy và khoá cũ của tính năng đã gỡ (~480–790 MB); lỗi không chặn khởi động.
+void cleanUpLegacyLocalAi()
 
 // iOS Safari bỏ qua `user-scalable=no`, nên chặn thêm cử chỉ chụm (gesture*) và chạm đúp để không zoom được.
 for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {

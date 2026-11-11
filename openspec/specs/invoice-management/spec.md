@@ -1,7 +1,7 @@
 # invoice-management Specification
 
 ## Purpose
-Capability này quản lý vòng đời của hoá đơn trong kèo: tạo, sửa, xoá hoá đơn, các quy tắc hợp lệ, cách tính tổng và các khoản điều chỉnh cả hoá đơn (giảm giá, phí phục vụ, VAT). Nó cũng quản lý ảnh hoặc PDF đính kèm hoá đơn, gồm chụp bằng camera, tải lên, nhập PDF, quét và nén ảnh, gợi ý chất lượng ảnh và cảnh báo ảnh trùng trong cùng bữa. Người dùng là các thành viên ghi lại chi phí của bữa từ bill giấy hoặc bill điện tử. Việc đọc chữ từ ảnh thuộc `receipt-ocr` và `local-ai-receipt-reading`, còn gán người ăn, chế độ chia và phép chia tiền thuộc `bill-splitting`.
+Capability này quản lý vòng đời của hoá đơn trong kèo: tạo, sửa, xoá hoá đơn, các quy tắc hợp lệ, cách tính tổng và các khoản điều chỉnh cả hoá đơn (giảm giá, phí phục vụ, VAT). Nó cũng quản lý ảnh hoặc PDF đính kèm hoá đơn, gồm chụp bằng camera, tải lên, nhập PDF, quét và nén ảnh, gợi ý chất lượng ảnh và cảnh báo ảnh trùng trong cùng bữa. Người dùng là các thành viên ghi lại chi phí của bữa từ bill giấy hoặc bill điện tử. Việc đọc chữ từ ảnh thuộc `receipt-ocr`, còn gán người ăn, chế độ chia và phép chia tiền thuộc `bill-splitting`.
 
 ## Requirements
 

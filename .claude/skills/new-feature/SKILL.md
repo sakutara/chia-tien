@@ -37,7 +37,6 @@ Bảng tra nhanh miền nào nằm ở đâu:
 | `session-management` | `services/sessionService.ts`, `domain/sessionRules.ts`, `components/sessions/` |
 | `invoice-management` | `services/invoiceService.ts`, `services/invoiceFileService.ts`, `domain/invoiceRules.ts`, `components/invoices/` |
 | `receipt-ocr` | `services/ocrService.ts`, `domain/receiptParser.ts`, `domain/vietOcr.ts`, `workers/vietOcrWorker.ts`, `lib/documentScan.ts` |
-| `local-ai-receipt-reading` | `services/localAiService.ts`, `domain/aiReceipt.ts`, `workers/slmWorker.ts`, `lib/networkGuard.ts` |
 | `bill-splitting` | `domain/billMath.ts`, `lib/money.ts`, `components/invoices/InvoiceItem*.tsx` |
 | `settlement` | `domain/settlementEngine.ts`, `services/settlementService.ts`, `components/settlement/` |
 | `meal-archive` | `domain/archiveRules.ts`, `services/archiveService.ts` |
