@@ -1,11 +1,11 @@
-import { ClipboardPaste, ScanText, Sparkles, Trash2, X } from 'lucide-react'
+import { ClipboardPaste, ScanText, Trash2, X } from 'lucide-react'
 import { generateId } from '../../lib/id'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { computeInvoice, VENDOR_NAME_MAX, type ComputedInvoice } from '../../domain/invoiceRules'
 import { reflowBlockText } from '../../domain/blockTextReceipt'
 import { parseReceipt } from '../../domain/receiptParser'
-import { needsBetterRead, validateReceipt } from '../../domain/receiptValidation'
+import { validateReceipt } from '../../domain/receiptValidation'
 import type { InvoiceRow } from '../../hooks/useMealSessions'
 import { MAX_YMD, MIN_YMD } from '../../lib/dates'
 import { formatMoney } from '../../lib/money'
@@ -19,7 +19,6 @@ import {
 } from '../../services/invoiceFileService'
 import { createInvoice, updateInvoice, type InvoiceDraft, type InvoiceResult } from '../../services/invoiceService'
 import { runOcr } from '../../services/ocrService'
-import { isLocalAiEnabled, needsCellularConfirmation, readReceiptWithLocalAi, verifyModelCache } from '../../services/localAiService'
 import { releaseAllAiMemory } from '../../services/memoryLifecycle'
 import { PeopleError } from '../../services/peopleErrors'
 import type { InvoiceFileRecord, InvoiceInputMode, InvoiceSplitType, Member, SessionKeo } from '../../types'
@@ -31,7 +30,6 @@ import Switch from '../ui/Switch'
 import Modal from '../ui/Modal'
 import InvoiceAdjustments from './InvoiceAdjustments'
 import InvoiceFilesStrip from './InvoiceFilesStrip'
-import LocalAiControl from './LocalAiControl'
 import InvoiceItemsEditor from './InvoiceItemsEditor'
 import OcrProgress from './OcrProgress'
 import {
@@ -98,10 +96,6 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
   const [pasteOpen, setPasteOpen] = useState(false)
   const [pasteText, setPasteText] = useState('')
   const [pendingFill, setPendingFill] = useState<ReceiptFill | null>(null)
-  // Lần đầu tải mô hình AI qua mạng di động: chờ người dùng bấm "Tiếp tục tải" rồi mới chạy.
-  const [pendingDownload, setPendingDownload] = useState<(() => void) | null>(null)
-  // OCR đọc chưa chuẩn (lệch tổng hoặc thiếu món) → gợi ý đọc lại bằng AI trên máy.
-  const [aiSuggested, setAiSuggested] = useState(false)
   const images = useLiveQuery(() => listFilesByInvoice(draftId), [draftId])
   const imageCount = images?.length ?? 0
   const [duplicates, setDuplicates] = useState<Array<DuplicateImage & { file: InvoiceFileRecord }>>([])
@@ -173,17 +167,13 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
     const check = validateReceipt(parseReceipt(rawText), rawText)
     const fill = fillFromReceipt(check.receipt)
     if (Object.keys(fill).length === 0) {
-      setAiSuggested(true)
       setScanNotice(emptyNotice)
-      return true
+      return
     }
     fill.check = { status: check.status, notes: check.notes }
-    const weak = needsBetterRead(check)
-    setAiSuggested(weak)
     const hasData = hasUserEntries({ vendorName: vendor, invoiceDate: date, rows, subtotal, discount, service, vat })
     if (hasData) setPendingFill(fill)
     else applyFill(fill)
-    return weak
   }
 
   /**
@@ -203,7 +193,6 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
     const controller = new AbortController()
     scanRef.current = controller
     setScan({ percent: 0, stage: t('Đang chuẩn bị…') })
-    let weak = false
     try {
       if (targets.length > 0) {
         const pairs: Array<{ id: string; blob: Blob }> = []
@@ -233,65 +222,11 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       if (skipFill) return
 
       const fresh = await listFilesByInvoice(draftId)
-      weak = applyRawText(fresh.map((f) => f.ocrRawText ?? '').join('\n'))
+      applyRawText(fresh.map((f) => f.ocrRawText ?? '').join('\n'))
     } catch (err) {
       if (err instanceof PeopleError && err.code === 'OCR_CANCELLED') return
       const reason = err instanceof PeopleError ? err.message : t('Không quét được ảnh.')
       setScanNotice(t('{reason} Ảnh vẫn được lưu; bạn có thể bấm "Quét lại bill" hoặc nhập tay.', { reason }))
-    } finally {
-      scanRef.current = null
-      setScan(null)
-    }
-    // OCR đọc chưa chuẩn và công tắc AI trên máy đang bật: tự đọc lại bằng AI (architecture §6.1).
-    if (weak && isLocalAiEnabled()) void readWithLocalAi()
-  }
-
-  /**
-   * Đọc lại bằng AI trên máy từ văn bản OCR đã có. Mô hình chưa tải và đang dùng mạng di động thì hỏi trước.
-   */
-  async function readWithLocalAi() {
-    setScanNotice(null)
-    const files = await listFilesByInvoice(draftId)
-    if (files.length === 0) {
-      setScanNotice(t('Chưa có ảnh để quét. Hãy chụp hoặc tải ảnh bill trước.'))
-      return
-    }
-    const rawText = files.map((f) => f.ocrRawText ?? '').join('\n')
-    if (rawText.trim() === '') {
-      setScanNotice(t('Chưa có chữ OCR để AI đọc. Hãy quét ảnh trước.'))
-      return
-    }
-    const ocr = validateReceipt(parseReceipt(rawText), rawText)
-    const { cached } = await verifyModelCache()
-    if (!cached && needsCellularConfirmation()) {
-      setPendingDownload(() => () => void runLocalAi(rawText, ocr, true))
-      return
-    }
-    await runLocalAi(rawText, ocr, false)
-  }
-
-  /** Chạy bộ đọc AI trên máy. Lỗi hiện thông báo; dữ liệu OCR đã điền vẫn giữ nguyên. */
-  async function runLocalAi(rawText: string, ocr: ReturnType<typeof validateReceipt>, confirmedDownload: boolean) {
-    const controller = new AbortController()
-    scanRef.current = controller
-    setScan({ percent: 10, stage: t('Đang chuẩn bị…') })
-    try {
-      const result = await readReceiptWithLocalAi(
-        { ocrText: rawText, parsed: ocr.receipt, notes: ocr.notes },
-        {
-          signal: controller.signal,
-          confirmedDownload,
-          onStage: (stage) => setScan((s) => ({ percent: s?.percent ?? 10, stage })),
-        },
-      )
-      const fill = fillFromReceipt(result.receipt)
-      fill.check = result.check
-      setAiSuggested(false)
-      if (hasUserEntries({ vendorName: vendor, invoiceDate: date, rows, subtotal, discount, service, vat })) setPendingFill(fill)
-      else applyFill(fill)
-    } catch (err) {
-      if (err instanceof PeopleError && err.code === 'OCR_CANCELLED') return
-      setScanNotice(err instanceof PeopleError ? err.message : t('Không đọc được hoá đơn bằng AI.'))
     } finally {
       scanRef.current = null
       setScan(null)
@@ -365,18 +300,9 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
                   disabled={scan !== null}
                   onClick={() => setPasteOpen(true)}
                 />
-                <IconButton
-                  icon={Sparkles}
-                  label={t('Đọc lại bằng AI trên máy')}
-                  tone="outline"
-                  disabled={scan !== null || imageCount === 0}
-                  onClick={() => void readWithLocalAi()}
-                />
               </>
             }
           />
-          <LocalAiControl />
-
           {scan && <OcrProgress percent={scan.percent} stage={scan.stage} onCancel={() => scanRef.current?.abort()} />}
 
           {liveDuplicates.map((d) => (
@@ -411,16 +337,6 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
               {ocrCheck.notes.map((note, i) => (
                 <p key={i}>{note}</p>
               ))}
-            </div>
-          )}
-
-          {aiSuggested && scan === null && (
-            <div role="status" className="flex items-start gap-2 rounded-lg border border-usd-green-700 bg-usd-paper-100 p-2 text-sm">
-              <p className="min-w-0 flex-1">
-                {t('OCR đọc chưa chuẩn (lệch tổng hoặc có thể thiếu món). Bấm "Đọc lại bằng AI trên máy" để AI sửa; ảnh và chữ OCR không rời máy.')}
-              </p>
-              <IconButton icon={Sparkles} label={t('Đọc lại bằng AI trên máy')} tone="primary" onClick={() => void readWithLocalAi()} />
-              <IconButton icon={X} label={t('Bỏ qua')} onClick={() => setAiSuggested(false)} />
             </div>
           )}
 
@@ -553,19 +469,6 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
           setPendingFill(null)
         }}
         onCancel={() => setPendingFill(null)}
-      />
-
-      <ConfirmDialog
-        open={pendingDownload !== null}
-        title={t('Tải bộ đọc AI về máy (~320 MB)?')}
-        message={t('Bạn đang dùng mạng di động (4G/5G) hoặc không xác định được Wi-Fi. Bộ đọc AI chỉ tải một lần (~320 MB) để dùng offline về sau. Khuyến nghị kết nối Wi-Fi trước khi tải.')}
-        confirmLabel={t('Tiếp tục tải')}
-        onConfirm={() => {
-          const run = pendingDownload
-          setPendingDownload(null)
-          run?.()
-        }}
-        onCancel={() => setPendingDownload(null)}
       />
     </>
   )

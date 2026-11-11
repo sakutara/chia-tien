@@ -192,6 +192,17 @@ Hệ thống SHALL lấy ngày hoá đơn ở dạng dd/mm/yyyy, dd-mm-yy hoặc
 - **WHEN** bill có dòng "Đơn vị bán hàng (Company): TÊN QUÁN"
 - **THEN** tên quán là phần sau dấu hai chấm hoặc ngoặc của nhãn
 
+### Requirement: Không lấy dòng mã số hoặc dòng rác làm tên quán
+Khi chọn tên quán trong bốn dòng đầu, hệ thống MUST NOT chọn dòng nhãn kèm mã số hoặc dòng rác do OCR đọc hỏng logo. Không còn dòng phù hợp thì tên quán để trống.
+
+#### Scenario: Dòng số hoá đơn không phải tên quán
+- **WHEN** bốn dòng đầu chỉ có tiêu đề "HÓA ĐƠN THANH TOÁN" và dòng "Số HĐ: 300174" (nhãn Số HĐ, Mã HĐ, Số bill, Số order, Số phiếu, Ngày hoặc Giờ, theo sau là dấu hai chấm và số)
+- **THEN** tên quán để trống
+
+#### Scenario: Dòng rác từ logo
+- **WHEN** dòng đầu là "E R MAT s 38 E" do OCR đọc hỏng logo, tức từ một nửa số từ trở lên chỉ là một chữ cái hoặc một con số
+- **THEN** dòng đó không được chọn làm tên quán
+
 ### Requirement: Nhận món từ một dòng hoặc hai dòng
 Hệ thống SHALL nhận món theo ba bố cục: một dòng gồm tên và các số tiền ở cuối, một dòng có dạng "tên SL x đơn giá = thành tiền", hoặc một dòng tên kèm dòng phép tính ngay sau. Thành tiền luôn là số cuối cùng của dòng. Món dưới 1.000 đồng, món không có chữ cái, và dòng ghi chú như "Ghi chú" hoặc "Size" không thành món. Món có SL × đơn giá khác thành tiền vẫn giữ thành tiền trên bill và được đánh dấu cần xem lại.
 
@@ -319,7 +330,7 @@ Form hoá đơn SHALL có nút "Dán text OCR ngoài" mở hộp thoại dán v�
 - **THEN** văn bản được phân tích nguyên bản, không ghép lại
 
 ### Requirement: Đưa kết quả vào form hoá đơn để người dùng kiểm tra
-Hệ thống SHALL điền kết quả đọc vào form hoá đơn ở trạng thái chưa lưu, kèm thông báo đối chiếu và cờ cần xem trên từng món. Nếu form đã có dữ liệu do người dùng nhập (tên quán, ngày, món, tiền hàng hoặc giảm giá, phí, VAT), hệ thống MUST hỏi trước khi ghi đè. Trường không đọc được được để trống, không điền 0.
+Hệ thống SHALL điền kết quả đọc vào form hoá đơn ở trạng thái chưa lưu, kèm thông báo đối chiếu và cờ cần xem trên từng món. Nếu form đã có dữ liệu do người dùng nhập (tên quán, ngày, món, tiền hàng hoặc giảm giá, phí, VAT), hệ thống MUST hỏi trước khi ghi đè. Trường không đọc được được để trống, không điền 0. Khi kết quả chưa khớp, hệ thống chỉ hiện ghi chú đối chiếu để người dùng sửa tay theo ảnh; không có bước đọc lại tự động nào khác.
 
 #### Scenario: Form trống
 - **WHEN** form hoá đơn chưa có dữ liệu nào và người dùng quét xong
@@ -331,7 +342,7 @@ Hệ thống SHALL điền kết quả đọc vào form hoá đơn ở trạng t
 
 #### Scenario: Kết quả cần đọc lại
 - **WHEN** kết quả là MISMATCH hoặc UNVERIFIED, không có món nào, hoặc còn dòng hàng thiếu
-- **THEN** hệ thống đánh dấu kết quả cần đọc lại; việc đọc lại thuộc capability local-ai-receipt-reading
+- **THEN** hệ thống hiện ghi chú đối chiếu nêu chỗ lệch và người dùng sửa tay theo ảnh bill
 
 #### Scenario: Không đọc được số tiền
 - **WHEN** một khoản như VAT không đọc được số tiền hay phần trăm

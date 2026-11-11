@@ -1,11 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  MAX_BACKGROUND_GRACE_MS,
-  installMemoryLifecycleHooks,
-  registerMemoryCleaner,
-  releaseAllAiMemory,
-  withAiMemoryScope,
-} from './memoryLifecycle'
+import { installMemoryLifecycleHooks, registerMemoryCleaner, releaseAllAiMemory } from './memoryLifecycle'
 
 let visibility: 'visible' | 'hidden' = 'visible'
 const unregisters: Array<() => void> = []
@@ -32,7 +26,6 @@ afterEach(() => {
   uninstall?.()
   uninstall = undefined
   visibility = 'visible'
-  vi.useRealTimers()
 })
 
 describe('registerMemoryCleaner và releaseAllAiMemory', () => {
@@ -65,83 +58,12 @@ describe('registerMemoryCleaner và releaseAllAiMemory', () => {
   })
 })
 
-describe('withAiMemoryScope', () => {
-  it('giải phóng ngay khi tác vụ thành công', async () => {
-    const cleaner = vi.fn()
-    register(cleaner)
-    const result = await withAiMemoryScope(async () => 42)
-    expect(result).toBe(42)
-    expect(cleaner).toHaveBeenCalledTimes(1)
-  })
-
-  it('giải phóng cả khi tác vụ lỗi, và ném lại đúng lỗi', async () => {
-    const cleaner = vi.fn()
-    register(cleaner)
-    const failure = new Error('OCR lỗi')
-    await expect(withAiMemoryScope(async () => Promise.reject(failure))).rejects.toBe(failure)
-    expect(cleaner).toHaveBeenCalledTimes(1)
-  })
-
-  it('eagerRelease = false và app đang hiện thì không giải phóng', async () => {
-    const cleaner = vi.fn()
-    register(cleaner)
-    await withAiMemoryScope(async () => 'ok', false)
-    expect(cleaner).not.toHaveBeenCalled()
-  })
-
-  it('không giải phóng khi vẫn còn tác vụ khác đang chạy', async () => {
-    const cleaner = vi.fn()
-    register(cleaner)
-    let finishSlow!: () => void
-    const slow = withAiMemoryScope(() => new Promise<void>((resolve) => (finishSlow = resolve)))
-    await withAiMemoryScope(async () => 'fast')
-    expect(cleaner).not.toHaveBeenCalled()
-    finishSlow()
-    await slow
-    expect(cleaner).toHaveBeenCalledTimes(1)
-  })
-})
-
 describe('installMemoryLifecycleHooks', () => {
   it('app ẩn khi không có tác vụ nào thì giải phóng ngay', async () => {
     const cleaner = vi.fn()
     register(cleaner)
     setVisibility('hidden')
     await vi.waitFor(() => expect(cleaner).toHaveBeenCalledTimes(1))
-  })
-
-  it('app ẩn khi đang quét thì chờ 5 giây rồi mới giải phóng', async () => {
-    vi.useFakeTimers()
-    const cleaner = vi.fn()
-    register(cleaner)
-    let finish!: () => void
-    const job = withAiMemoryScope(() => new Promise<void>((resolve) => (finish = resolve)), false)
-
-    setVisibility('hidden')
-    await vi.advanceTimersByTimeAsync(MAX_BACKGROUND_GRACE_MS - 1)
-    expect(cleaner).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(1)
-    expect(cleaner).toHaveBeenCalledTimes(1)
-
-    finish()
-    await job
-  })
-
-  it('quay lại app trước khi hết 5 giây thì không giải phóng', async () => {
-    vi.useFakeTimers()
-    const cleaner = vi.fn()
-    register(cleaner)
-    let finish!: () => void
-    const job = withAiMemoryScope(() => new Promise<void>((resolve) => (finish = resolve)), false)
-
-    setVisibility('hidden')
-    await vi.advanceTimersByTimeAsync(1_000)
-    setVisibility('visible')
-    await vi.advanceTimersByTimeAsync(MAX_BACKGROUND_GRACE_MS)
-    expect(cleaner).not.toHaveBeenCalled()
-
-    finish()
-    await job
   })
 
   it('pagehide giải phóng ngay', async () => {
