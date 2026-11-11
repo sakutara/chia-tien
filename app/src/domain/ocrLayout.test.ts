@@ -47,3 +47,15 @@ describe('layoutOcrText: ghép thành văn bản nhiều dòng', () => {
     ])
   })
 })
+
+describe('tên món xuống dòng trong ô của bảng', () => {
+  it('các mảnh chồng nhau theo chiều ngang đọc từ trên xuống, không theo mép trái', () => {
+    // "Cà Phê (Nitro" nằm trên, "Coldbrew)" nằm dưới và thò ra trái hơn; hàng số nằm giữa hai mảnh.
+    const words = [w('1', 0, 5, 15), w('Coldbrew)', 20, 10, 110), w('Cà Phê (Nitro', 25, 0, 130), w('1', 300, 5, 15), w('55,000', 360, 5, 70), w('55,000', 480, 5, 70)]
+    expect(layoutOcrText(words)).toBe('1 Cà Phê (Nitro Coldbrew)  1  55,000  55,000')
+  })
+
+  it('từ cùng hàng không chồng nhau vẫn theo thứ tự trái sang phải', () => {
+    expect(layoutOcrText([w('B', 60, 2), w('A', 0, 0)])).toBe('A B')
+  })
+})

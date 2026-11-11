@@ -215,12 +215,52 @@ function argmax(values: Float32Array): number {
   return best
 }
 
-/** Giải mã tham lam (greedy) từ token SOS cho tới EOS hoặc hết `max_seq_length`. */
-export async function greedyDecode(engine: VietOcrEngine, meta: VietOcrMeta, encoded: EncodeResult): Promise<string> {
+/** Bề rộng tối thiểu (pixel, ở chiều cao 32) mà một ký tự chiếm: dùng để chặn số ký tự giải mã theo bề rộng dòng. */
+export const MIN_CHAR_WIDTH = 5
+/** Một cụm (1–2 từ) lặp liền nhau từ chừng này lần trở lên là ảo giác của decoder, không phải chữ trên bill. */
+export const REPEAT_MIN_RUNS = 3
+
+/** Số ký tự tối đa hợp lý của một dòng rộng `width` pixel (ở chiều cao 32). */
+export function maxCharsForWidth(meta: VietOcrMeta, width: number): number {
+  return Math.min(meta.max_seq_length, Math.ceil(width / MIN_CHAR_WIDTH) + 2)
+}
+
+/**
+ * Bỏ đoạn lặp vô nghĩa ("Thi Thi Thi Thi…", "thu nha ninh chi thu nha ninh chi…"): decoder rơi vào vòng lặp khi gặp chữ
+ * ngoài bảng chữ (tiếng Hàn, logo, mã QR). Cụm 1–4 từ lặp liền ≥ `REPEAT_MIN_RUNS` lần bị xoá cả đoạn; phần còn lại giữ nguyên.
+ */
+export function stripRepeats(text: string): string {
+  const words = text.split(/\s+/).filter((w) => w !== '')
+  const out: string[] = []
+  let i = 0
+  while (i < words.length) {
+    let skipped = false
+    for (let period = 1; period <= 4 && !skipped; period++) {
+      let runs = 1
+      while (i + (runs + 1) * period <= words.length && sameWords(words, i, i + runs * period, period)) runs++
+      if (runs >= REPEAT_MIN_RUNS) {
+        i += runs * period
+        // Phần đuôi dở dang của vòng lặp ("… Thi Thi Th").
+        while (i < words.length && words[i - period].toLowerCase().startsWith(words[i].toLowerCase())) i++
+        skipped = true
+      }
+    }
+    if (!skipped) out.push(words[i++])
+  }
+  return out.join(' ')
+}
+
+function sameWords(words: string[], a: number, b: number, length: number): boolean {
+  for (let k = 0; k < length; k++) if (words[a + k].toLowerCase() !== words[b + k].toLowerCase()) return false
+  return true
+}
+
+/** Giải mã tham lam (greedy) từ token SOS cho tới EOS hoặc hết `maxChars` (mặc định `max_seq_length`). */
+export async function greedyDecode(engine: VietOcrEngine, meta: VietOcrMeta, encoded: EncodeResult, maxChars: number = meta.max_seq_length): Promise<string> {
   let token = meta.sos
   let hidden = encoded.hidden
   const chars: string[] = []
-  for (let step = 0; step < meta.max_seq_length; step++) {
+  for (let step = 0; step < maxChars; step++) {
     const out = await engine.decodeStep(token, hidden, encoded.encoderOutputs, encoded.encoderSteps)
     hidden = out.hidden
     token = argmax(out.logProbs)
@@ -231,8 +271,8 @@ export async function greedyDecode(engine: VietOcrEngine, meta: VietOcrMeta, enc
   return chars.join('')
 }
 
-/** Nhận dạng một dòng từ tensor CHW /255 đã đúng chiều cao 32. */
+/** Nhận dạng một dòng từ tensor CHW /255 đã đúng chiều cao 32; số ký tự bị chặn theo bề rộng và đoạn lặp ảo giác bị bỏ. */
 export async function recognizeLine(engine: VietOcrEngine, meta: VietOcrMeta, tensor: Float32Array, width: number): Promise<string> {
   const encoded = await engine.encode(tensor, width)
-  return greedyDecode(engine, meta, encoded)
+  return stripRepeats(await greedyDecode(engine, meta, encoded, maxCharsForWidth(meta, width)))
 }

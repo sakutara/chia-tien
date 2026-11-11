@@ -11,6 +11,7 @@ let failNextRecognize = false
 class FakeWorker {
   static instances: FakeWorker[] = []
   terminated = false
+  initBaseUrl: string | undefined
   private listeners = new Map<string, Set<(event: { data: VietOcrWorkerResponse }) => void>>()
 
   constructor() {
@@ -31,6 +32,7 @@ class FakeWorker {
       if (this.terminated) return
       const reply = (data: VietOcrWorkerResponse) => this.listeners.get('message')?.forEach((fn) => fn({ data }))
       if (request.type === 'INIT') {
+        this.initBaseUrl = request.baseUrl
         reply({ type: 'READY', requestId: request.requestId })
         return
       }
@@ -114,6 +116,24 @@ describe('runOcr (VietOCR)', () => {
     expect(worker.terminated).toBe(false)
     await vi.advanceTimersByTimeAsync(15_000)
     expect(worker.terminated).toBe(true)
+  })
+
+  it('hẹn giờ rảnh của lần quét trước không tắt worker giữa lần quét sau', async () => {
+    vi.useFakeTimers()
+    results = [[word('a', 0, 0)], [word('b', 0, 0)]]
+    await runOcr([img('a')])
+    await vi.advanceTimersByTimeAsync(14_000)
+    await runOcr([img('b')])
+    // Đã quá 15 giây kể từ lần quét đầu nhưng mới 2 giây kể từ lần quét thứ hai.
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(FakeWorker.instances).toHaveLength(1)
+    expect(FakeWorker.instances[0].terminated).toBe(false)
+  })
+
+  it('gửi cho worker gốc URL tuyệt đối (bản deploy build với base tương đối)', async () => {
+    results = [[word('a', 0, 0)]]
+    await runOcr([img('a')])
+    expect(FakeWorker.instances[0].initBaseUrl).toMatch(/^https?:\/\/.+\/$/)
   })
 
   it('terminateOcrWorker dừng worker đang sống', async () => {

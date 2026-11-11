@@ -12,7 +12,11 @@ import { PeopleError } from './peopleErrors'
  * `memoryLifecycle` dừng ngay khi đóng form hoặc ẩn app. Không có dự phòng: lỗi thì báo cho người dùng nhập tay.
  */
 
-const BASE = import.meta.env.BASE_URL
+/**
+ * Gốc tuyệt đối của app. Bản deploy build với `--base=./`; đường dẫn tương đối trong worker lại tính theo vị trí file worker
+ * (`assets/`), nên phải đổi sang URL tuyệt đối theo trang trước khi gửi cho worker.
+ */
+const BASE = new URL(import.meta.env.BASE_URL, document.baseURI).href
 const IDLE_MS = 15_000
 
 export type OcrProgressHandler = (percent: number, stage: string) => void
@@ -123,6 +127,10 @@ export async function runOcr(
   if (signal?.aborted) throw cancelled()
   const onAbort = () => terminateOcrWorker()
   signal?.addEventListener('abort', onAbort, { once: true })
+
+  // Hẹn giờ rảnh của lần quét trước không được tắt worker giữa lần quét này.
+  clearTimeout(idleTimer)
+  idleTimer = undefined
 
   try {
     onProgress?.(0, t('Đang khởi tạo bộ đọc chữ…'))

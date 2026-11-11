@@ -112,7 +112,22 @@ function normalizeLine(raw: string): string {
     .replace(/\S+/g, fixDigitLookalikes)
     .replace(/\s+/g, ' ')
     .trim()
+    .replace(EQ_JUNK_RE, '$1 x $2 = $3')
+    .replace(EQ_FIVE_RE, '$1 x $2 = $3')
+    .replace(EQ_MISSING_RE, '$1 x $2 = $3')
+    .replace(X_MISSING_RE, '$1 x $2 = $3')
 }
+
+/** Số tiền có nhóm nghìn ("5,000", "1.250.000"). */
+const GROUPED = String.raw`\d{1,3}(?:[.,]\d{3})+`
+/** Dòng "SL x đơn giá = thành tiền" mà dấu "=" bị OCR đọc thành một ký tự lạ ("1 x 125,000 F 125,000", có thể mất cả "x"). */
+const EQ_JUNK_RE = new RegExp(String.raw`(?<![\d.,])(\d{1,3})(?:\s*[xX×*]\s*|\s+)(${GROUPED})\s+[^\s\d=xX×*]\s+(${GROUPED})$`, 'u')
+/** Như trên nhưng "=" bị đọc thành "5": chỉ nhận khi có dấu "x" để không ăn nhầm cột số lượng. */
+const EQ_FIVE_RE = new RegExp(String.raw`(?<![\d.,])(\d{1,3})\s*[xX×*]\s*(${GROUPED})\s+5\s+(${GROUPED})$`)
+/** Mất hẳn dấu "=": "1 x 105,000 105,000". */
+const EQ_MISSING_RE = new RegExp(String.raw`(?<![\d.,])(\d{1,3})\s*[xX×*]\s*(${GROUPED})\s+(${GROUPED})$`)
+/** Mất dấu "x": "1 105,000 = 105,000". */
+const X_MISSING_RE = new RegExp(String.raw`(?<![\d.,])(\d{1,3})\s+(${GROUPED})\s*=\s*(${GROUPED})$`)
 
 /** Số tiền có nhóm nghìn mà OCR đọc lẫn chữ giống số ("§9,000", "5S,000", "l0.000"): đổi lại thành chữ số. */
 const LOOKALIKE_MONEY_RE = /^[\dOoSs§BlI|]{1,3}[.,][\dOo]{3}$/
@@ -460,6 +475,38 @@ function detectNumbering(lines: string[], from: number): Numbering | null {
  * Món từ một dòng (số lượng, đơn giá, thành tiền) hoặc hai dòng `tên` / `SL x đơn giá = thành tiền`.
  * Dòng chỉ có chữ ngay trước một dòng có giá được ghép làm phần đầu tên ("Trà Cóc" + "Pha ngọt").
  */
+/** Dòng tuỳ chọn của món ("- Hot 50 Oat", "+ Thêm đá"): bắt đầu bằng gạch / dấu cộng rồi tới chữ. */
+const OPTION_LINE_RE = /^\W*[-–—+•]\s*\p{L}/u
+/** Dòng món 0 đồng: SL rồi hai cột "0" (OCR hay đọc "0" thành "o", "a", "ol"). */
+const ZERO_ROW_RE = /\s\d{1,2}\s+[0oOaA]l?\s+[0oOaA]l?$/
+
+/** Dòng không tính tiền: tuỳ chọn của món không kèm giá, hoặc món tặng 0 đồng. Bỏ qua, không ghép vào tên món khác. */
+function isFreeRow(line: string): boolean {
+  if (hit(ZERO_ROW_RE, line)) return true
+  return OPTION_LINE_RE.test(line) && moneyValues(line).length === 0
+}
+
+/**
+ * Thành tiền bị nhoè chỉ còn nhóm số 0 ("3 99.000 000"): thay bằng SL × đơn giá để không mất cả món. Trả `true` nếu đã thay;
+ * món được đánh dấu cần xem lại.
+ */
+function repairBlankAmount(numbers: string[]): boolean {
+  if (numbers.length < 3 || !/^0{2,3}$/.test(numbers[numbers.length - 1])) return false
+  const q = parseMoney(numbers[numbers.length - 3])
+  const unit = parseMoney(numbers[numbers.length - 2])
+  if (q === null || unit === null || q < 1 || q > 99 || unit < 1000) return false
+  numbers[numbers.length - 1] = String(q * unit)
+  return true
+}
+
+/** Ba số cuối dòng là SL, đơn giá, thành tiền và khớp phép nhân (đơn giá ≥ 1.000). */
+function isStrongItemRow(line: string): boolean {
+  const tail = splitTail(line)
+  if (!tail || tail.numbers.length < 3 || !cleanItemName(tail.name)) return false
+  const [q, unit, amount] = tail.numbers.slice(-3).map((n) => parseMoney(n))
+  return q !== null && unit !== null && amount !== null && q >= 1 && q <= 99 && unit >= 1000 && q * unit === amount
+}
+
 function parseItems(lines: string[], vendorName: string | undefined, origins?: Map<ParsedItem, number>, layout: { start: number; boundaries: Set<number>; numbering: Numbering | null } = { start: 0, boundaries: new Set(), numbering: null }, sttRead?: Set<number>): ParsedItem[] {
   const items: ParsedItem[] = []
   // Bảng có cột "Đơn vị tính": từ đơn vị (Lẩu, Dĩa, Thố…) đứng cuối tên món, không thuộc tên.
@@ -512,8 +559,11 @@ function parseItems(lines: string[], vendorName: string | undefined, origins?: M
       last = undefined
     }
     if (tableMode && items.length > 0 && (hit(TOTAL_AMOUNT_RE, line) || hit(/^\W*cong tien/, line))) break
+    // Dòng có đủ "SL đơn giá thành tiền" khớp phép nhân là một món, kể cả khi tên lẫn chữ giống từ khoá tiêu đề / chân trang
+    // (OCR đọc chữ Hàn trong ngoặc thành "BAN", "The"…).
+    const strongRow = isStrongItemRow(line)
     const isClassified =
-      isAdjustmentLine(line) || isTotalLine(line) || isDateLine(line) || hit(ADDRESS_RE, line) || hit(HEADER_RE, line) || hit(FOOTER_RE, line) || hit(COLUMN_INDEX_RE, line) || hit(NOTE_RE, line) || hit(ITEM_NOTE_RE, line) || isLongNumberLine(line) || hit(LONG_NUMBER_LABEL_RE, line)
+      isAdjustmentLine(line) || isTotalLine(line) || isDateLine(line) || hit(ADDRESS_RE, line) || (!strongRow && (hit(HEADER_RE, line) || hit(FOOTER_RE, line))) || hit(COLUMN_INDEX_RE, line) || hit(NOTE_RE, line) || hit(ITEM_NOTE_RE, line) || isLongNumberLine(line) || hit(LONG_NUMBER_LABEL_RE, line) || isFreeRow(line)
     if (isClassified) {
       pending = []
       last = undefined
@@ -551,10 +601,12 @@ function parseItems(lines: string[], vendorName: string | undefined, origins?: M
     // Một dòng: đếm các số ở đuôi (cột tiền) trước, rồi suy ra đơn giá / SL / thành tiền, phần còn lại là tên.
     const leading = LEADING_QTY_RE.exec(line)
     const tail = splitTail(leading ? line.slice(leading[0].length) : line)
+    const repaired = tail ? repairBlankAmount(tail.numbers) : false
     const tailItem = tail ? interpretTail(tail.numbers) : null
     if (tail && tailItem) {
       const name = [tail.name, ...tailItem.extra].join(' ')
       let { quantity, unitPrice, uncertain } = tailItem
+      if (repaired) uncertain = true
       // "1x Cà phê sữa 25.000": một số tiền duy nhất là thành tiền của cả dòng.
       if (leading && tail.numbers.length === 1) {
         const q = Number(leading[1])

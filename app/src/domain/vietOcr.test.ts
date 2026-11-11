@@ -6,7 +6,10 @@ import {
   estimateSkewAngle,
   findTextBoxes,
   greedyDecode,
+  maxCharsForWidth,
+  recognizeLine,
   recognizerWidth,
+  stripRepeats,
   toDetectorTensor,
   toRecognizerTensor,
   type EncodeResult,
@@ -201,5 +204,34 @@ describe('detectTextBoxes', () => {
     }
     const boxes = await detectTextBoxes(engine, new Uint8ClampedArray(4 * 4 * 4), 4, 4)
     expect(boxes).toHaveLength(1)
+  })
+})
+
+describe('chặn ảo giác của decoder', () => {
+  it('maxCharsForWidth: số ký tự tối đa theo bề rộng dòng, không vượt max_seq_length', () => {
+    expect(maxCharsForWidth(meta, 40)).toBe(10)
+    expect(maxCharsForWidth(meta, 512)).toBe(meta.max_seq_length)
+  })
+
+  it('greedyDecode dừng ở maxChars', async () => {
+    const text = await greedyDecode(fakeEngine(new Array(100).fill(4)), meta, { hidden: new Float32Array(4), encoderOutputs: new Float32Array(8), encoderSteps: 2 }, 5)
+    expect(text).toBe('aaaaa')
+  })
+
+  it('recognizeLine chặn theo bề rộng: dòng rộng 40 px không ra quá 10 ký tự', async () => {
+    const text = await recognizeLine(fakeEngine(new Array(100).fill(4)), meta, new Float32Array(3 * 40 * 32), 40)
+    expect(text).toHaveLength(10)
+  })
+
+  it('stripRepeats bỏ cụm lặp liền ≥ 3 lần cùng phần đuôi dở dang, giữ chữ thật hai bên', () => {
+    expect(stripRepeats('Ba chỉ heo Thi Thi Thi Thi Thi Th 1 310,000')).toBe('Ba chỉ heo 1 310,000')
+    expect(stripRepeats('Các thu nha ninh chi thu nha ninh chi thu nha ninh chi thu')).toBe('Các')
+    expect(stripRepeats('trong the the the')).toBe('trong')
+  })
+
+  it('stripRepeats không đụng chữ lặp ít hơn 3 lần hay số lặp trên bill', () => {
+    expect(stripRepeats('Tô Huỳnh Bảo Châu Tô Huỳnh Bảo Châu')).toBe('Tô Huỳnh Bảo Châu Tô Huỳnh Bảo Châu')
+    expect(stripRepeats('1 55,000 55,000')).toBe('1 55,000 55,000')
+    expect(stripRepeats('Banchan 4 0 0')).toBe('Banchan 4 0 0')
   })
 })

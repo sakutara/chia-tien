@@ -47,7 +47,27 @@ export function groupWordsIntoLines(words: OcrWord[]): OcrWord[][] {
       sumY = centerY(word)
     }
   }
-  return lines.map((line) => line.sort((a, b) => a.x0 - b.x0))
+  return lines.map(orderLine)
+}
+
+/** Hai từ chồng lên nhau theo chiều ngang quá tỉ lệ này của từ hẹp hơn thì coi là cùng một ô (xếp chồng theo chiều dọc). */
+const STACKED_OVERLAP_RATIO = 0.5
+
+/**
+ * Sắp một dòng từ trái sang phải. Tên món xuống dòng trong ô của bảng ("Cà Phê (Nitro" / "Coldbrew)") nằm trên và dưới
+ * hàng số nên rơi vào cùng một dòng: các mảnh chồng nhau theo chiều ngang được đọc từ trên xuống thay vì theo mép trái.
+ */
+function orderLine(line: OcrWord[]): OcrWord[] {
+  const sorted = [...line].sort((a, b) => a.x0 - b.x0)
+  const cells: OcrWord[][] = []
+  for (const word of sorted) {
+    const cell = cells[cells.length - 1]
+    const x1 = cell ? Math.max(...cell.map((w) => w.x1)) : -Infinity
+    const narrow = cell ? Math.min(word.x1 - word.x0, ...cell.map((w) => w.x1 - w.x0)) : 0
+    if (cell && x1 - word.x0 > STACKED_OVERLAP_RATIO * narrow) cell.push(word)
+    else cells.push([word])
+  }
+  return cells.flatMap((cell) => cell.sort((a, b) => centerY(a) - centerY(b)))
 }
 
 /**
@@ -63,6 +83,7 @@ export function layoutOcrText(words: OcrWord[]): string {
     .map((line) =>
       line.reduce((text, word, i) => {
         if (i === 0) return word.text.trim()
+        // Mảnh xếp chồng trong cùng một ô có khoảng cách âm: nối bằng một khoảng trắng.
         const gap = word.x0 - line[i - 1].x1
         const separator = gap > COLUMN_GAP_RATIO * lineHeight ? COLUMN_SEPARATOR : ' '
         return `${text}${separator}${word.text.trim()}`
