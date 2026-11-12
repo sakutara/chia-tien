@@ -12,6 +12,7 @@ context: |
   Công nghệ: React 19 + TypeScript + Vite, Tailwind CSS, Dexie (IndexedDB),
   OPFS cho file hoá đơn, onnxruntime-web (VietOCR),
   pdfjs-dist, lz-string (Snapshot URL), Vitest + Testing Library, oxlint.
+  Phông chữ Inter và JetBrains Mono đóng gói cục bộ qua @fontsource; định dạng mã bằng Prettier (`npm run format` trong app/).
 
   Cấu trúc mã nguồn (trong app/src):
   - domain/     quy tắc nghiệp vụ thuần, không phụ thuộc UI hay DB
@@ -38,7 +39,7 @@ context: |
     hook .githooks/pre-push đẩy file LFS khi push.
 
   Tài liệu của dự án:
-  - openspec/specs/<capability>/spec.md là nguồn sự thật về hành vi hiện tại (14 capability).
+  - openspec/specs/<capability>/spec.md là nguồn sự thật về hành vi hiện tại (13 capability).
   - openspec/changes/archive/ giữ lịch sử: thiết kế gốc (initial-system-design, epic-1 đến
     epic-9, kèm nguyên văn tài liệu cũ trong design.md) và các thay đổi sau đó theo ngày.
   - Không có thư mục tài liệu riêng; không viết tài liệu thiết kế ngoài OpenSpec.
