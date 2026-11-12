@@ -25,7 +25,7 @@ export const TOTAL_EXCLUDE_RE = /tien hang|tam tinh|sub ?total|tien mat|tien thu
 export const ADDRESS_RE = /^\W*dc\b|d\/c|dia chi|sdt|\btel\b|hotline|phone|\bmst\b|ma so|website|www\./
 /** Tiêu đề và chân trang của bill. */
 export const HEADER_RE =
-  /tom tat don|chi tiet don hang|hoa don|phieu|receipt|ten mon|ten hang|don gia|thanh tien|^sl\b|\bban\b|table|cam on|hen gap|thank|nhan vien|thu ngan|gio vao|gio ra|gio in|\bin:|\bstt\b|description|quantity|unit price|\bamount\b|bill of sale|ky hieu|serial|so\s*\(no|\(\d\s*=\s*\d\s*x\s*\d\)/
+  /tom tat don|chi tiet don hang|hoa don|bien lai|phieu|receipt|ten mon|ten hang|don gia|thanh tien|^sl\b|\bban\b|table|cam on|hen gap|thank|nhan vien|thu ngan|gio vao|gio ra|gio in|\bin:|\bstt\b|description|quantity|unit price|\bamount\b|bill of sale|ky hieu|serial|so\s*\(no|\(\d\s*=\s*\d\s*x\s*\d\)/
 /** Dòng đánh số cột của bảng hoá đơn điện tử: "(1) (2) (3) (4) (5) (6=4x5)" (OCR hay đọc hỏng ngoặc: "a) 2) t3)"). */
 export const COLUMN_INDEX_RE = /6\s*=\s*4\s*x\s*5|^(?:\W{0,2}\w{1,2}\)\s*){3,}/
 export const FOOTER_RE = /^\W*t[oe0]ng\b|\bsub ?total\b|\bgrand\b|tong|tam tinh|tien mat|tien thua|tien thoi|thanh toan|tien hang|\bthe\b|card|cash|change/
@@ -74,6 +74,18 @@ export const SELLER_RE = /(?:don vi ban hang|ten don vi ban|nguoi ban)\b(.*)$/
 export const LONG_NUMBER_LABEL_RE = /^\W*(?:so|stk|so tai khoan|so hoa don|ma so)\s*[:.]?\s*\d/
 export const VENDOR_KEYWORD_RE =
   /nha hang|quan\b|cafe|coffee|\blau\b|bbq|\bbill\b|restaurant|karaoke|\btra\b|\bbar\b|buffet|\bcom\b|\bpho\b|\bbun\b|bistro|kitchen/
+
+/** Nhãn "Thành tiền" đầu dòng: sau các dòng món thì là dòng tổng theo vị trí (tiền hàng hoặc tổng bill). */
+export const THANH_TIEN_RE = /^thanh tien\b/
+/** Dòng tiền khách đưa / khách trả / trả khách: không phải món (spec: "Nhận dòng tổng, tạm tính và tiền khách trả"). */
+export const CASH_GIVEN_RE = /tien khach dua|khach dua|khach tra|tra khach/
+
+/** Tiêu đề cột của bảng món không có số tiền ("Mặt hàng SL Số tiền"): cần ít nhất hai nhóm để không nhầm với tên món. */
+export const ITEM_HEADER_GROUPS = [
+  /\b(mat hang|ten mon|ten hang|mon)\b/,
+  /\b(sl|so luong)\b/,
+  /\b(so tien|don gia|dg|thanh tien|don vi tinh|amount)\b/,
+]
 
 export const QTY_PAIR_RE = /^(\d{1,3})\s*[xX×*]\s*(\d[\d.,]*k?)\s*=\s*(\d[\d.,]*k?)$/i
 /** Tên, số lượng, đơn giá và thành tiền trên cùng một dòng: "Lẩu bò 2 x 150.000 = 300.000". */

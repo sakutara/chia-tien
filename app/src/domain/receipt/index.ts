@@ -1,6 +1,6 @@
 // Ghép các giai đoạn thành parseReceipt.
-import { DISCOUNT_RE, EXTRA_FEE_RE, REDUCTION_RE, SERVICE_RE, SUBTOTAL_RE, TAX_ID_RE, TOTAL_AMOUNT_RE, TOTAL_RE, VAT_RE, hit } from './patterns'
-import { PRETAX_RE, TAX_INCLUDED_TOTAL_RE, adjustmentOf, dropTotalRows, isTotalLine, majorityTotal, totalValue } from './adjustments'
+import { DISCOUNT_RE, EXTRA_FEE_RE, REDUCTION_RE, SERVICE_RE, SUBTOTAL_RE, TAX_ID_RE, THANH_TIEN_RE, TOTAL_AMOUNT_RE, TOTAL_RE, VAT_RE, hit } from './patterns'
+import { PRETAX_RE, TAX_INCLUDED_TOTAL_RE, adjustmentOf, dropTotalRows, isTotalLine, majorityTotal, mergeRounding, roundingOf, totalValue, twoTotals } from './adjustments'
 import { detectNumbering, findItemsStart, readItems, tidyItemName } from './items'
 import { findDate, findVendor } from './header'
 import { findGroupRows, groupKind, reconcileGroups } from './groups'
@@ -62,7 +62,14 @@ export function parseReceipt(rawText: string): ParsedReceipt {
     const line = lines[i]
     if (useTable && table.consumed.has(i)) continue
     if (groups.indexes.has(i)) continue
-    if (hit(REDUCTION_RE, line)) {
+    if (i > 0 && hit(THANH_TIEN_RE, line) && moneyValues(line).length > 0) {
+      // "Thành tiền" sau các dòng món: tiền hàng nếu phía dưới còn dòng tổng thanh toán, ngược lại là tổng bill.
+      const value = moneyValues(line)[moneyValues(line).length - 1]
+      const paymentBelow = lines.slice(i + 1).some((next) => isTotalLine(next) || hit(TOTAL_AMOUNT_RE, next))
+      if (paymentBelow) {
+        if (result.billSubtotal === undefined) result.billSubtotal = value
+      } else result.billTotal = value
+    } else if (hit(REDUCTION_RE, line)) {
       const values = moneyValues(line)
       if (values.length > 0) result.discount = { mode: 'FIXED_AMOUNT', value: values[0] }
     } else if (hit(TOTAL_AMOUNT_RE, line)) {
@@ -103,6 +110,15 @@ export function parseReceipt(rawText: string): ParsedReceipt {
 
   const majority = majorityTotal(lines)
   if (majority !== undefined) result.billTotal = majority
+
+  // Hai dòng "Tổng" (tiền hàng, rồi tổng bill) và dòng "Làm tròn" gộp vào giảm giá (spec: Đọc bill có hai dòng Tổng và làm tròn).
+  const pair = twoTotals(lines)
+  if (pair) {
+    result.billSubtotal = pair.subtotal
+    result.billTotal = pair.total
+  }
+  const merged = mergeRounding(result.discount, result.billSubtotal, result.billTotal, roundingOf(lines))
+  if (merged !== undefined) result.discount = merged
 
   // Giá từng dòng đã gồm thuế: VAT ghi ở chân bill là phần nằm sẵn trong giá, không cộng thêm; tiền hàng trước thuế cũng không dùng để so.
   if (result.vatIncluded) {

@@ -4,6 +4,8 @@ import {
   COLUMN_INDEX_RE,
   FOOTER_RE,
   HEADER_RE,
+  CASH_GIVEN_RE,
+  ITEM_HEADER_GROUPS,
   ITEM_NOTE_RE,
   LEADING_QTY_RE,
   LONG_NUMBER_LABEL_RE,
@@ -46,6 +48,28 @@ export function isNameOnly(line: string): boolean {
   return /[A-Za-zÀ-ỹ]{2}/.test(line) && moneyValues(line).length === 0 && !line.includes('=')
 }
 
+/** Dòng tiêu đề cột của bảng món ("Mặt hàng SL Số tiền"): không có số tiền, nhưng không phải tên món. */
+export function isColumnHeader(line: string): boolean {
+  if (moneyValues(line).length > 0) return false
+  return ITEM_HEADER_GROUPS.filter((re) => hit(re, line)).length >= 2
+}
+
+/**
+ * Dòng của bảng thuế ở chân bill ("B 10 58,182 5,818 64,000"): có từ 3 số tiền trở lên, trong đó hai số cộng lại bằng số thứ ba
+ * (giá trước thuế + tiền thuế = giá sau thuế). Chỉ dùng sau dòng tổng.
+ */
+export function isTaxTableRow(line: string): boolean {
+  const values = moneyValues(line)
+  if (values.length < 3) return false
+  return values.some((a, i) => values.some((b, j) => j !== i && values.some((c, k) => k !== i && k !== j && a + b === c)))
+}
+
+/** Dòng chỉ có các số của một món (SL, đơn giá, thành tiền), không có chữ. */
+export function isNumberOnlyRow(line: string): boolean {
+  const tail = splitTail(line)
+  return tail !== null && !cleanItemName(tail.name) && interpretTail(tail.numbers) !== null
+}
+
 /** Token chỉ có dấu câu / gạch (đường kẻ, rác OCR như "_", "—>"): không phải chữ cũng không phải số. */
 export const PUNCT_ONLY_RE = /^[^\p{L}\p{N}]+$/u
 export const X_TOKEN_RE = /^[xX×*]$/
@@ -53,6 +77,8 @@ export const X_QTY_TOKEN_RE = /^[xX×*](\d{1,3})$/
 /** Token rác chữ + số do OCR đọc hỏng cột "x SL" (ví dụ "S022"). */
 export const JUNK_TOKEN_RE = /^[A-Za-z]{1,2}\d{1,4}$/
 export const NUMBER_TOKEN_RE = /^\d[\d.,]*k?$/i
+/** Mã thuế suất một chữ cái in hoa (A, B, C...) đứng sau thành tiền trên bill F&B. */
+export const TAX_CODE_RE = /^[A-Z]$/
 /** Số lượng thật chỉ có 1-2 chữ số; số lớn hơn là tiền. */
 export const QTY_TOKEN_RE = /^\d{1,2}$/
 /** Tên món không nên chứa số tiền: từ 3.000 đồng trở lên thì khả năng cao là số tiền bị hiểu nhầm (số nhỏ hơn như "1964" là tên món). */
@@ -74,7 +100,9 @@ export interface TailSplit {
  * Dấu "x" và token rác chen giữa các số được bỏ qua.
  */
 export function splitTail(line: string): TailSplit | null {
-  const tokens = mergeThousandGroups(line.split(' '))
+  const tokens = mergeThousandGroups(line.split(/\s+/).filter((t) => t !== ''))
+  // Mã thuế suất một chữ cái đứng sau thành tiền ("64,000 B") không thuộc tên món.
+  if (tokens.length >= 2 && TAX_CODE_RE.test(tokens[tokens.length - 1]) && NUMBER_TOKEN_RE.test(tokens[tokens.length - 2])) tokens.pop()
   let end = tokens.length
   const numbers: string[] = []
   while (end > 0) {
@@ -188,6 +216,8 @@ export function stripBigNumbers(rawName: string): { name: string; hints: number[
 
 /** Số thứ tự đứng đầu dòng món: "1. SALMON", "8 Trà đào", "10) Ebi". */
 export const STT_PREFIX_RE = /^\W*(\d{1,2})(?:\s*[.)]\s*|\s+)(?=\p{L})/u
+/** Tiêu đề có cột số thứ tự: "TT", "STT" hoặc "#" là một từ riêng trong dòng tiêu đề (đã bỏ dấu, chữ thường). */
+export const STT_HEADER_RE = /(?:^|\s)(?:tt|stt|#)(?=\s|$)/
 /** Tiêu đề cột bảng món: "Tên món | SL | ĐG | Thành tiền" (cần ít nhất hai cột để không nhầm với một dòng món). */
 export const COLUMN_HEADER_PARTS = [
   /ten mon|ten hang|\bmon\b/,
@@ -278,8 +308,12 @@ export function parseItems(
   let current = 0
   /** Món vừa đọc: dòng chữ không có giá ngay sau nó là phần tên bị xuống dòng ("SALMON" + "SASIMI"). */
   let last: ParsedItem | undefined
+  /** Dòng cuối mà món `last` đã dùng hết; dòng số ngay sau nó dùng để nhận đơn giá. */
+  let lastEnd = -2
   const { start, boundaries, numbering } = layout
   const blockMode = boundaries.size > 0 || numbering !== null
+  // Tiêu đề có cột số thứ tự (TT / STT / #) ngay trên món đầu tiên: số đầu dòng là STT, không thuộc tên món.
+  const sttColumn = start > 0 && STT_HEADER_RE.test(fold(lines[start - 1]))
 
   const push = (rawName: string, quantity: number, unitPrice: number, rawAmount: number, uncertain: boolean): void => {
     const { name: strippedName, hints } = stripBigNumbers(rawName)
@@ -310,10 +344,14 @@ export function parseItems(
   // Hoá đơn điện tử dạng bảng: các món nằm trước dòng "Cộng tiền hàng hóa… (Total amount)"; phần sau là chữ ký số, mã tra cứu…
   const tableMode = unitColumn || lines.some((l) => hit(TOTAL_AMOUNT_RE, l))
 
+  /** Đã gặp dòng tổng: từ đây trở xuống có thể là bảng thuế. */
+  let afterTotal = false
+
   for (let i = start; i < lines.length; i++) {
     // Số thứ tự đầu dòng không thuộc tên món; nó chỉ cho biết bill đã gọi bao nhiêu món.
-    const line = numbering?.rows.has(i) ? lines[i].replace(STT_PREFIX_RE, '') : lines[i]
+    const line = numbering?.rows.has(i) || sttColumn ? lines[i].replace(STT_PREFIX_RE, '') : lines[i]
     current = i
+    if (isTotalLine(line) || hit(FOOTER_RE, line)) afterTotal = true
     // Gạch phân cách: món mới bắt đầu, dòng chữ trước đó không còn dính vào món nào.
     if (boundaries.has(i)) {
       pending = []
@@ -323,12 +361,20 @@ export function parseItems(
     // Dòng có đủ "SL đơn giá thành tiền" khớp phép nhân là một món, kể cả khi tên lẫn chữ giống từ khoá tiêu đề / chân trang
     // (OCR đọc chữ Hàn trong ngoặc thành "BAN", "The"…).
     const strongRow = isStrongItemRow(line)
+    // Dòng bảng thuế dưới dòng tổng không phải món.
+    if (afterTotal && !strongRow && isTaxTableRow(line)) {
+      pending = []
+      last = undefined
+      continue
+    }
     const isClassified =
       isAdjustmentLine(line) ||
       isTotalLine(line) ||
       isDateLine(line) ||
       hit(ADDRESS_RE, line) ||
       (!strongRow && (hit(HEADER_RE, line) || hit(FOOTER_RE, line))) ||
+      isColumnHeader(line) ||
+      hit(CASH_GIVEN_RE, line) ||
       hit(COLUMN_INDEX_RE, line) ||
       hit(NOTE_RE, line) ||
       hit(ITEM_NOTE_RE, line) ||
@@ -351,6 +397,7 @@ export function parseItems(
         push(line, Number(pair[1]), unit, amount, false)
         pending = []
         i++
+        lastEnd = i
         continue
       }
     }
@@ -363,6 +410,7 @@ export function parseItems(
       if (quantity >= 1 && unit !== null && amount !== null) {
         push(oneLineEq[1], quantity, unit, amount, false)
         pending = []
+        lastEnd = i
       }
       continue
     }
@@ -374,11 +422,23 @@ export function parseItems(
     const tail = splitTail(leading ? line.slice(leading[0].length) : line)
     const repaired = tail ? repairBlankAmount(tail.numbers) : false
     const tailItem = tail ? interpretTail(tail.numbers) : null
+    // Dòng dưới chỉ có một số tiền ngay sau món đã có SL và thành tiền: số đó là đơn giá nếu SL × số đó = thành tiền.
+    if (tail && tail.numbers.length === 1 && !cleanItemName(tail.name) && last && lastEnd === i - 1) {
+      const unit = parseMoney(tail.numbers[0])
+      if (unit !== null && last.quantity * unit === last.rawAmount) {
+        last.unitPrice = unit
+        lastEnd = i
+        continue
+      }
+    }
+    // Dòng số không có tên: tên là dòng chữ ngay trên (dòng chữ đó là pending).
+    const above = i - 1 >= start ? lines[i - 1] : undefined
+    const nameAbove = tail !== null && tailItem !== null && !cleanItemName(tail.name) && above !== undefined && pending.length > 0 && pending[pending.length - 1] === above
     if (tail && tailItem) {
       // SL bị OCR đọc thành một chữ ("HITO ROLL J 139.000 139.000"): hai tiền bằng nhau nghĩa là SL 1, chữ đó bỏ khỏi tên.
       // Không bỏ "I" hay "L" vì có thể là tên thật (cỡ L, Combo I).
       const letterQty = tail.numbers.length === 2 && tail.numbers[0] === tail.numbers[1] ? /\s[Jl|]$/ : null
-      const name = [letterQty ? tail.name.replace(letterQty, '') : tail.name, ...tailItem.extra].join(' ')
+      const name = nameAbove ? above : [letterQty ? tail.name.replace(letterQty, '') : tail.name, ...tailItem.extra].join(' ')
       let { quantity, unitPrice, uncertain } = tailItem
       if (repaired) uncertain = true
       // "1x Cà phê sữa 25.000": một số tiền duy nhất là thành tiền của cả dòng.
@@ -389,12 +449,16 @@ export function parseItems(
           unitPrice = tailItem.amount / q
         } else uncertain = true
       }
+      if (nameAbove) pending = []
       push(name, quantity, unitPrice, tailItem.amount, uncertain)
       pending = []
+      lastEnd = i
       continue
     }
 
-    if (isNameOnly(line) && line !== vendorName) {
+    // Dòng chữ ngay trên một dòng chỉ có số là tên món, kể cả khi trùng tên quán đoán (bill ngắn, quán đầu dòng).
+    const numberRowBelow = next !== undefined && isNumberOnlyRow(next)
+    if (isNameOnly(line) && (line !== vendorName || numberRowBelow)) {
       // Giữ ngoặc đầu dòng: "(BÁNH XÈO NHẬT)" là phần chú thích của món. Dòng có STT ("13 Miso") là món mới, không phải phần tiếp của tên trước.
       const isNumberedRow = numbering?.rows.has(i) || STT_PREFIX_RE.test(lines[i])
       const continuation = blockMode && last !== undefined && !isNumberedRow && cleanItemName(line) ? line.replace(/[^\p{L}\p{N})]+$/u, '').trim() : undefined

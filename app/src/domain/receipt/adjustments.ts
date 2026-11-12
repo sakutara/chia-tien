@@ -30,13 +30,24 @@ export function isTotalLine(line: string): boolean {
 }
 
 /**
- * Bỏ "món" thực ra là dòng tổng bị đọc lệch chữ ("Tông Cộng", "Téng tiền"): số tiền bằng đúng tổng hoặc tiền hàng ghi
- * trên bill trong khi còn món khác. Một món duy nhất bằng tổng bill thì giữ (bill chỉ có một món).
+ * Từ khoá nhãn tổng trong tên món (đã bỏ dấu qua `hit`), chịu được OCR lệch chữ: "Tông Cộng", "Téng tiền",
+ * "Thành tiên", "mones Thanh ( án" đều có từ khoá. Chỉ có nghĩa khi số tiền của món bằng tổng/tiền hàng.
+ */
+export const ITEM_TOTAL_LABEL_RE = /\b(?:thanh|tien|tong|teng|toan|total|amount|khach|thua|thoi|cong|con lai|dat hang|dat coc|da tra)\b/
+
+/**
+ * Bỏ "món" thực ra là dòng tổng bị đọc lệch chữ ("Tông Cộng", "Téng tiền", "Thành tiên"): số tiền bằng đúng tổng hoặc tiền
+ * hàng ghi trên bill trong khi còn món khác. Nếu có món trùng số mà tên mang nhãn tổng thì chỉ bỏ những món đó, giữ món có
+ * tên thật (ví dụ "Oolong ... (Vừa)" 52.000 khi tổng 52.000). Không có món nào mang nhãn thì giữ hành vi cũ: bỏ mọi món
+ * trùng số. Một món duy nhất thì giữ (bill chỉ có một món).
  */
 export function dropTotalRows(items: ParsedItem[], billTotal?: number, billSubtotal?: number): ParsedItem[] {
   if (items.length < 2) return items
   const refs = [billTotal, billSubtotal].filter((v): v is number => v !== undefined)
-  return items.filter((item) => !refs.includes(item.rawAmount))
+  const matchesRef = (item: ParsedItem) => refs.includes(item.rawAmount)
+  const labelled = (item: ParsedItem) => matchesRef(item) && hit(ITEM_TOTAL_LABEL_RE, item.name)
+  if (items.some(labelled)) return items.filter((item) => !labelled(item))
+  return items.filter((item) => !matchesRef(item))
 }
 
 /**
@@ -94,4 +105,54 @@ export function majorityTotal(lines: string[]): number | undefined {
   let best: { value: number; count: number } | undefined
   for (const [value, count] of counts) if (!best || count > best.count) best = { value, count }
   return best && best.count >= 2 ? best.value : undefined
+}
+
+/** Nhãn "Tổng" đứng riêng, không phải "Tổng cộng": "Tổng 495,000". Bill có hai dòng như vậy thì dòng đầu là tiền hàng. */
+export const BARE_TONG_RE = /^tong\s*:?\s*\d/
+/** Dòng làm tròn của bill: "Làm tròn 250", "Làm tròn -300". */
+export const ROUNDING_RE = /^lam tron\b/
+
+/** Hai dòng nhãn "Tổng" với số khác nhau: dòng đầu là tiền hàng, dòng sau là tổng bill. */
+export function twoTotals(lines: string[]): { subtotal: number; total: number } | undefined {
+  const values: number[] = []
+  for (const line of lines) {
+    if (!hit(BARE_TONG_RE, line)) continue
+    const found = moneyValues(line)
+    if (found.length > 0) values.push(found[found.length - 1])
+  }
+  if (values.length < 2) return undefined
+  const first = values[0]
+  const last = values[values.length - 1]
+  return first === last ? undefined : { subtotal: first, total: last }
+}
+
+/** Số làm tròn có dấu: dương là bill làm tròn lên, âm là làm tròn xuống. */
+export function roundingOf(lines: string[]): number | undefined {
+  for (const line of lines) {
+    if (!hit(ROUNDING_RE, line)) continue
+    const found = moneyValues(line)
+    if (found.length === 0) continue
+    const value = found[found.length - 1]
+    return /-\s*\d/.test(line) ? -value : value
+  }
+  return undefined
+}
+
+/**
+ * Gộp làm tròn vào giảm giá (số nguyên đồng): làm tròn xuống cộng vào giảm giá, làm tròn lên trừ khỏi giảm giá.
+ * Chỉ gộp khi tiền hàng - giảm giá mới + làm tròn đúng bằng tổng bill. Bill không có giảm giá mà làm tròn lên thì không gộp.
+ */
+export function mergeRounding(
+  discount: ParsedAdjustment | undefined,
+  billSubtotal: number | undefined,
+  billTotal: number | undefined,
+  rounding: number | undefined,
+): ParsedAdjustment | undefined {
+  if (rounding === undefined || rounding === 0 || billSubtotal === undefined || billTotal === undefined) return discount
+  if (discount !== undefined && discount.mode !== 'FIXED_AMOUNT') return discount
+  const current = discount?.value ?? 0
+  if (rounding > 0 && current === 0) return discount
+  const merged = current - rounding
+  if (merged <= 0 || billSubtotal - merged !== billTotal) return discount
+  return { mode: 'FIXED_AMOUNT', value: merged }
 }
