@@ -439,6 +439,8 @@ export const en: Record<string, string> = {
   'Tổng "{v}" đọc được không khớp; số ở cuối bill {v2} khớp tổng tính được nên được dùng làm tổng bill.':
     'The total "{v}" that was read does not match; the number at the bottom of the receipt {v2} matches the calculated total, so it was used as the receipt total.',
   'Đã đối chiếu: tổng các món khớp tổng trên bill.': 'Checked: the item total matches the receipt total.',
+  'Giảm giá đã được tính lại từ phần trăm: {pct}% × {base} = {v}, thay cho số {old} đọc được.':
+    'The discount was recalculated from the percentage: {pct}% × {base} = {v}, replacing the read amount {old}.',
   'Số đọc từ ảnh chưa khớp tổng bill, đã tự sửa theo kịch bản khớp nhất. Hãy xem lại các dòng được đánh dấu:':
     'The numbers read from the photo did not match the receipt total, so they were auto-corrected using the best-matching scenario. Review the flagged lines:',
   'Tổng các món {v} lệch dòng tiền hàng trên bill {v2}': 'The item total {v} differs from the subtotal on the receipt {v2}',

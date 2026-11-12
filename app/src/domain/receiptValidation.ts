@@ -2,6 +2,10 @@ import { formatMoney } from '../lib/money'
 import { fold } from '../lib/textFold'
 import { computeAdjustment, computeBill, type Adjustment } from './billMath'
 import { trailingAmounts, type ParsedAdjustment, type ParsedItem, type ParsedReceipt } from './receiptParser'
+import { mergeRounding, percentOf, roundingOf } from './receipt/adjustments'
+import { moneyValues } from './receipt/money'
+import { normalizeLine } from './receipt/normalize'
+import { DISCOUNT_RE, hit } from './receipt/patterns'
 import { T, t } from '../i18n'
 
 /*
@@ -265,12 +269,12 @@ function suspectRows(items: ParsedItem[], billTotal: number | undefined, billSub
   const sum = items.reduce((s, i) => s + i.rawAmount, 0)
   return items.flatMap((item, index) => {
     const othersSum = sum - item.rawAmount
-    const hit =
+    const suspect =
       TOTAL_NAME_RE.test(fold(item.name)) ||
       item.rawAmount === billTotal ||
       item.rawAmount === billSubtotal ||
       (items.length > 2 && item.rawAmount === othersSum)
-    return hit ? [index] : []
+    return suspect ? [index] : []
   })
 }
 
@@ -606,11 +610,53 @@ function fixMisreadOrMissing(parsed: ParsedReceipt, billTotal: number): { receip
   return null
 }
 
+/**
+ * Giảm giá đọc sai một chữ số ("(15%) -44,250" thay vì 74.250): tính lại = phần trăm ghi trên dòng giảm giá × tiền hàng,
+ * làm tròn về đồng, rồi gộp dòng làm tròn nếu có. Chỉ nhận khi tiền hàng - giảm giá mới = tổng bill và các món đọc được
+ * cộng đúng bằng tiền hàng (không cần sửa món nào). Số ghi trên bill luôn được ưu tiên: hàm này chỉ chạy khi số đó không khớp.
+ */
+function percentDiscountRecheck(parsed: ParsedReceipt, rawText: string | undefined): ReceiptCheck | null {
+  const { billTotal, discount } = parsed
+  if (rawText === undefined || billTotal === undefined || discount?.mode !== 'FIXED_AMOUNT') return null
+  const itemsSum = parsed.items.reduce((s, i) => s + i.rawAmount, 0)
+  const base = parsed.billSubtotal ?? itemsSum
+  const lines = rawText
+    .split(/\r?\n/)
+    .map(normalizeLine)
+    .filter((l) => l.length > 0)
+  const line = lines.find((l) => hit(DISCOUNT_RE, l) && percentOf(l) !== undefined && moneyValues(l).length > 0)
+  const pct = line === undefined ? undefined : percentOf(line)
+  if (pct === undefined) return null
+  const amount = Math.round((base * pct) / 100)
+  if (amount <= 0 || amount === discount.value) return null
+  const merged = mergeRounding({ mode: 'FIXED_AMOUNT', value: amount }, base, billTotal, roundingOf(lines))
+  const fixedDiscount: ParsedAdjustment = merged ?? { mode: 'FIXED_AMOUNT', value: amount }
+  if (base - fixedDiscount.value !== billTotal) return null
+  if (itemsSum !== base) return null
+  const receipt: ParsedReceipt = { ...parsed, discount: fixedDiscount, items: flagInconsistent(parsed.items) }
+  return {
+    status: 'CORRECTED',
+    receipt,
+    notes: [
+      t('Số đọc từ ảnh chưa khớp tổng bill, đã tự sửa theo kịch bản khớp nhất. Hãy xem lại các dòng được đánh dấu:'),
+      t('Giảm giá đã được tính lại từ phần trăm: {pct}% × {base} = {v}, thay cho số {old} đọc được.', {
+        pct,
+        base: formatMoney(base),
+        v: formatMoney(amount),
+        old: formatMoney(discount.value),
+      }),
+    ],
+  }
+}
+
 function validateTotals(parsed: ParsedReceipt, rawText?: string): ReceiptCheck {
   const { billTotal, billSubtotal, items } = parsed
   const inconsistent = describeInconsistentRows(items)
 
   if (items.length === 0) return { status: 'UNVERIFIED', receipt: parsed, notes: [] }
+
+  const recomputed = percentDiscountRecheck(parsed, rawText)
+  if (recomputed) return recomputed
 
   const attempt = findBestAttempt(parsed, rawText)
 
