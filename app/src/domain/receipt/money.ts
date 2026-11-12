@@ -1,5 +1,5 @@
 // Đọc số tiền từ token OCR.
-import { MONEY_TOKEN_RE, PERCENT_RE } from './patterns'
+import { CODE_LINE_RE, MONEY_TOKEN_RE, PERCENT_RE, PHONE_RUN_RE, hit } from './patterns'
 import { parseMoney } from '../../lib/money'
 
 /** Các số tiền (≥ 100 đồng) trên dòng, sau khi bỏ phần trăm. */
@@ -19,7 +19,13 @@ export function isLongNonMoney(token: string): boolean {
   return value === null || value % 100 !== 0
 }
 
+/** Dòng mã (quầy, NVBH, số điện thoại): các số trong dòng không phải số tiền (spec receipt-ocr). */
+export function isCodeLine(line: string): boolean {
+  return hit(CODE_LINE_RE, line) || PHONE_RUN_RE.test(line)
+}
+
 export function moneyValues(line: string): number[] {
+  if (isCodeLine(line)) return []
   // Nhóm nghìn bị OCR tách bởi khoảng trắng ("Tổng cộng 1 562 000") được gộp lại trước khi tách số.
   const withoutPercent = mergeThousandGroups(dropZeroDecimals(line.replace(PERCENT_RE, ' ')).split(' ')).join(' ')
   const tokens = withoutPercent.match(MONEY_TOKEN_RE) ?? []

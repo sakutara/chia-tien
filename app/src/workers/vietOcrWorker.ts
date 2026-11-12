@@ -5,15 +5,20 @@
  */
 import * as ort from 'onnxruntime-web/wasm'
 import {
+  chooseOrientation,
   detectProbability,
   detectorInputSize,
   estimateSkewAngle,
   findTextBoxes,
-  recognizeLine,
+  GATE_MEAN_CONF,
+  orientationMean,
+  recognizeLineScored,
   recognizerWidth,
   SKEW_MIN_DEGREES,
   toRecognizerTensor,
   type EncodeResult,
+  type OrientationScore,
+  type Rotation,
   type VietOcrEngine,
   type VietOcrMeta,
 } from '../domain/vietOcr'
@@ -83,50 +88,116 @@ function regionRgba(source: ImageBitmap | OffscreenCanvas, sx: number, sy: numbe
 }
 
 /** Xoay ảnh quanh tâm để làm thẳng dòng chữ (góc dương là nghiêng theo chiều kim đồng hồ, nên xoay ngược lại); nền trắng. */
-function straighten(bitmap: ImageBitmap, angle: number): OffscreenCanvas {
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+function straighten(source: ImageBitmap | OffscreenCanvas, angle: number): OffscreenCanvas {
+  const canvas = new OffscreenCanvas(source.width, source.height)
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('OffscreenCanvas 2D không khả dụng')
   ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, bitmap.width, bitmap.height)
-  ctx.translate(bitmap.width / 2, bitmap.height / 2)
+  ctx.fillRect(0, 0, source.width, source.height)
+  ctx.translate(source.width / 2, source.height / 2)
   ctx.rotate((-angle * Math.PI) / 180)
+  ctx.drawImage(source, -source.width / 2, -source.height / 2)
+  return canvas
+}
+
+/** Xoay ảnh quanh tâm theo bội 90° (90° và 270° hoán đổi chiều rộng và chiều cao); nền trắng. */
+function rotateBitmap(bitmap: ImageBitmap, rotation: Rotation): OffscreenCanvas {
+  const quarter = rotation === 90 || rotation === 270
+  const width = quarter ? bitmap.height : bitmap.width
+  const height = quarter ? bitmap.width : bitmap.height
+  const canvas = new OffscreenCanvas(width, height)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('OffscreenCanvas 2D không khả dụng')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, width, height)
+  ctx.translate(width / 2, height / 2)
+  ctx.rotate((rotation * Math.PI) / 180)
   ctx.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2)
   return canvas
 }
 
-async function recognize(requestId: string, image: Blob): Promise<OcrWord[]> {
+/** Ảnh (gốc hoặc đã xoay) cùng bản đồ xác suất của detector trên ảnh đó. */
+interface OrientedProbe {
+  source: ImageBitmap | OffscreenCanvas
+  det: { w: number; h: number }
+  prob: Float32Array
+}
+
+async function probeSource(detEngine: VietOcrEngine, source: ImageBitmap | OffscreenCanvas): Promise<OrientedProbe> {
+  const det = detectorInputSize(source.width, source.height)
+  const prob = await detectProbability(detEngine, regionRgba(source, 0, 0, source.width, source.height, det.w, det.h), det.w, det.h)
+  return { source, det, prob }
+}
+
+/** Kết quả nhận dạng toàn bộ hộp chữ của một ảnh (một hướng): dòng chữ, tổng điểm tin cậy và số hộp dò được. */
+interface Pass extends OrientedProbe {
+  lines: OcrWord[]
+  conf: number
+  boxes: number
+}
+
+/** Nhận dạng mọi hộp chữ trên ảnh đã dò; cộng dồn điểm tin cậy và báo tiến độ theo từng hộp. */
+async function readPass(requestId: string, probe: OrientedProbe): Promise<Pass> {
   if (!engine || !meta) throw new Error('VietOCR chưa khởi tạo')
+  const { source, det, prob } = probe
+  const boxes = findTextBoxes(prob, det.w, det.h)
+  const scaleX = source.width / det.w
+  const scaleY = source.height / det.h
+  const lines: OcrWord[] = []
+  let conf = 0
+  for (let i = 0; i < boxes.length; i++) {
+    const box = boxes[i]
+    const x0 = box.x0 * scaleX
+    const y0 = box.y0 * scaleY
+    const bw = (box.x1 - box.x0) * scaleX
+    const bh = (box.y1 - box.y0) * scaleY
+    if (bw >= 1 && bh >= 1) {
+      const width = recognizerWidth(meta, bw, bh)
+      const tensor = toRecognizerTensor(regionRgba(source, x0, y0, bw, bh, width, REC_HEIGHT), width, REC_HEIGHT)
+      const result = await recognizeLineScored(engine, meta, tensor, width)
+      conf += result.confidence
+      const text = result.text.trim()
+      if (text !== '') lines.push({ text, x0, y0, x1: x0 + bw, y1: y0 + bh })
+    }
+    scope.postMessage({ type: 'PROGRESS', requestId, percent: Math.round(((i + 1) / boxes.length) * 100) })
+  }
+  return { ...probe, lines, conf, boxes: boxes.length }
+}
+
+function scoreOf(pass: Pass): OrientationScore {
+  return { conf: pass.conf, boxes: pass.boxes }
+}
+
+async function recognize(requestId: string, image: Blob): Promise<OcrWord[]> {
+  if (!engine) throw new Error('VietOCR chưa khởi tạo')
   const bitmap = await createImageBitmap(image)
   try {
-    // Dò góc nghiêng trên ảnh gốc; nghiêng đáng kể thì xoay thẳng rồi dò lại, và mọi bước sau dùng ảnh đã xoay.
-    const det = detectorInputSize(bitmap.width, bitmap.height)
-    let source: ImageBitmap | OffscreenCanvas = bitmap
-    let prob = await detectProbability(engine, regionRgba(bitmap, 0, 0, bitmap.width, bitmap.height, det.w, det.h), det.w, det.h)
-    const angle = estimateSkewAngle(prob, det.w, det.h)
-    if (Math.abs(angle) >= SKEW_MIN_DEGREES) {
-      source = straighten(bitmap, angle)
-      prob = await detectProbability(engine, regionRgba(source, 0, 0, bitmap.width, bitmap.height, det.w, det.h), det.w, det.h)
-    }
-    const boxes = findTextBoxes(prob, det.w, det.h)
-    const scaleX = bitmap.width / det.w
-    const scaleY = bitmap.height / det.h
-    const lines: OcrWord[] = []
-    for (let i = 0; i < boxes.length; i++) {
-      const box = boxes[i]
-      const x0 = box.x0 * scaleX
-      const y0 = box.y0 * scaleY
-      const bw = (box.x1 - box.x0) * scaleX
-      const bh = (box.y1 - box.y0) * scaleY
-      if (bw >= 1 && bh >= 1) {
-        const width = recognizerWidth(meta, bw, bh)
-        const tensor = toRecognizerTensor(regionRgba(source, x0, y0, bw, bh, width, REC_HEIGHT), width, REC_HEIGHT)
-        const text = (await recognizeLine(engine, meta, tensor, width)).trim()
-        if (text !== '') lines.push({ text, x0, y0, x1: x0 + bw, y1: y0 + bh })
+    // Nhận dạng toàn bộ hộp ở 0°. Nếu điểm trung bình đạt GATE_MEAN_CONF thì giữ 0° và dùng luôn kết quả này.
+    const upright = await readPass(requestId, await probeSource(engine, bitmap))
+    let chosen = upright
+    const scores: Record<Rotation, OrientationScore> = { 0: scoreOf(upright), 90: { conf: 0, boxes: 0 }, 180: { conf: 0, boxes: 0 }, 270: { conf: 0, boxes: 0 } }
+    if (orientationMean(scores[0]) < GATE_MEAN_CONF) {
+      // Bill nghiêng: nhận dạng toàn bộ hộp ở 90°, 180°, 270° rồi chọn theo tổng điểm tin cậy.
+      const rotatedPasses = new Map<Rotation, Pass>()
+      for (const rotation of [90, 180, 270] as const) {
+        const pass = await readPass(requestId, await probeSource(engine, rotateBitmap(bitmap, rotation)))
+        rotatedPasses.set(rotation, pass)
+        scores[rotation] = scoreOf(pass)
       }
-      scope.postMessage({ type: 'PROGRESS', requestId, percent: Math.round(((i + 1) / boxes.length) * 100) })
+      const rotation = chooseOrientation(scores)
+      if (rotation !== 0) {
+        const picked = rotatedPasses.get(rotation)
+        if (picked) chosen = picked
+      }
     }
-    return lines
+    // Nghiêng đáng kể thì nắn góc rồi nhận dạng lại trên ảnh đã nắn; không thì dùng kết quả đã có của hướng được chọn.
+    const angle = estimateSkewAngle(chosen.prob, chosen.det.w, chosen.det.h)
+    if (Math.abs(angle) >= SKEW_MIN_DEGREES) {
+      const straightened = straighten(chosen.source, angle)
+      const probe = await probeSource(engine, straightened)
+      return (await readPass(requestId, probe)).lines
+    }
+    return chosen.lines
   } finally {
     bitmap.close()
   }

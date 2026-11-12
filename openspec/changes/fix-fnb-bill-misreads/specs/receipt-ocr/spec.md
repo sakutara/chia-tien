@@ -1,15 +1,19 @@
 ## ADDED Requirements
 
 ### Requirement: Tự xoay bill chụp nằm ngang
-Trước khi dò chữ, hệ thống SHALL thử bill ở hướng 0°, 90°, 180° và 270°, chọn hướng cho nhiều dòng chữ được dò nhất, rồi mới nắn góc nghiêng trong ±30° như trước. Hệ thống MUST NOT xoay khi hướng 0° đã có đủ chữ.
+Khi độ tin cậy nhận dạng trung bình của hướng 0° (điểm tin cậy chia cho số hộp chữ được dò) thấp hơn 0,6, hệ thống SHALL thử bill ở hướng 90°, 180° và 270°, tính điểm tin cậy tổng của từng hướng, và chỉ đổi sang hướng có điểm cao hơn điểm của 0° ít nhất 20%. Ngược lại hệ thống giữ hướng 0°. Sau khi chọn hướng, việc nắn góc nghiêng trong ±30° giữ như trước. Đây là lựa chọn dựa trên độ tin cậy, không dựa trên số hộp chữ được dò, vì bộ dò chữ tìm được nhiều hộp ở mọi hướng.
 
-#### Scenario: Bill chụp xoay 90°
-- **WHEN** bill được chụp xoay 90° và hướng 0° dò được ít dòng chữ
-- **THEN** hệ thống xoay bill sang hướng cho nhiều dòng chữ nhất và đọc theo hướng đó
+#### Scenario: Bill chụp xoay 90° với độ tin cậy 0° thấp
+- **WHEN** độ tin cậy trung bình ở 0° dưới 0,6 và hướng 90° có điểm tin cậy cao hơn 0° ít nhất 20%
+- **THEN** hệ thống đọc bill theo hướng 90°
 
 #### Scenario: Bill đã thẳng
-- **WHEN** hướng 0° dò được đủ dòng chữ
-- **THEN** không xoay
+- **WHEN** độ tin cậy trung bình ở 0° từ 0,6 trở lên
+- **THEN** không thử hướng khác và không xoay
+
+#### Scenario: Hướng khác không đủ tốt hơn
+- **WHEN** độ tin cậy trung bình ở 0° dưới 0,6 nhưng không hướng nào cao hơn 0° ít nhất 20%
+- **THEN** giữ hướng 0°
 
 ### Requirement: Loại số điện thoại và mã quầy khỏi số tiền
 Dòng có số điện thoại, mã quầy, mã NVBH, mã số thuế hoặc số giao dịch SHALL không thành món và các số trong đó MUST NOT được coi là số tiền.

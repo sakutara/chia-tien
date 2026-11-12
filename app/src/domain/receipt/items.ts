@@ -20,7 +20,7 @@ import {
 import { fold } from '../../lib/textFold'
 import { isAdjustmentLine, isTotalLine } from './adjustments'
 import { isDateLine } from './header'
-import { isLongNumberLine, mergeThousandGroups, moneyValues } from './money'
+import { isCodeLine, isLongNumberLine, mergeThousandGroups, moneyValues } from './money'
 import { parseMoney } from '../../lib/money'
 import type { ParsedItem } from './types'
 
@@ -43,9 +43,20 @@ export function cleanItemName(raw: string): string | undefined {
   return /[A-Za-zÀ-ỹ]/.test(name) ? name : undefined
 }
 
-/** Dòng chỉ có chữ (không có số tiền): tên món, hoặc ghi chú như "Pha ngọt", "Khô". */
+/** Token có chữ dính liền số đa chữ số ("10nx250m1", "390m1"): mã/quy cách trong tên món, không phải số tiền. */
+export const GLUED_TOKEN_RE = /\d\p{L}\d|\p{L}\d+\p{L}/u
+
+/** Dòng chỉ có chữ (không có số tiền): tên món, hoặc ghi chú như "Pha ngọt", "Khô". Số dính chữ trong tên không tính là tiền. */
+/** Bỏ quy cách dính chữ ở cuối tên món ("Sprite chai 390m1" → "Sprite chai", "... T24 10nx250m1" → "... T24"). */
+export function dropGluedTail(name: string): string {
+  const tokens = name.split(' ')
+  while (tokens.length > 1 && GLUED_TOKEN_RE.test(tokens[tokens.length - 1])) tokens.pop()
+  return tokens.join(' ')
+}
+
 export function isNameOnly(line: string): boolean {
-  return /[A-Za-zÀ-ỹ]{2}/.test(line) && moneyValues(line).length === 0 && !line.includes('=')
+  const bare = line.split(/\s+/).filter((token) => !GLUED_TOKEN_RE.test(token)).join(' ')
+  return /[A-Za-zÀ-ỹ]{2}/.test(line) && moneyValues(bare).length === 0 && !line.includes('=')
 }
 
 /** Dòng tiêu đề cột của bảng món ("Mặt hàng SL Số tiền"): không có số tiền, nhưng không phải tên món. */
@@ -316,7 +327,7 @@ export function parseItems(
   const sttColumn = start > 0 && STT_HEADER_RE.test(fold(lines[start - 1]))
 
   const push = (rawName: string, quantity: number, unitPrice: number, rawAmount: number, uncertain: boolean): void => {
-    const { name: strippedName, hints } = stripBigNumbers(rawName)
+    const { name: strippedName, hints } = stripBigNumbers(dropGluedTail(rawName))
     // Bảng có cột STT nhưng không có đường kẻ: "1 Canh chua" → STT dính vào tên.
     const cleaned = cleanItemName(unitColumn ? strippedName.replace(/^\d{1,2}\s+(?=\p{L})/u, '') : strippedName)
     const own = cleaned && unitColumn ? dropTrailingUnit(cleaned) : cleaned
@@ -379,6 +390,7 @@ export function parseItems(
       hit(NOTE_RE, line) ||
       hit(ITEM_NOTE_RE, line) ||
       isLongNumberLine(line) ||
+      isCodeLine(line) ||
       hit(LONG_NUMBER_LABEL_RE, line) ||
       isFreeRow(line)
     if (isClassified) {

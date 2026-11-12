@@ -156,3 +156,27 @@ export function mergeRounding(
   if (merged <= 0 || billSubtotal - merged !== billTotal) return discount
   return { mode: 'FIXED_AMOUNT', value: merged }
 }
+
+/** Dòng số dư cuối bill: "Còn phải thu", "Còn lại", "Còn nợ" (đã bỏ dấu, chịu được OCR lệch dấu). */
+const BALANCE_LABEL_RE = /\b(?:con phai thu|con lai|con no)\b/
+/** Số dư bằng 0 ở cuối dòng: "Còn phải thu 0", "Còn phải thu 0đ". */
+const ZERO_BALANCE_RE = /(?:^|\s)0(?:\s*(?:d|vnd|đ|₫))?$/i
+
+/**
+ * Khi dòng cuối là số dư bằng 0 sau thanh toán ("Còn phải thu 0"), tổng bill là số của dòng tổng ngay phía trên.
+ * Trả `undefined` khi không áp dụng (dòng cuối không phải số dư 0, hoặc không có dòng tổng phía trên).
+ */
+export function zeroBalanceTotal(lines: string[]): number | undefined {
+  const last = lines.length - 1
+  if (last < 0) return undefined
+  const line = lines[last]
+  if (!hit(BALANCE_LABEL_RE, line) || !ZERO_BALANCE_RE.test(line)) return undefined
+  for (let i = last - 1; i >= 0; i--) {
+    const above = lines[i]
+    if (hit(BALANCE_LABEL_RE, above)) continue
+    if (!isTotalLine(above) && !hit(TOTAL_AMOUNT_RE, above)) continue
+    const value = totalValue(lines, i)
+    if (value !== undefined) return value
+  }
+  return undefined
+}

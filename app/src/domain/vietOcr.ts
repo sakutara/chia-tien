@@ -211,6 +211,45 @@ export function estimateSkewAngle(prob: Float32Array, w: number, h: number): num
   return Math.abs(median) > SKEW_MAX_DEGREES ? 0 : median
 }
 
+/** Các hướng xoay thô (bội 90°) mà bill có thể bị chụp nằm nghiêng. */
+export type Rotation = 0 | 90 | 180 | 270
+
+/** Điểm nhận dạng của một hướng: tổng điểm tin cậy các dòng và số hộp chữ được dò. */
+export interface OrientationScore {
+  conf: number
+  boxes: number
+}
+
+/** Điểm trung bình của hướng 0° phải đạt ngưỡng này thì giữ 0°, không thử hướng khác. */
+export const GATE_MEAN_CONF = 0.6
+/** Hướng khác phải có tổng điểm cao hơn 0° ít nhất hệ số này (20%) mới được đổi. */
+export const ORIENTATION_MARGIN = 1.2
+
+/** Điểm trung bình một hộp của một hướng (tổng điểm chia số hộp; 0 hộp thì 0). */
+export function orientationMean(score: OrientationScore): number {
+  return score.boxes > 0 ? score.conf / score.boxes : 0
+}
+
+/**
+ * Chọn hướng xoay thô của bill theo điểm tin cậy nhận dạng (không theo số hộp, vì bộ dò tìm nhiều hộp ở mọi hướng).
+ * Nếu điểm trung bình của 0° đạt `gateMean` thì giữ 0°. Ngược lại, trong 90°, 180°, 270° chọn hướng có tổng điểm cao nhất
+ * (hòa thì ưu tiên 90°, rồi 180°, 270°); chỉ đổi khi tổng điểm đó lớn hơn tổng điểm 0° × `margin`, nếu không giữ 0°.
+ */
+export function chooseOrientation(
+  scores: Record<Rotation, OrientationScore>,
+  opts: { gateMean?: number; margin?: number } = {},
+): Rotation {
+  const gateMean = opts.gateMean ?? GATE_MEAN_CONF
+  const margin = opts.margin ?? ORIENTATION_MARGIN
+  const base = scores[0]
+  if (orientationMean(base) >= gateMean) return 0
+  let best: Rotation = 90
+  for (const rotation of [180, 270] as const) {
+    if (scores[rotation].conf > scores[best].conf) best = rotation
+  }
+  return scores[best].conf > base.conf * margin ? best : 0
+}
+
 /** Chạy detector trên ảnh RGBA đã resize về (w, h) và trả về bản đồ xác suất (w × h). */
 export async function detectProbability(engine: VietOcrEngine, rgba: Uint8ClampedArray, w: number, h: number): Promise<Float32Array> {
   return engine.detect(toDetectorTensor(rgba, w, h), w, h)
@@ -267,24 +306,49 @@ function sameWords(words: string[], a: number, b: number, length: number): boole
   return true
 }
 
-/** Giải mã tham lam (greedy) từ token SOS cho tới EOS hoặc hết `maxChars` (mặc định `max_seq_length`). */
-export async function greedyDecode(engine: VietOcrEngine, meta: VietOcrMeta, encoded: EncodeResult, maxChars: number = meta.max_seq_length): Promise<string> {
+/** Kết quả giải mã một dòng kèm điểm tin cậy. */
+export interface ScoredText {
+  text: string
+  /** Trung bình, qua các bước giải mã, của xác suất token lớn nhất (exp của log-xác suất). */
+  confidence: number
+}
+
+/**
+ * Giải mã tham lam (greedy) từ token SOS cho tới EOS hoặc hết `maxChars`, đồng thời tính điểm tin cậy:
+ * trung bình xác suất token lớn nhất trên mọi bước đã thực hiện (kể cả bước sinh EOS).
+ */
+export async function greedyDecodeScored(engine: VietOcrEngine, meta: VietOcrMeta, encoded: EncodeResult, maxChars: number = meta.max_seq_length): Promise<ScoredText> {
   let token = meta.sos
   let hidden = encoded.hidden
   const chars: string[] = []
+  let probSum = 0
+  let steps = 0
   for (let step = 0; step < maxChars; step++) {
     const out = await engine.decodeStep(token, hidden, encoded.encoderOutputs, encoded.encoderSteps)
     hidden = out.hidden
     token = argmax(out.logProbs)
+    probSum += Math.exp(out.logProbs[token])
+    steps++
     if (token === meta.eos) break
     const index = token - meta.offset
     if (index >= 0 && index < meta.vocab.length) chars.push(meta.vocab[index])
   }
-  return chars.join('')
+  return { text: chars.join(''), confidence: steps > 0 ? probSum / steps : 0 }
+}
+
+/** Giải mã tham lam (greedy) từ token SOS cho tới EOS hoặc hết `maxChars` (mặc định `max_seq_length`). */
+export async function greedyDecode(engine: VietOcrEngine, meta: VietOcrMeta, encoded: EncodeResult, maxChars: number = meta.max_seq_length): Promise<string> {
+  return (await greedyDecodeScored(engine, meta, encoded, maxChars)).text
+}
+
+/** Nhận dạng một dòng kèm điểm tin cậy; text giống hệt `recognizeLine`. */
+export async function recognizeLineScored(engine: VietOcrEngine, meta: VietOcrMeta, tensor: Float32Array, width: number): Promise<ScoredText> {
+  const encoded = await engine.encode(tensor, width)
+  const decoded = await greedyDecodeScored(engine, meta, encoded, maxCharsForWidth(meta, width))
+  return { text: stripRepeats(decoded.text), confidence: decoded.confidence }
 }
 
 /** Nhận dạng một dòng từ tensor CHW /255 đã đúng chiều cao 32; số ký tự bị chặn theo bề rộng và đoạn lặp ảo giác bị bỏ. */
 export async function recognizeLine(engine: VietOcrEngine, meta: VietOcrMeta, tensor: Float32Array, width: number): Promise<string> {
-  const encoded = await engine.encode(tensor, width)
-  return stripRepeats(await greedyDecode(engine, meta, encoded, maxCharsForWidth(meta, width)))
+  return (await recognizeLineScored(engine, meta, tensor, width)).text
 }

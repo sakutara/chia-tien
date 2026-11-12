@@ -1,6 +1,6 @@
 // Ghép các giai đoạn thành parseReceipt.
 import { DISCOUNT_RE, EXTRA_FEE_RE, REDUCTION_RE, SERVICE_RE, SUBTOTAL_RE, TAX_ID_RE, THANH_TIEN_RE, TOTAL_AMOUNT_RE, TOTAL_RE, VAT_RE, hit } from './patterns'
-import { PRETAX_RE, TAX_INCLUDED_TOTAL_RE, adjustmentOf, dropTotalRows, isTotalLine, majorityTotal, mergeRounding, roundingOf, totalValue, twoTotals } from './adjustments'
+import { PRETAX_RE, TAX_INCLUDED_TOTAL_RE, adjustmentOf, dropTotalRows, isTotalLine, majorityTotal, mergeRounding, roundingOf, totalValue, twoTotals, zeroBalanceTotal } from './adjustments'
 import { detectNumbering, findItemsStart, readItems, tidyItemName } from './items'
 import { findDate, findVendor } from './header'
 import { findGroupRows, groupKind, reconcileGroups } from './groups'
@@ -117,6 +117,9 @@ export function parseReceipt(rawText: string): ParsedReceipt {
     result.billSubtotal = pair.subtotal
     result.billTotal = pair.total
   }
+  // Dòng cuối là số dư 0 sau thanh toán: tổng bill là dòng tổng ngay phía trên (spec receipt-ocr).
+  const zeroTotal = zeroBalanceTotal(lines)
+  if (zeroTotal !== undefined) result.billTotal = zeroTotal
   const merged = mergeRounding(result.discount, result.billSubtotal, result.billTotal, roundingOf(lines))
   if (merged !== undefined) result.discount = merged
 
