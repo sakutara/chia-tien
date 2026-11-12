@@ -8,7 +8,7 @@ export const VAT_RE = /\b(vat|gtgt|thue)\b/
 /** Dòng nhắc tới thuế nhưng không phải khoản VAT: mã số thuế, cơ quan thuế, tra cứu thuế. */
 export const TAX_ID_RE = /ma so thue|\bmst\b|tax code|tax id|co quan thue/
 export const SERVICE_RE = /phi phuc vu|phuc vu|phi dv|service/
-export const DISCOUNT_RE = /giam gia|chiet khau|khuyen mai|discount|\bck\b/
+export const DISCOUNT_RE = /giam gia|chiet khau|khuyen mai|discount|\bck\b|\bkm\b/
 /** Phí giao hàng và các phụ phí của app giao đồ ăn (không phải món): cộng dồn vào phí phục vụ. */
 export const EXTRA_FEE_RE = /phi giao hang|phi van chuyen|phi ap dung|phi nen tang|phi ship|delivery fee|shipping/
 /** Dòng ghi chú / tuỳ chọn của một món trên đơn app ("Ghi chú: Ít đá", "Size L"): không phải tên món, cũng không ghép vào tên món sau. */
@@ -20,6 +20,11 @@ export const TOTAL_RE = /t[oe]ng cong|t[oe]ng thanh toan|t[oe]ng tien|can thanh 
 /** Dòng tiền hàng / tạm tính: tổng các món, chưa gồm giảm giá, phí phục vụ, VAT. */
 export const SUBTOTAL_RE = /tong \(\d+ mon\)|tien hang|tong tam tinh|tam tinh|sub ?total|cong tien/
 export const TOTAL_EXCLUDE_RE = /tien hang|tam tinh|sub ?total|tien mat|tien thua|tien thoi|\bthe\b|card|cash/
+
+/** Dòng mã quầy, mã NVBH ("Quầy:001  NVBH: 09020497"): không phải món, số trong dòng không phải tiền (spec receipt-ocr). */
+export const CODE_LINE_RE = /\bquay\s*:|\bma quay\b|\bnvbh\b|so giao dich|ma giao dich/
+/** Số điện thoại trên bill: số 0 đứng đầu, 9-11 chữ số dính liền ("02471066866- 33761"). Cả dòng là dòng mã, số đuôi không phải tiền. */
+export const PHONE_RUN_RE = /(?:^|[\s:-])0\d{8,10}(?!\d)/
 
 /** Dòng địa chỉ, điện thoại, mã số thuế: không phải tên quán cũng không phải món. */
 export const ADDRESS_RE = /^\W*dc\b|d\/c|dia chi|sdt|\btel\b|hotline|phone|\bmst\b|ma so|website|www\./
@@ -34,7 +39,7 @@ export const FOOTER_RE = /^\W*t[oe0]ng\b|\bsub ?total\b|\bgrand\b|tong|tam tinh|
 export const NOTE_RE =
   /chu ky|signature|ky boi|ky ngay|tra cuu|ma cua co quan|co quan thue|nguoi mua hang|nguoi ban hang|cung cap giai phap|ma qhns|hinh thuc thanh toan|so tai khoan|ngan hang|\bwi-?fi\b|mat khau|password|\bpass\b/
 /** Khoản giảm ghi dạng "Đã giảm 12.374,00 tương ứng 20% mức tỷ lệ % để tính thuế GTGT..." (giảm thuế theo nghị quyết): là giảm giá bằng số tiền, không phải VAT. */
-export const REDUCTION_RE = /^\W*da giam\b|\bgiam\s+\d[\d.,]*\s+tuong ung/
+export const REDUCTION_RE = /^\W*(?:da giam\b|tong tien (?:da |a )?giam\b)|\bgiam\s+\d[\d.,]*\s+tuong ung/
 /** Dòng tổng của hoá đơn điện tử: "Cộng tiền hàng hoá, dịch vụ (Total amount) 2.050.000" là số phải trả, đã trừ khoản giảm bên dưới. */
 export const TOTAL_AMOUNT_RE = /total amount/
 export const UNIT_COLUMN_RE = /don vi tinh|\(unit\)|\bdvt\b/
@@ -78,7 +83,7 @@ export const VENDOR_KEYWORD_RE =
 /** Nhãn "Thành tiền" đầu dòng: sau các dòng món thì là dòng tổng theo vị trí (tiền hàng hoặc tổng bill). */
 export const THANH_TIEN_RE = /^thanh tien\b/
 /** Dòng tiền khách đưa / khách trả / trả khách: không phải món (spec: "Nhận dòng tổng, tạm tính và tiền khách trả"). */
-export const CASH_GIVEN_RE = /tien khach dua|khach dua|khach tra|tra khach/
+export const CASH_GIVEN_RE = /tien khach dua|khach dua|khach tra|tra khach|^\W*(?:received|change)\b/
 
 /** Tiêu đề cột của bảng món không có số tiền ("Mặt hàng SL Số tiền"): cần ít nhất hai nhóm để không nhầm với tên món. */
 export const ITEM_HEADER_GROUPS = [

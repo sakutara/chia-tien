@@ -5,7 +5,7 @@ import { validateReceipt } from './receiptValidation'
 
 // Ngưỡng sàn đo trên bộ bill F&B (văn bản OCR thật, có số tổng chuẩn).
 const FLOOR_TOTAL = 86
-const FLOOR_FULL = 73
+const FLOOR_FULL = 74
 
 interface FnbFixture {
   id: string
