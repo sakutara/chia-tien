@@ -21,7 +21,9 @@ export function MemberBreakdownSection({ b }: { b: MemberBreakdown }) {
           <ul className="space-y-1">
             {b.paidInvoices.map((p) => (
               <li key={p.invoiceId} className="flex flex-wrap justify-between gap-2">
-                <span className="min-w-0 break-words">{p.vendorName ?? t('Không rõ tên quán')} · {p.sessionName}</span>
+                <span className="min-w-0 break-words">
+                  {p.vendorName ?? t('Không rõ tên quán')} · {p.sessionName}
+                </span>
                 <span className="money">{formatMoney(p.amount)}</span>
               </li>
             ))}

@@ -4,7 +4,19 @@ import { slidesFromPayments } from '../../domain/paymentSlides'
 import { renderPaymentsPng } from '../../lib/paymentImage'
 import { formatEntityShareLabel, formatShareMessage, hostRecipientLabels } from '../../domain/shareSnapshot'
 import { PeopleError } from '../../services/peopleErrors'
-import { buildShareTargets, canShareFile, canUseWebShare, copyTextToClipboard, downloadBlob, loadMealSnapshotPayload, scopeSnapshot, shareFileViaOs, shareMessageViaOs, shortenSnapshotUrl, type LoadedMealSnapshot } from '../../services/snapshotService'
+import {
+  buildShareTargets,
+  canShareFile,
+  canUseWebShare,
+  copyTextToClipboard,
+  downloadBlob,
+  loadMealSnapshotPayload,
+  scopeSnapshot,
+  shareFileViaOs,
+  shareMessageViaOs,
+  shortenSnapshotUrl,
+  type LoadedMealSnapshot,
+} from '../../services/snapshotService'
 import IconButton from '../ui/IconButton'
 import Modal from '../ui/Modal'
 import ToggleButton from '../ui/ToggleButton'
@@ -86,13 +98,19 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
   if (!loaded) {
     return (
       <Modal open title={t('Chia sẻ thông báo thanh toán')} onClose={onClose}>
-        {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : <p className="text-sm text-usd-green-700">{t('Đang tạo tin nhắn…')}</p>}
+        {error ? (
+          <p role="alert" className="text-sm text-red-700">
+            {error}
+          </p>
+        ) : (
+          <p className="text-sm text-usd-green-700">{t('Đang tạo tin nhắn…')}</p>
+        )}
       </Modal>
     )
   }
 
   const { settlement } = loaded
-  const debtorIds = [...new Set(settlement.transfers.map((t) => t.fromEntityId))]
+  const debtorIds = [...new Set(settlement.transfers.map((tr) => tr.fromEntityId))]
   const debtors = debtorIds.map((id) => settlement.entities.find((e) => e.entityId === id)).filter((e) => e !== undefined)
   const subset = recipients !== null && recipients.length > 0 && recipients.length < debtors.length ? recipients : null
   // Snapshot chỉ chứa khoản chuyển của những người được chọn; người nhận link không xem được phần của người khác.
@@ -106,9 +124,7 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
     snapshotUrl,
     onlyEntityIds: subset ?? undefined,
     recipientLabelByEntityId:
-      settlement.settlementMode === 'HOST_MEDIATED'
-        ? hostRecipientLabels(settlement.entities, payload.meal.hostMemberId, nameById)
-        : undefined,
+      settlement.settlementMode === 'HOST_MEDIATED' ? hostRecipientLabels(settlement.entities, payload.meal.hostMemberId, nameById) : undefined,
   })
 
   // Bản xem trước chỉ hiện link rút gọn; nội dung sao chép/chia sẻ vẫn chứa link đầy đủ.
@@ -185,7 +201,10 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
         {!sendQr ? (
           <>
             <div>
-              <pre className="whitespace-pre-wrap break-words rounded-lg border border-usd-paper-200 bg-usd-paper-50 p-3 font-sans select-text" aria-label={t('Nội dung tin nhắn')}>
+              <pre
+                className="whitespace-pre-wrap break-words rounded-lg border border-usd-paper-200 bg-usd-paper-50 p-3 font-sans select-text"
+                aria-label={t('Nội dung tin nhắn')}
+              >
                 {previewMessage}
               </pre>
             </div>
@@ -203,7 +222,12 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
                   {t('Đã sao chép')}
                 </span>
               )}
-              <IconButton icon={Copy} label={t('Sao chép toàn bộ tin nhắn')} tone={canUseWebShare() ? 'outline' : 'primary'} onClick={() => void copy(message, 'ALL')} />
+              <IconButton
+                icon={Copy}
+                label={t('Sao chép toàn bộ tin nhắn')}
+                tone={canUseWebShare() ? 'outline' : 'primary'}
+                onClick={() => void copy(message, 'ALL')}
+              />
               <IconButton icon={Link2} label={t('Chỉ sao chép Link Snapshot')} tone="outline" onClick={() => void copy(snapshotUrl, 'LINK')} />
               {canUseWebShare() && <IconButton icon={Share2} label={t('Chia sẻ qua ứng dụng khác')} tone="primary" onClick={() => void shareOs()} />}
             </div>
@@ -218,7 +242,9 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
                 ))}
               </div>
               {!canUseWebShare() && (
-                <p className="mt-1 text-xs text-usd-green-700">{t('Trình duyệt chưa hỗ trợ menu chia sẻ hệ thống (cần HTTPS), nên dùng các nút trên hoặc sao chép.')}</p>
+                <p className="mt-1 text-xs text-usd-green-700">
+                  {t('Trình duyệt chưa hỗ trợ menu chia sẻ hệ thống (cần HTTPS), nên dùng các nút trên hoặc sao chép.')}
+                </p>
               )}
             </div>
           </>
@@ -246,7 +272,11 @@ export default function ShareMealDialog({ mealId, onClose }: Props) {
           </>
         )}
 
-                {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-red-700">
+            {error}
+          </p>
+        )}
       </div>
     </Modal>
   )

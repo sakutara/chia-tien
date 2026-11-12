@@ -26,14 +26,17 @@ export default function CameraCaptureDialog({ onCapture, onClose, onUnavailable 
       })
       .then((stream) => {
         if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop())
+          stream.getTracks().forEach((track) => track.stop())
           return
         }
         streamRef.current = stream
         const video = videoRef.current
         if (video) {
           video.srcObject = stream
-          void video.play().then(() => setReady(true)).catch(() => setReady(true))
+          void video
+            .play()
+            .then(() => setReady(true))
+            .catch(() => setReady(true))
         }
       })
       .catch(() => {
@@ -41,7 +44,7 @@ export default function CameraCaptureDialog({ onCapture, onClose, onUnavailable 
       })
     return () => {
       cancelled = true
-      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current?.getTracks().forEach((track) => track.stop())
     }
   }, [])
 

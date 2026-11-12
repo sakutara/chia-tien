@@ -44,13 +44,7 @@ export default function MyProfileDialog({ profile, onClose }: Props) {
           <label htmlFor="profile-name" className="mb-1 block text-sm font-medium">
             {t('Tên của tôi')}
           </label>
-          <input
-            id="profile-name"
-            data-autofocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="field min-h-10"
-          />
+          <input id="profile-name" data-autofocus value={name} onChange={(e) => setName(e.target.value)} className="field min-h-10" />
           <p className="mt-1 text-xs text-usd-green-700">{t('Hồ sơ này là người chủ trì mặc định của mọi bữa mới và không xoá được.')}</p>
         </div>
         <fieldset className="space-y-2 border-t border-usd-paper-200 pt-3">

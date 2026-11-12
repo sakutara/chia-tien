@@ -96,7 +96,7 @@ export default function InlineText({
           setEditing(true)
         }}
       >
-        {value ? (display ? display(value) : value) : <span className="italic text-usd-green-700">{empty}</span>}
+        {value ? display ? display(value) : value : <span className="italic text-usd-green-700">{empty}</span>}
       </button>
     )
   }

@@ -35,7 +35,12 @@ function inside(poly: Quad, x: number, y: number): boolean {
 }
 
 /** Nền tối, tờ giấy sáng dạng tứ giác `paper`, có các dòng chữ đen dày `stroke` px bên trong. */
-function receiptPhoto(width: number, height: number, paper: Quad, opts: { bg?: number; paperValue?: number; stroke?: number; dash?: number; shade?: boolean } = {}): GrayImage {
+function receiptPhoto(
+  width: number,
+  height: number,
+  paper: Quad,
+  opts: { bg?: number; paperValue?: number; stroke?: number; dash?: number; shade?: boolean } = {},
+): GrayImage {
   const { bg = 50, paperValue = 215, stroke = 3, dash = 3, shade = false } = opts
   const img = makeImage(width, height, bg)
   for (let y = 0; y < height; y++) {
@@ -155,7 +160,13 @@ describe('scanDocument — cả quy trình', () => {
     expect([...new Set(result!.image.data)].sort()).toEqual([0, 255])
     // Không còn nền tối: các góc ảnh đầu ra là trắng.
     const { data, width, height } = result!.image
-    for (const [x, y] of [[2, 2], [width - 3, 2], [2, height - 3], [width - 3, height - 3]]) expect(data[y * width + x]).toBe(255)
+    for (const [x, y] of [
+      [2, 2],
+      [width - 3, 2],
+      [2, height - 3],
+      [width - 3, height - 3],
+    ])
+      expect(data[y * width + x]).toBe(255)
     // Nét dày hơn ngưỡng: không giãn thêm (giãn nét làm OCR kém đi trên bill thật).
     expect(result!.thickened).toBe(false)
   })

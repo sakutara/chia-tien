@@ -17,8 +17,28 @@ function settlement(overrides: Partial<MealSettlementResult> = {}): MealSettleme
     unassignedItemCount: 0,
     memberBreakdowns: [],
     entities: [
-      { entityId: 'a', entityName: 'An', isGroup: false, memberIds: ['a'], memberNames: ['An'], totalPaid: 90_000, totalOwed: 45_000, netBalance: 45_000, isPaid: false },
-      { entityId: 'b', entityName: 'Bình', isGroup: false, memberIds: ['b'], memberNames: ['Bình'], totalPaid: 0, totalOwed: 45_000, netBalance: -45_000, isPaid: false },
+      {
+        entityId: 'a',
+        entityName: 'An',
+        isGroup: false,
+        memberIds: ['a'],
+        memberNames: ['An'],
+        totalPaid: 90_000,
+        totalOwed: 45_000,
+        netBalance: 45_000,
+        isPaid: false,
+      },
+      {
+        entityId: 'b',
+        entityName: 'Bình',
+        isGroup: false,
+        memberIds: ['b'],
+        memberNames: ['Bình'],
+        totalPaid: 0,
+        totalOwed: 45_000,
+        netBalance: -45_000,
+        isPaid: false,
+      },
     ],
     transfers: [{ fromEntityId: 'b', fromEntityName: 'Bình', toEntityId: 'a', toEntityName: 'An', amount: 45_000, key: 'b', isPaid: false }],
     transferCount: 1,
@@ -43,8 +63,28 @@ describe('checkArchiveEligibility (BR-7.1, R-1)', () => {
     const ticked = settlement({
       transfers: [{ fromEntityId: 'b', fromEntityName: 'Bình', toEntityId: 'a', toEntityName: 'An', amount: 45_000, key: 'b->a', isPaid: true }],
       entities: [
-        { entityId: 'a', entityName: 'An', isGroup: false, memberIds: ['a'], memberNames: ['An'], totalPaid: 90_000, totalOwed: 45_000, netBalance: 45_000, isPaid: true },
-        { entityId: 'b', entityName: 'Bình', isGroup: false, memberIds: ['b'], memberNames: ['Bình'], totalPaid: 0, totalOwed: 45_000, netBalance: -45_000, isPaid: true },
+        {
+          entityId: 'a',
+          entityName: 'An',
+          isGroup: false,
+          memberIds: ['a'],
+          memberNames: ['An'],
+          totalPaid: 90_000,
+          totalOwed: 45_000,
+          netBalance: 45_000,
+          isPaid: true,
+        },
+        {
+          entityId: 'b',
+          entityName: 'Bình',
+          isGroup: false,
+          memberIds: ['b'],
+          memberNames: ['Bình'],
+          totalPaid: 0,
+          totalOwed: 45_000,
+          netBalance: -45_000,
+          isPaid: true,
+        },
       ],
     })
     expect(checkArchiveEligibility(ticked).canArchive).toBe(true)
@@ -52,7 +92,17 @@ describe('checkArchiveEligibility (BR-7.1, R-1)', () => {
     const selfBalanced = settlement({
       transfers: [],
       entities: [
-        { entityId: 'a', entityName: 'An', isGroup: false, memberIds: ['a'], memberNames: ['An'], totalPaid: 45_000, totalOwed: 45_000, netBalance: 0, isPaid: true },
+        {
+          entityId: 'a',
+          entityName: 'An',
+          isGroup: false,
+          memberIds: ['a'],
+          memberNames: ['An'],
+          totalPaid: 45_000,
+          totalOwed: 45_000,
+          netBalance: 0,
+          isPaid: true,
+        },
       ],
     })
     expect(checkArchiveEligibility(selfBalanced).canArchive).toBe(true)
@@ -66,8 +116,17 @@ describe('checkArchiveEligibility (BR-7.1, R-1)', () => {
 describe('buildArchivedPayload (R-2, R-3)', () => {
   it('đóng gói tổng kèo, người ứng và tổng kết toàn bữa; đánh dấu ARCHIVED', () => {
     const meal: Meal = {
-      id: 'm', title: 'Lẩu', date: '2026-10-19', status: 'ACTIVE', participantIds: ['a', 'b'], hostMemberId: 'a',
-      settlementMode: 'SELF_SETTLEMENT', paymentGroups: [], settlementStatuses: {}, createdAt: NOW, updatedAt: NOW,
+      id: 'm',
+      title: 'Lẩu',
+      date: '2026-10-19',
+      status: 'ACTIVE',
+      participantIds: ['a', 'b'],
+      hostMemberId: 'a',
+      settlementMode: 'SELF_SETTLEMENT',
+      paymentGroups: [],
+      settlementStatuses: {},
+      createdAt: NOW,
+      updatedAt: NOW,
     }
     const sessions: SessionKeo[] = [
       { id: 's2', mealId: 'm', name: 'Kèo 2', orderIndex: 1, participantIds: ['a', 'b'], createdAt: NOW },

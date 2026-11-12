@@ -36,8 +36,7 @@ export default function MealFormDialog({ mode, meal, initialDate, onClose, onSav
     setSaving(true)
     try {
       validateMealDraft({ title, date, note })
-      const saved =
-        mode === 'edit' && meal ? await updateMealInfo(meal.id, { title, date, note }) : await createMeal({ title, date, note })
+      const saved = mode === 'edit' && meal ? await updateMealInfo(meal.id, { title, date, note }) : await createMeal({ title, date, note })
       onSaved(saved)
     } catch (err) {
       if (err instanceof PeopleError && err.code === 'INVALID_TITLE') setErrors({ title: err.message })

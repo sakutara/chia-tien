@@ -6,12 +6,15 @@ import { loadStoredLang } from './db/languageStore'
 import { initLanguage } from './i18n'
 import { installMemoryLifecycleHooks } from './services/memoryLifecycle'
 import { cleanUpLegacyLocalAi } from './services/legacyAiCleanup'
+import { dedupeStoredInvoiceFiles } from './services/fileStorageMigration'
 
 // Trả RAM của worker OCR về hệ điều hành khi app ẩn hoặc đóng tab (memoryLifecycle).
 installMemoryLifecycleHooks()
 
 // Xoá một lần mô hình AI trên máy và khoá cũ của tính năng đã gỡ (~480–790 MB); lỗi không chặn khởi động.
 void cleanUpLegacyLocalAi()
+// Bỏ bản blobData trùng của ảnh hoá đơn đã có trong OPFS (chạy nền; lỗi không chặn khởi động).
+void dedupeStoredInvoiceFiles()
 
 // iOS Safari bỏ qua `user-scalable=no`, nên chặn thêm cử chỉ chụm (gesture*) và chạm đúp để không zoom được.
 for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
@@ -28,7 +31,13 @@ document.addEventListener(
   { passive: false },
 )
 // Ctrl/Cmd + lăn chuột (và chụm trên touchpad) trên máy tính cũng không phóng to trang.
-document.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault() }, { passive: false })
+document.addEventListener(
+  'wheel',
+  (e) => {
+    if (e.ctrlKey) e.preventDefault()
+  },
+  { passive: false },
+)
 
 // Ngôn ngữ ban đầu: lựa chọn đã lưu trong IndexedDB > tham số `l` của link Snapshot > ngôn ngữ trình duyệt (BR-9.4, BR-9.8).
 loadStoredLang().then((stored) => {

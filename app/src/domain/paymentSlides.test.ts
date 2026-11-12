@@ -4,22 +4,56 @@ import { buildPaymentSlides, filterSlides, personFilterOptions, resolveRecipient
 
 const bank = (n: string) => ({ bankBin: '970436', bankName: 'Vietcombank', accountName: n, accountNumber: '111222333' })
 const entity = (id: string, memberIds: string[], extra: Partial<PaymentEntitySettlement> = {}): PaymentEntitySettlement => ({
-  entityId: id, entityName: extra.entityName ?? id, isGroup: memberIds.length > 1, memberIds, memberNames: memberIds,
-  totalPaid: 0, totalOwed: 0, netBalance: 0, isPaid: false, ...extra,
+  entityId: id,
+  entityName: extra.entityName ?? id,
+  isGroup: memberIds.length > 1,
+  memberIds,
+  memberNames: memberIds,
+  totalPaid: 0,
+  totalOwed: 0,
+  netBalance: 0,
+  isPaid: false,
+  ...extra,
 })
 const result = (entities: PaymentEntitySettlement[], transfers: MealSettlementResult['transfers'], host = 'a'): MealSettlementResult => ({
-  mealId: 'm', status: 'ACTIVE', settlementMode: 'SELF_SETTLEMENT', hostMemberId: host, hostEntityId: host, totalMealAmount: 1, assignedAmount: 1,
-  unassignedAmount: 0, unassignedItemCount: 0, memberBreakdowns: [], entities, transfers, transferCount: transfers.length, paidTransferCount: 0, isAllSettled: false,
+  mealId: 'm',
+  status: 'ACTIVE',
+  settlementMode: 'SELF_SETTLEMENT',
+  hostMemberId: host,
+  hostEntityId: host,
+  totalMealAmount: 1,
+  assignedAmount: 1,
+  unassignedAmount: 0,
+  unassignedItemCount: 0,
+  memberBreakdowns: [],
+  entities,
+  transfers,
+  transferCount: transfers.length,
+  paidTransferCount: 0,
+  isAllSettled: false,
 })
-const t = (from: string, to: string, amount: number) => ({ fromEntityId: from, fromEntityName: from, toEntityId: to, toEntityName: to, amount, key: `${from}->${to}`, isPaid: false })
+const t = (from: string, to: string, amount: number) => ({
+  fromEntityId: from,
+  fromEntityName: from,
+  toEntityId: to,
+  toEntityName: to,
+  amount,
+  key: `${from}->${to}`,
+  isPaid: false,
+})
 
 describe('buildPaymentSlides', () => {
-  const people = [{ id: 'a', name: 'a', bank: bank('A') }, { id: 'b', name: 'b' }, { id: 'c', name: 'c', bank: bank('C') }]
+  const people = [
+    { id: 'a', name: 'a', bank: bank('A') },
+    { id: 'b', name: 'b' },
+    { id: 'c', name: 'c', bank: bank('C') },
+  ]
 
   it('dựng QR cho người nhận có ngân hàng và bỏ QR khi chưa có', () => {
     const slides = buildPaymentSlides({
       settlement: result([entity('a', ['a']), entity('b', ['b']), entity('c', ['c'])], [t('b', 'a', 5000), t('a', 'b', 100)]),
-      mealTitle: 'Lẩu', people,
+      mealTitle: 'Lẩu',
+      people,
     })
     expect(slides[0].bank?.accountName).toBe('A')
     expect(slides[0].qrPayload).toContain('54045000')
@@ -32,7 +66,8 @@ describe('buildPaymentSlides', () => {
     const group = entity('g', ['a', 'b'], { entityName: 'Cặp đôi' })
     const slides = buildPaymentSlides({
       settlement: result([group, entity('g2', ['a']), entity('c', ['c'])], [t('g', 'g2', 100), t('c', 'g', 200)]),
-      mealTitle: 'x', people,
+      mealTitle: 'x',
+      people,
     })
     expect(slides.map((s) => s.key)).toEqual(['c->g'])
   })
@@ -51,7 +86,11 @@ describe('buildPaymentSlides', () => {
     expect(filterSlides(slides, ['g'])).toHaveLength(1)
     expect(filterSlides(slides, ['c'])).toHaveLength(1)
     expect(filterSlides(slides, ['zzz'])).toHaveLength(0)
-    expect(personFilterOptions(slides).map((o) => o.label).sort()).toEqual(['c'])
+    expect(
+      personFilterOptions(slides)
+        .map((o) => o.label)
+        .sort(),
+    ).toEqual(['c'])
   })
 
   it('nhờ chủ trì thu: nhóm có chủ trì nhận bằng tài khoản chủ trì; tự thanh toán thì lấy người đầu tiên có tài khoản', () => {

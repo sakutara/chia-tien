@@ -337,15 +337,17 @@ export function findDocumentQuad(gray: GrayImage): Quad | null {
   const grown = quad.map((p) => ({ x: Math.min(w, Math.max(0, p.x)), y: Math.min(h, Math.max(0, p.y)) })) as Quad
 
   const nearlyRect = grown.every((p, i) => {
-    const corner = [{ x: 0, y: 0 }, { x: w, y: 0 }, { x: w, y: h }, { x: 0, y: h }][i]
-    return dist(p, corner) < 0.04 * Math.max(w, h)
+    const expected = [
+      { x: 0, y: 0 },
+      { x: w, y: 0 },
+      { x: w, y: h },
+      { x: 0, y: h },
+    ][i]
+    return dist(p, expected) < 0.04 * Math.max(w, h)
   })
   if (nearlyRect && polygonArea(grown) >= SKIP_CROP_COVERAGE * w * h) return null
 
-  return insetQuad(
-    grown.map((p) => ({ x: p.x / scale, y: p.y / scale })) as Quad,
-    CROP_INSET,
-  )
+  return insetQuad(grown.map((p) => ({ x: p.x / scale, y: p.y / scale })) as Quad, CROP_INSET)
 }
 
 // ---------------------------------------------------------------------------
@@ -629,7 +631,20 @@ export function scanDocument(gray: GrayImage, options: ScanOptions = {}): ScanRe
     rect = warpToRect(gray, quad, size.width, size.height)
   } else {
     const size = outputSize(gray.width, gray.height, targetLongEdge, maxUpscale)
-    rect = size.width === gray.width && size.height === gray.height ? gray : warpToRect(gray, [{ x: 0, y: 0 }, { x: gray.width, y: 0 }, { x: gray.width, y: gray.height }, { x: 0, y: gray.height }], size.width, size.height)
+    rect =
+      size.width === gray.width && size.height === gray.height
+        ? gray
+        : warpToRect(
+            gray,
+            [
+              { x: 0, y: 0 },
+              { x: gray.width, y: 0 },
+              { x: gray.width, y: gray.height },
+              { x: 0, y: gray.height },
+            ],
+            size.width,
+            size.height,
+          )
   }
 
   const keepGray = options.keepGray ?? 'auto'

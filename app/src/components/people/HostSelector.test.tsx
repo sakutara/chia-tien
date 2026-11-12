@@ -46,7 +46,11 @@ describe('HostSelector (BR-2.6)', () => {
     render(<HostSelector mealId={meal.id} participants={[host, binh]} hostMemberId={host.id} />)
     const select = screen.getByRole('combobox', { name: 'Người chủ trì' }) as HTMLSelectElement
     expect(select.value).toBe(host.id)
-    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual([host.name, 'Bình'])
+    expect(
+      within(select)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual([host.name, 'Bình'])
   })
 
   it('changes the host of this meal when a participant is chosen', async () => {

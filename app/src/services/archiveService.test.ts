@@ -25,9 +25,17 @@ async function makeMeal(participants: string[]): Promise<Meal> {
   const init = await initMealPeople()
   const now = new Date().toISOString()
   const meal: Meal = {
-    id: crypto.randomUUID(), title: 'Lẩu', date: '2026-10-19', status: 'ACTIVE',
-    participantIds: participants, hostMemberId: init.hostMemberId,
-    settlementMode: 'SELF_SETTLEMENT', paymentGroups: [], settlementStatuses: {}, createdAt: now, updatedAt: now,
+    id: crypto.randomUUID(),
+    title: 'Lẩu',
+    date: '2026-10-19',
+    status: 'ACTIVE',
+    participantIds: participants,
+    hostMemberId: init.hostMemberId,
+    settlementMode: 'SELF_SETTLEMENT',
+    paymentGroups: [],
+    settlementStatuses: {},
+    createdAt: now,
+    updatedAt: now,
   }
   await db.meals.put(meal)
   return meal
@@ -46,8 +54,14 @@ async function settledMeal() {
   const meal = await makeMeal([init.hostMemberId, bob])
   const session = await addSession(meal.id, 'Kèo 1')
   const { invoice } = await createInvoice({
-    sessionId: session.id, payerMemberId: init.hostMemberId, inputMode: 'TOTAL_ONLY', items: [],
-    subtotalAmount: 90_000, discount: none, service: none, vat: none,
+    sessionId: session.id,
+    payerMemberId: init.hostMemberId,
+    inputMode: 'TOTAL_ONLY',
+    items: [],
+    subtotalAmount: 90_000,
+    discount: none,
+    service: none,
+    vat: none,
   })
   await payAllTransfers(meal.id)
   return { meal, session, invoice, host: init.hostMemberId, bob }
@@ -59,7 +73,16 @@ describe('archiveService (Epic 7: BR-7.1 → BR-7.3, R-1 → R-5)', () => {
     const bob = await addMember('bob', 'Bình')
     const meal = await makeMeal([init.hostMemberId, bob])
     const session = await addSession(meal.id, 'Kèo 1')
-    await createInvoice({ sessionId: session.id, payerMemberId: init.hostMemberId, inputMode: 'TOTAL_ONLY', items: [], subtotalAmount: 90_000, discount: none, service: none, vat: none })
+    await createInvoice({
+      sessionId: session.id,
+      payerMemberId: init.hostMemberId,
+      inputMode: 'TOTAL_ONLY',
+      items: [],
+      subtotalAmount: 90_000,
+      discount: none,
+      service: none,
+      vat: none,
+    })
 
     const err = await archiveMeal(meal.id).catch((e) => e)
     expect(err).toBeInstanceOf(PeopleError)
@@ -73,8 +96,14 @@ describe('archiveService (Epic 7: BR-7.1 → BR-7.3, R-1 → R-5)', () => {
     const meal = await makeMeal([init.hostMemberId])
     const session = await addSession(meal.id, 'Kèo 1')
     const { items } = await createInvoice({
-      sessionId: session.id, payerMemberId: init.hostMemberId, inputMode: 'ITEMIZED', splitType: 'BY_ITEM',
-      items: [{ name: 'Bia', quantity: 1, unitPrice: 50_000 }], discount: none, service: none, vat: none,
+      sessionId: session.id,
+      payerMemberId: init.hostMemberId,
+      inputMode: 'ITEMIZED',
+      splitType: 'BY_ITEM',
+      items: [{ name: 'Bia', quantity: 1, unitPrice: 50_000 }],
+      discount: none,
+      service: none,
+      vat: none,
     })
     await setItemConsumers(items[0].id, [])
     await expect(archiveMeal(meal.id)).rejects.toMatchObject({ code: 'ARCHIVE_UNASSIGNED_ITEMS' })
@@ -92,8 +121,19 @@ describe('archiveService (Epic 7: BR-7.1 → BR-7.3, R-1 → R-5)', () => {
     const preview = await getArchivePreview(f.meal.id)
     expect(preview.invoiceCount).toBe(1)
     await db.items.add({
-      id: 'kept-item', mealId: f.meal.id, sessionId: f.session.id, invoiceId: f.invoice.id, name: 'Lẩu', quantity: 1, unitPrice: 90_000,
-      rawAmount: 90_000, allocatedDiscountAmount: 0, allocatedServiceAmount: 0, allocatedVatAmount: 0, finalAmount: 90_000, consumers: [],
+      id: 'kept-item',
+      mealId: f.meal.id,
+      sessionId: f.session.id,
+      invoiceId: f.invoice.id,
+      name: 'Lẩu',
+      quantity: 1,
+      unitPrice: 90_000,
+      rawAmount: 90_000,
+      allocatedDiscountAmount: 0,
+      allocatedServiceAmount: 0,
+      allocatedVatAmount: 0,
+      finalAmount: 90_000,
+      consumers: [],
     })
 
     await archiveMeal(f.meal.id, new Date('2026-10-19T12:00:00.000Z'))
@@ -142,8 +182,14 @@ describe('archiveService (Epic 7: BR-7.1 → BR-7.3, R-1 → R-5)', () => {
   it('sửa hoá đơn làm đổi số tiền chuyển thì tick cũ mất hiệu lực; tick lại rồi lưu trữ dùng tổng mới (B.8 rủi ro 3)', async () => {
     const f = await settledMeal()
     await updateInvoice(f.invoice.id, {
-      sessionId: f.session.id, payerMemberId: f.host, inputMode: 'TOTAL_ONLY', items: [],
-      subtotalAmount: 120_000, discount: none, service: none, vat: none,
+      sessionId: f.session.id,
+      payerMemberId: f.host,
+      inputMode: 'TOTAL_ONLY',
+      items: [],
+      subtotalAmount: 120_000,
+      discount: none,
+      service: none,
+      vat: none,
     })
     await expect(archiveMeal(f.meal.id)).rejects.toMatchObject({ code: 'ARCHIVE_UNPAID_ENTITIES' })
     await payAllTransfers(f.meal.id)
@@ -156,9 +202,17 @@ describe('archiveService (Epic 7: BR-7.1 → BR-7.3, R-1 → R-5)', () => {
     const meal = await makeMeal([init.hostMemberId])
     const session = await addSession(meal.id, 'Kèo 1')
     const { items } = await createInvoice({
-      sessionId: session.id, payerMemberId: init.hostMemberId, inputMode: 'ITEMIZED', splitType: 'EQUAL_TOTAL',
-      items: [{ name: 'Bia', quantity: 1, unitPrice: 50_000 }, { name: 'Trà', quantity: 1, unitPrice: 10_000 }],
-      discount: none, service: none, vat: none,
+      sessionId: session.id,
+      payerMemberId: init.hostMemberId,
+      inputMode: 'ITEMIZED',
+      splitType: 'EQUAL_TOTAL',
+      items: [
+        { name: 'Bia', quantity: 1, unitPrice: 50_000 },
+        { name: 'Trà', quantity: 1, unitPrice: 10_000 },
+      ],
+      discount: none,
+      service: none,
+      vat: none,
     })
     expect(items).toHaveLength(2)
     expect(await getArchivePreview(meal.id)).toEqual({ invoiceCount: 1, fileCount: 0, totalFileBytes: 0 })

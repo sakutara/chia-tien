@@ -151,9 +151,19 @@ export interface BankDeepLink {
  * `ba=` là `số tài khoản@mã ngân hàng VietQR` (chữ thường, VD: `22102025@icb`); mã này là của ngân hàng người nhận, nên khác `app=`
  * của app đang mở. Mỗi ngân hàng trong bảng trên dùng chính app của mình nên lấy mã từ chính dòng của BIN đó.
  */
-export function buildBankDeepLink(account: { bankBin: string; accountNumber: string; accountName: string }, amount: number, content: string): BankDeepLink | undefined {
+export function buildBankDeepLink(
+  account: { bankBin: string; accountNumber: string; accountName: string },
+  amount: number,
+  content: string,
+): BankDeepLink | undefined {
   const found = DEEP_LINK_APPS[account.bankBin]
   if (!found) return undefined
-  const q = new URLSearchParams({ app: found.appId, ba: `${account.accountNumber}@${found.bankCode ?? found.appId}`, am: String(amount), tn: content, bn: account.accountName })
+  const q = new URLSearchParams({
+    app: found.appId,
+    ba: `${account.accountNumber}@${found.bankCode ?? found.appId}`,
+    am: String(amount),
+    tn: content,
+    bn: account.accountName,
+  })
   return { href: `https://dl.vietqr.io/pay?${q.toString()}`, appName: found.appName, autofill: found.autofill }
 }

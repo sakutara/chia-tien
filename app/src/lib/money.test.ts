@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { parseMoney } from './money';
+import { describe, expect, it } from 'vitest'
+import { parseMoney } from './money'
 
 describe('parseMoney (R-1)', () => {
   it.each([
@@ -15,10 +15,10 @@ describe('parseMoney (R-1)', () => {
     ['  45 000 ', 45_000],
     ['0', 0],
   ])('đọc %s thành %d', (input, expected) => {
-    expect(parseMoney(input)).toBe(expected);
-  });
+    expect(parseMoney(input)).toBe(expected)
+  })
 
   it.each(['', '  ', 'abc', '-5', '4.5.0', '12a', '10000000000', '1e5'])('từ chối %j', (input) => {
-    expect(parseMoney(input)).toBeNull();
-  });
-});
+    expect(parseMoney(input)).toBeNull()
+  })
+})

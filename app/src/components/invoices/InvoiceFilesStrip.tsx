@@ -6,13 +6,7 @@ import { formatBytes } from '../../lib/bytes'
 import { probeImage } from '../../lib/imageCompress'
 import { isPdfFile } from '../../lib/pdfImport'
 import { downloadFile, getFileBlob, listFilesByInvoice } from '../../services/fileStorageService'
-import {
-  addInvoiceImage,
-  addInvoicePdf,
-  IMAGE_COMPRESSION,
-  MAX_IMAGES_PER_INVOICE,
-  removeInvoiceImage,
-} from '../../services/invoiceFileService'
+import { addInvoiceImage, addInvoicePdf, IMAGE_COMPRESSION, MAX_IMAGES_PER_INVOICE, removeInvoiceImage } from '../../services/invoiceFileService'
 import { PeopleError } from '../../services/peopleErrors'
 import type { InvoiceFileRecord } from '../../types'
 import ConfirmDialog from '../ui/ConfirmDialog'
@@ -126,7 +120,14 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
             const result = await addInvoicePdf({ mealId, sessionId, invoiceId, file })
             added.push(...result.records.map((r) => r.id))
             if (result.truncated) {
-              failed.push(t('{v}: PDF có {total} trang, chỉ nhận {n} trang đầu (mỗi hoá đơn tối đa {max} ảnh).', { v: file.name, total: result.totalPages, n: result.records.length, max: MAX_IMAGES_PER_INVOICE }))
+              failed.push(
+                t('{v}: PDF có {total} trang, chỉ nhận {n} trang đầu (mỗi hoá đơn tối đa {max} ảnh).', {
+                  v: file.name,
+                  total: result.totalPages,
+                  n: result.records.length,
+                  max: MAX_IMAGES_PER_INVOICE,
+                }),
+              )
             }
           } else {
             setBusyText(t('Đang nén và lưu ảnh…'))
@@ -229,7 +230,11 @@ export default function InvoiceFilesStrip({ invoiceId, mealId, sessionId, disabl
       <ConfirmDialog
         open={removing !== null}
         title={t('Xoá ảnh này?')}
-        message={<>{t('Ảnh')} <strong>{removing?.fileName}</strong> {t('sẽ bị xoá khỏi bộ nhớ. Không hoàn tác được.')}</>}
+        message={
+          <>
+            {t('Ảnh')} <strong>{removing?.fileName}</strong> {t('sẽ bị xoá khỏi bộ nhớ. Không hoàn tác được.')}
+          </>
+        }
         confirmLabel={t('Xoá ảnh')}
         tone="danger"
         onConfirm={async () => {

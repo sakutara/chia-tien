@@ -38,14 +38,7 @@ export default function ArchiveMealAction({ mealId, mealTitle, readOnly }: Props
           {t('Chưa thể lưu trữ: {message}', { message: eligibility.message ?? '' })}
         </p>
       )}
-      {confirming && (
-        <ArchiveMealDialog
-          mealId={mealId}
-          mealTitle={mealTitle}
-          onClose={() => setConfirming(false)}
-          onArchived={() => setConfirming(false)}
-        />
-      )}
+      {confirming && <ArchiveMealDialog mealId={mealId} mealTitle={mealTitle} onClose={() => setConfirming(false)} onArchived={() => setConfirming(false)} />}
     </>
   )
 }

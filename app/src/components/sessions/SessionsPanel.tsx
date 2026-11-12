@@ -50,9 +50,7 @@ export default function SessionsPanel({ meal, participants }: Props) {
       {sessions === undefined ? (
         <p className="text-sm text-usd-green-700">{t('Đang tải kèo…')}</p>
       ) : sessions.length === 0 ? (
-        <p className="card text-sm text-usd-green-700">
-          {readOnly ? t('Bữa này không có kèo nào.') : t('Chưa có kèo nào. Bấm + để thêm kèo đầu tiên.')}
-        </p>
+        <p className="card text-sm text-usd-green-700">{readOnly ? t('Bữa này không có kèo nào.') : t('Chưa có kèo nào. Bấm + để thêm kèo đầu tiên.')}</p>
       ) : (
         <ul className="grid gap-3 xl:grid-cols-2">
           {sessions.map((view, i) => (

@@ -101,7 +101,7 @@ describe('MealWorkspacePage (BR-3.9, AC-9, AC-10)', () => {
     expect(screen.queryByRole('button', { name: 'Đã chốt' })).toBeNull() // tên không còn bấm để sửa được
     expect(screen.queryByRole('combobox', { name: 'Người chủ trì' })).toBeNull()
     await step(/Người/)
-    expect((screen.queryByRole('combobox') as HTMLInputElement | null)).toBeNull()
+    expect(screen.queryByRole('combobox') as HTMLInputElement | null).toBeNull()
     expect(screen.queryByRole('button', { name: /Bỏ .* khỏi bữa/ })).toBeNull()
     expect(screen.queryByText(/không sửa được|chỉ xem/i)).toBeNull()
 
@@ -114,14 +114,39 @@ describe('MealWorkspacePage (BR-3.9, AC-9, AC-10)', () => {
   it('bữa đã lưu trữ: giữ và hiện các món, không có nút chia sẻ thanh toán, không có thông báo khoá', async () => {
     const meal = await createMeal({ title: 'Đã chốt', date: '2026-01-10' })
     const now = '2026-01-10T00:00:00.000Z'
-    await db.sessions.add({ id: 's1', mealId: meal.id, name: 'Kèo 1', orderIndex: 0, participantIds: meal.participantIds, createdAt: now, archivedTotalAmount: 90_000, archivedPayerSummary: [] })
+    await db.sessions.add({
+      id: 's1',
+      mealId: meal.id,
+      name: 'Kèo 1',
+      orderIndex: 0,
+      participantIds: meal.participantIds,
+      createdAt: now,
+      archivedTotalAmount: 90_000,
+      archivedPayerSummary: [],
+    })
     await db.items.add({
-      id: 'i1', mealId: meal.id, sessionId: 's1', invoiceId: 'gone', name: 'Lẩu bò', quantity: 1, unitPrice: 90_000, rawAmount: 90_000,
-      allocatedDiscountAmount: 0, allocatedServiceAmount: 0, allocatedVatAmount: 0, finalAmount: 90_000, consumers: [],
+      id: 'i1',
+      mealId: meal.id,
+      sessionId: 's1',
+      invoiceId: 'gone',
+      name: 'Lẩu bò',
+      quantity: 1,
+      unitPrice: 90_000,
+      rawAmount: 90_000,
+      allocatedDiscountAmount: 0,
+      allocatedServiceAmount: 0,
+      allocatedVatAmount: 0,
+      finalAmount: 90_000,
+      consumers: [],
     })
     await db.meals.update(meal.id, {
       status: 'ARCHIVED',
-      archivedSummary: { totalMealAmount: 90_000, sessionsSummary: [{ sessionId: 's1', sessionName: 'Kèo 1', totalAmount: 90_000, invoiceCount: 1 }], entitiesSummary: [], transfers: [] },
+      archivedSummary: {
+        totalMealAmount: 90_000,
+        sessionsSummary: [{ sessionId: 's1', sessionName: 'Kèo 1', totalAmount: 90_000, invoiceCount: 1 }],
+        entitiesSummary: [],
+        transfers: [],
+      },
     } as Partial<Meal>)
     render(<MealWorkspacePage mealId={meal.id} onBack={() => {}} />)
 

@@ -111,7 +111,13 @@ export default function MealWorkspacePage({ mealId, onBack }: Props) {
                     />
                   </div>
                   {participants.length >= 2 && (
-                    <IconButton icon={UserRoundPlus} label={t('Tạo nhóm thanh toán')} tone="outline" className="mt-0.5" onClick={() => setCreatingGroup(true)} />
+                    <IconButton
+                      icon={UserRoundPlus}
+                      label={t('Tạo nhóm thanh toán')}
+                      tone="outline"
+                      className="mt-0.5"
+                      onClick={() => setCreatingGroup(true)}
+                    />
                   )}
                 </div>
               )}
@@ -170,9 +176,7 @@ export default function MealWorkspacePage({ mealId, onBack }: Props) {
         </aside>
       </div>
 
-      {deleting && (
-        <DeleteMealDialog mealId={meal.id} title={meal.title} date={meal.date} onClose={() => setDeleting(false)} onDeleted={onBack} />
-      )}
+      {deleting && <DeleteMealDialog mealId={meal.id} title={meal.title} date={meal.date} onClose={() => setDeleting(false)} onDeleted={onBack} />}
     </div>
   )
 }

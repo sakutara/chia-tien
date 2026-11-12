@@ -4,35 +4,35 @@ import { oneFourVariants, validateReceipt } from './receiptValidation'
 
 /** Văn bản OCR thật của bill Bún Ốc Sườn Cô Sáu (ảnh 3) sau lượt 2 đọc lại số. */
 const BUN_OC_OCR = [
-  "64.",
-  "HOtling A4 K300- Tân Binh",
-  "0s",
-  "5.1168.640 - oa 2594.0798",
-  "HÓA ĐƠN",
-  "NGÀY: tạo. 84: 2506041166",
+  '64.',
+  'HOtling A4 K300- Tân Binh',
+  '0s',
+  '5.1168.640 - oa 2594.0798',
+  'HÓA ĐƠN',
+  'NGÀY: tạo. 84: 2506041166',
   "Ban: oạ, WE '42 SA - 0808 SA)",
-  "SL kKhach: 4",
-  "Phuc Via:",
-  "Thu ngân: Thu Be",
-  "In — aril",
-  "——",
-  "| # Tén mén %",
-  "i §",
-  "Ee 21. N L DG KM TT",
-  "TE a a eee re +----~- +-------===== tr 2c\" +",
-  "-.... BUN Oc Lan __ 2| 53.000 08.009",
-  "Bún ÓcNhò+ |. T ng + ]",
-  "sa Sườn 1 53.000 53.000",
-  "iT hee Sa ee -+--=-=========“= ope te pawns anaes 1",
-  "3 Thêm riéu 1 41.000 41,000",
-  "(in gee rer ter thendin xe nẽenenannsnn==.== Se gleaned ee a a ae ee + PERSONS SO \"",
-  "4 |Khăn 3 2.000 6.000",
-  "Tiền hàng 176.000",
-  "Tổng thanh toán 176.000",
-  "Còn phải thu 176.000",
-  "Trân trọng cảm ơn!",
-  "VIETIN - HO KINH DOANH BUN OC SUON CO SAU - |",
-  "pm 888803155678",
+  'SL kKhach: 4',
+  'Phuc Via:',
+  'Thu ngân: Thu Be',
+  'In — aril',
+  '——',
+  '| # Tén mén %',
+  'i §',
+  'Ee 21. N L DG KM TT',
+  'TE a a eee re +----~- +-------===== tr 2c" +',
+  '-.... BUN Oc Lan __ 2| 53.000 08.009',
+  'Bún ÓcNhò+ |. T ng + ]',
+  'sa Sườn 1 53.000 53.000',
+  'iT hee Sa ee -+--=-=========“= ope te pawns anaes 1',
+  '3 Thêm riéu 1 41.000 41,000',
+  '(in gee rer ter thendin xe nẽenenannsnn==.== Se gleaned ee a a ae ee + PERSONS SO "',
+  '4 |Khăn 3 2.000 6.000',
+  'Tiền hàng 176.000',
+  'Tổng thanh toán 176.000',
+  'Còn phải thu 176.000',
+  'Trân trọng cảm ơn!',
+  'VIETIN - HO KINH DOANH BUN OC SUON CO SAU - |',
+  'pm 888803155678',
 ].join('\n')
 
 describe('bill Bún Ốc (ảnh 3): OCR lượt 2 và đối soát 1 ↔ 4', () => {
@@ -134,7 +134,9 @@ describe('bill đọc bằng VietOCR', () => {
   })
 
   it('thành tiền nhoè chỉ còn "000": lấy SL × đơn giá và đánh dấu cần xem lại (Hito Sushi)', () => {
-    const parsed = parseReceipt(['Tên món  SL  ĐG Thành tiền', '1.SALMON  3  99.000  000', 'SASHIMI', '2.TUNA SASHIMI 1  99.000  99.000', 'Tổng thanh toán  396.000'].join('\n'))
+    const parsed = parseReceipt(
+      ['Tên món  SL  ĐG Thành tiền', '1.SALMON  3  99.000  000', 'SASHIMI', '2.TUNA SASHIMI 1  99.000  99.000', 'Tổng thanh toán  396.000'].join('\n'),
+    )
     expect(parsed.items.map((i) => i.rawAmount)).toEqual([297_000, 99_000])
     expect(parsed.items[0].uncertain).toBe(true)
   })

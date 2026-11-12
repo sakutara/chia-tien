@@ -16,9 +16,7 @@ const members = [host, binh, cuong]
 function setup(participantIds: string[] = ['host']) {
   const onPick = vi.fn()
   const onCreate = vi.fn()
-  render(
-    <MemberQuickFilter members={members} participantIds={participantIds} onPick={onPick} onCreate={onCreate} />,
-  )
+  render(<MemberQuickFilter members={members} participantIds={participantIds} onPick={onPick} onCreate={onCreate} />)
   return { onPick, onCreate, input: screen.getByRole('combobox') }
 }
 

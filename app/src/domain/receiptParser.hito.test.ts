@@ -85,7 +85,11 @@ describe('bill Hito Sushi: STT, gạch phân cách, tên món xuống dòng', ()
   })
 
   it('không có gạch phân cách vẫn chia đúng nhờ STT', () => {
-    const noDash = parseReceipt(HITO.split('\n').filter((l) => !/^[-\s]+$/.test(l)).join('\n'))
+    const noDash = parseReceipt(
+      HITO.split('\n')
+        .filter((l) => !/^[-\s]+$/.test(l))
+        .join('\n'),
+    )
     expect(noDash.items.map((i) => i.name)).toEqual(parsed.items.map((i) => i.name))
   })
 

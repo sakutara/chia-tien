@@ -18,14 +18,7 @@ export default function DialogActions({ onCancel, saveLabel, cancelLabel = t('Hu
   return (
     <div className="flex justify-end gap-2">
       <IconButton icon={X} label={cancelLabel} tone="outline" onClick={onCancel} />
-      <IconButton
-        icon={Check}
-        label={saveLabel}
-        tone="primary"
-        type={onSave ? 'button' : 'submit'}
-        onClick={onSave}
-        disabled={saving || saveDisabled}
-      />
+      <IconButton icon={Check} label={saveLabel} tone="primary" type={onSave ? 'button' : 'submit'} onClick={onSave} disabled={saving || saveDisabled} />
     </div>
   )
 }

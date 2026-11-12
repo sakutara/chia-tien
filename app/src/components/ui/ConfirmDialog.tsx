@@ -47,12 +47,7 @@ export default function ConfirmDialog({ open, title, message, confirmLabel, tone
           <button type="button" className="btn-secondary min-h-11" data-autofocus onClick={cancel} disabled={busy}>
             {t('Huỷ')}
           </button>
-          <button
-            type="button"
-            className={`${tone === 'danger' ? 'btn-danger' : 'btn-primary'} min-h-11`}
-            onClick={confirm}
-            disabled={busy}
-          >
+          <button type="button" className={`${tone === 'danger' ? 'btn-danger' : 'btn-primary'} min-h-11`} onClick={confirm} disabled={busy}>
             {confirmLabel}
           </button>
         </div>

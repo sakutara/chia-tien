@@ -1,17 +1,7 @@
 import { CalendarCheck, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { groupByDate } from '../../domain/mealRules'
-import {
-  MAX_YMD,
-  MIN_YMD,
-  weekdayLabels,
-  buildMonthGrid,
-  formatDateVi,
-  parseYmd,
-  shiftMonth,
-  todayLocal,
-  toYmd,
-} from '../../lib/dates'
+import { MAX_YMD, MIN_YMD, weekdayLabels, buildMonthGrid, formatDateVi, parseYmd, shiftMonth, todayLocal, toYmd } from '../../lib/dates'
 import { formatMoney } from '../../lib/money'
 import type { MealSummary } from '../../types'
 import IconButton from '../ui/IconButton'
@@ -56,6 +46,7 @@ export default function MealCalendarView({ summaries, onCreateForDate, onOpen, o
     if (!focusAfterRender.current) return
     focusAfterRender.current = false
     document.querySelector<HTMLElement>(`[data-ymd="${selected}"]`)?.focus()
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- year/month là chủ đích: đổi tháng dựng lại lưới, effect cần chạy lại để giữ focus ô đang chọn
   }, [selected, year, month])
 
   function show(ymd: string, viaKeyboard = false) {
@@ -91,97 +82,91 @@ export default function MealCalendarView({ summaries, onCreateForDate, onOpen, o
   return (
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
       <div className="space-y-2">
-      <div className="flex items-center gap-1.5">
-        <IconButton icon={ChevronLeft} label={t('Tháng trước')} tone="outline" onClick={() => goMonth(-1)} disabled={atMin} />
-        <label className="sr-only" htmlFor="cal-month">{t('Tháng')}</label>
-        <select
-          id="cal-month"
-          value={month}
-          onChange={(e) => show(toYmd(year, Number(e.target.value), 1))}
-          className="field min-h-10 w-auto px-2"
-        >
-          {Array.from({ length: 12 }, (_, i) => (
-            <option key={i + 1} value={i + 1}>
-              {t('Tháng {n}', { n: i + 1 })}
-            </option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor="cal-year">{t('Năm')}</label>
-        <select
-          id="cal-year"
-          value={year}
-          onChange={(e) => show(toYmd(Number(e.target.value), month, 1))}
-          className="field min-h-10 w-auto px-2"
-        >
-          {YEARS.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-        <IconButton icon={ChevronRight} label={t('Tháng sau')} tone="outline" onClick={() => goMonth(1)} disabled={atMax} />
-        <IconButton icon={CalendarCheck} label={t('Hôm nay')} tone="outline" className="ml-auto" onClick={() => show(today)} />
-      </div>
+        <div className="flex items-center gap-1.5">
+          <IconButton icon={ChevronLeft} label={t('Tháng trước')} tone="outline" onClick={() => goMonth(-1)} disabled={atMin} />
+          <label className="sr-only" htmlFor="cal-month">
+            {t('Tháng')}
+          </label>
+          <select id="cal-month" value={month} onChange={(e) => show(toYmd(year, Number(e.target.value), 1))} className="field min-h-10 w-auto px-2">
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i + 1} value={i + 1}>
+                {t('Tháng {n}', { n: i + 1 })}
+              </option>
+            ))}
+          </select>
+          <label className="sr-only" htmlFor="cal-year">
+            {t('Năm')}
+          </label>
+          <select id="cal-year" value={year} onChange={(e) => show(toYmd(Number(e.target.value), month, 1))} className="field min-h-10 w-auto px-2">
+            {YEARS.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+          <IconButton icon={ChevronRight} label={t('Tháng sau')} tone="outline" onClick={() => goMonth(1)} disabled={atMax} />
+          <IconButton icon={CalendarCheck} label={t('Hôm nay')} tone="outline" className="ml-auto" onClick={() => show(today)} />
+        </div>
 
-      <div role="grid" aria-label={t('Lịch tháng {month} năm {year}', { month, year })} onKeyDown={onGridKeyDown}>
-        <div role="row" className="grid grid-cols-7 text-center text-xs font-semibold text-usd-green-700">
-          {weekdayLabels().map((w) => (
-            <div key={w} role="columnheader" className="py-1">
-              {w}
+        <div role="grid" aria-label={t('Lịch tháng {month} năm {year}', { month, year })} onKeyDown={onGridKeyDown}>
+          <div role="row" className="grid grid-cols-7 text-center text-xs font-semibold text-usd-green-700">
+            {weekdayLabels().map((w) => (
+              <div key={w} role="columnheader" className="py-1">
+                {w}
+              </div>
+            ))}
+          </div>
+          {Array.from({ length: grid.length / 7 }, (_, week) => (
+            <div key={week} role="row" className="grid grid-cols-7">
+              {grid.slice(week * 7, week * 7 + 7).map((d) => {
+                const meals = byDate.get(d.ymd) ?? []
+                const isSelected = d.ymd === selected
+                return (
+                  <div key={d.ymd} role="gridcell" aria-selected={isSelected} className="min-w-0 border border-usd-paper-200">
+                    <button
+                      type="button"
+                      data-ymd={d.ymd}
+                      tabIndex={isSelected ? 0 : -1}
+                      onClick={() => show(d.ymd)}
+                      aria-label={`${formatDateVi(d.ymd)}${meals.length ? `, ${t('{n} bữa', { n: meals.length })}` : ''}${d.isToday ? `, ${t('hôm nay')}` : ''}`}
+                      className={`flex h-12 w-full min-w-0 flex-col items-stretch gap-0.5 p-1 text-left sm:h-20 ${
+                        isSelected ? 'bg-usd-green-100' : d.inMonth ? 'bg-usd-paper-50 hover:bg-usd-paper-200' : 'bg-usd-paper-100 hover:bg-usd-paper-200'
+                      } ${d.inMonth ? '' : 'opacity-50'}`}
+                    >
+                      <span
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                          d.isToday ? 'bg-usd-green-900 text-usd-paper-50' : ''
+                        }`}
+                      >
+                        {d.day}
+                      </span>
+                      {meals.length > 0 && (
+                        <>
+                          <span className="sm:hidden">
+                            <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-usd-green-700 px-1 text-[10px] font-semibold text-usd-paper-50">
+                              {meals.length}
+                            </span>
+                          </span>
+                          <span className="hidden min-w-0 flex-col gap-0.5 sm:flex">
+                            {meals.slice(0, MAX_BADGES).map((s) => (
+                              <span key={s.meal.id} className="truncate rounded bg-usd-green-700 px-1 text-[11px] text-usd-paper-50">
+                                {s.meal.title}
+                                {s.hasCost && <> · {formatMoney(s.totalAmount)}</>}
+                              </span>
+                            ))}
+                            {meals.length > MAX_BADGES && (
+                              <span className="text-[11px] text-usd-green-700">{t('+{n} bữa nữa', { n: meals.length - MAX_BADGES })}</span>
+                            )}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           ))}
         </div>
-        {Array.from({ length: grid.length / 7 }, (_, week) => (
-          <div key={week} role="row" className="grid grid-cols-7">
-            {grid.slice(week * 7, week * 7 + 7).map((d) => {
-              const meals = byDate.get(d.ymd) ?? []
-              const isSelected = d.ymd === selected
-              return (
-                <div key={d.ymd} role="gridcell" aria-selected={isSelected} className="min-w-0 border border-usd-paper-200">
-                  <button
-                    type="button"
-                    data-ymd={d.ymd}
-                    tabIndex={isSelected ? 0 : -1}
-                    onClick={() => show(d.ymd)}
-                    aria-label={`${formatDateVi(d.ymd)}${meals.length ? `, ${t('{n} bữa', { n: meals.length })}` : ''}${d.isToday ? `, ${t('hôm nay')}` : ''}`}
-                    className={`flex h-12 w-full min-w-0 flex-col items-stretch gap-0.5 p-1 text-left sm:h-20 ${
-                      isSelected ? 'bg-usd-green-100' : d.inMonth ? 'bg-usd-paper-50 hover:bg-usd-paper-200' : 'bg-usd-paper-100 hover:bg-usd-paper-200'
-                    } ${d.inMonth ? '' : 'opacity-50'}`}
-                  >
-                    <span
-                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                        d.isToday ? 'bg-usd-green-900 text-usd-paper-50' : ''
-                      }`}
-                    >
-                      {d.day}
-                    </span>
-                    {meals.length > 0 && (
-                      <>
-                        <span className="sm:hidden">
-                          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-usd-green-700 px-1 text-[10px] font-semibold text-usd-paper-50">
-                            {meals.length}
-                          </span>
-                        </span>
-                        <span className="hidden min-w-0 flex-col gap-0.5 sm:flex">
-                          {meals.slice(0, MAX_BADGES).map((s) => (
-                            <span key={s.meal.id} className="truncate rounded bg-usd-green-700 px-1 text-[11px] text-usd-paper-50">
-                              {s.meal.title}
-                              {s.hasCost && <> · {formatMoney(s.totalAmount)}</>}
-                            </span>
-                          ))}
-                          {meals.length > MAX_BADGES && (
-                            <span className="text-[11px] text-usd-green-700">{t('+{n} bữa nữa', { n: meals.length - MAX_BADGES })}</span>
-                          )}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        ))}
-      </div>
       </div>
 
       <section aria-label={t('Bữa ngày {date}', { date: formatDateVi(selected) })} className="space-y-2">

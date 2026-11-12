@@ -30,15 +30,19 @@ describe('layoutOcrText: ghép thành văn bản nhiều dòng', () => {
   })
 
   it('mỗi dòng ngang là một dòng văn bản', () => {
-    expect(layoutOcrText([w('Bún', 10, 100), w('50.000', 300, 100), w('Chả', 10, 140), w('40.000', 300, 140)])).toBe(
-      'Bún  50.000\nChả  40.000',
-    )
+    expect(layoutOcrText([w('Bún', 10, 100), w('50.000', 300, 100), w('Chả', 10, 140), w('40.000', 300, 140)])).toBe('Bún  50.000\nChả  40.000')
   })
 
   it('văn bản ghép ra đưa được vào parseReceipt và tách ra món đúng cột', () => {
     const text = layoutOcrText([
-      w('Bún', 10, 100, 40), w('bò', 60, 100, 30), w('1', 300, 100, 10), w('50.000', 380, 100, 70),
-      w('Chả', 10, 140, 40), w('giò', 60, 140, 30), w('1', 300, 140, 10), w('40.000', 380, 140, 70),
+      w('Bún', 10, 100, 40),
+      w('bò', 60, 100, 30),
+      w('1', 300, 100, 10),
+      w('50.000', 380, 100, 70),
+      w('Chả', 10, 140, 40),
+      w('giò', 60, 140, 30),
+      w('1', 300, 140, 10),
+      w('40.000', 380, 140, 70),
     ])
     const receipt = parseReceipt(text)
     expect(receipt.items.map((i) => [i.name, i.rawAmount])).toEqual([
@@ -51,7 +55,14 @@ describe('layoutOcrText: ghép thành văn bản nhiều dòng', () => {
 describe('tên món xuống dòng trong ô của bảng', () => {
   it('các mảnh chồng nhau theo chiều ngang đọc từ trên xuống, không theo mép trái', () => {
     // "Cà Phê (Nitro" nằm trên, "Coldbrew)" nằm dưới và thò ra trái hơn; hàng số nằm giữa hai mảnh.
-    const words = [w('1', 0, 5, 15), w('Coldbrew)', 20, 10, 110), w('Cà Phê (Nitro', 25, 0, 130), w('1', 300, 5, 15), w('55,000', 360, 5, 70), w('55,000', 480, 5, 70)]
+    const words = [
+      w('1', 0, 5, 15),
+      w('Coldbrew)', 20, 10, 110),
+      w('Cà Phê (Nitro', 25, 0, 130),
+      w('1', 300, 5, 15),
+      w('55,000', 360, 5, 70),
+      w('55,000', 480, 5, 70),
+    ]
     expect(layoutOcrText(words)).toBe('1 Cà Phê (Nitro Coldbrew)  1  55,000  55,000')
   })
 

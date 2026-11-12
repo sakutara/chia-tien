@@ -47,7 +47,14 @@ export default function BankSelect({ id, value, onChange }: Props) {
           setActive(0)
           setOpen(true)
         }}
-        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        onBlur={() =>
+          window.setTimeout(() => {
+            setOpen(false)
+            // Gõ dở rồi rời ô thì trả chữ về ngân hàng đang chọn (hoặc rỗng nếu chưa chọn).
+            const current = findBankByBin(value)
+            setQuery(current ? label(current) : '')
+          }, 120)
+        }
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown') {
             e.preventDefault()
@@ -66,7 +73,12 @@ export default function BankSelect({ id, value, onChange }: Props) {
         }}
       />
       {open && (
-        <ul id={listId} role="listbox" aria-label={t('Ngân hàng')} className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-usd-paper-200 bg-usd-paper-50 p-1 shadow-lg">
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label={t('Ngân hàng')}
+          className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-usd-paper-200 bg-usd-paper-50 p-1 shadow-lg"
+        >
           {results.length === 0 && <li className="px-2 py-2 text-sm text-usd-green-700">{t('Không tìm thấy ngân hàng.')}</li>}
           {results.map((b, i) => (
             <li

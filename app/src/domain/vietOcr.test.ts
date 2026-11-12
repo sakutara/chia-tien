@@ -214,7 +214,12 @@ describe('chặn ảo giác của decoder', () => {
   })
 
   it('greedyDecode dừng ở maxChars', async () => {
-    const text = await greedyDecode(fakeEngine(new Array(100).fill(4)), meta, { hidden: new Float32Array(4), encoderOutputs: new Float32Array(8), encoderSteps: 2 }, 5)
+    const text = await greedyDecode(
+      fakeEngine(new Array(100).fill(4)),
+      meta,
+      { hidden: new Float32Array(4), encoderOutputs: new Float32Array(8), encoderSteps: 2 },
+      5,
+    )
     expect(text).toBe('aaaaa')
   })
 

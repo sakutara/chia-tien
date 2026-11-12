@@ -72,7 +72,13 @@ export function rowCandidates(item: ParsedItem): RowCandidate[] {
         for (const aa of [a, ...oneFourVariants(a)]) {
           if (qq === q && uu === u && aa === a) continue
           if (!isPositiveInt(qq) || uu <= 0 || qq * uu !== aa) continue
-          add({ quantity: qq, unitPrice: uu, rawAmount: aa, cost: 1, change: t('đọc lại số: {q} × {v} = {v2}', { q: qq, v: formatMoney(uu), v2: formatMoney(aa) }) })
+          add({
+            quantity: qq,
+            unitPrice: uu,
+            rawAmount: aa,
+            cost: 1,
+            change: t('đọc lại số: {q} × {v} = {v2}', { q: qq, v: formatMoney(uu), v2: formatMoney(aa) }),
+          })
         }
       }
     }
@@ -97,7 +103,13 @@ export function rowCandidates(item: ParsedItem): RowCandidate[] {
       for (const aa of [a, ...oneFourVariants(a)]) {
         if (qq === q && uu === u && aa === a) continue
         if (!isPositiveInt(qq) || uu <= 0 || qq * uu !== aa) continue
-        add({ quantity: qq, unitPrice: uu, rawAmount: aa, cost: 1, change: t('đọc lại số: {q} × {v} = {v2}', { q: qq, v: formatMoney(uu), v2: formatMoney(aa) }) })
+        add({
+          quantity: qq,
+          unitPrice: uu,
+          rawAmount: aa,
+          cost: 1,
+          change: t('đọc lại số: {q} × {v} = {v2}', { q: qq, v: formatMoney(uu), v2: formatMoney(aa) }),
+        })
       }
     }
   }
@@ -129,9 +141,14 @@ export function oneFourVariants(value: number): number[] {
 export function describeInconsistentRows(items: ParsedItem[]): string[] {
   return items
     .filter((item) => !isRowConsistent(item))
-    .map(
-      (item) =>
-        t('"{name}": {quantity} × {v} = {v2}, nhưng bill ghi thành tiền {v3}.', { name: item.name, quantity: item.quantity, v: formatMoney(item.unitPrice), v2: formatMoney(item.quantity * item.unitPrice), v3: formatMoney(item.rawAmount) }),
+    .map((item) =>
+      t('"{name}": {quantity} × {v} = {v2}, nhưng bill ghi thành tiền {v3}.', {
+        name: item.name,
+        quantity: item.quantity,
+        v: formatMoney(item.unitPrice),
+        v2: formatMoney(item.quantity * item.unitPrice),
+        v3: formatMoney(item.rawAmount),
+      }),
     )
 }
 
@@ -213,7 +230,8 @@ function sameAdjustment(a: ParsedAdjustment | undefined, b: ParsedAdjustment | u
 function adjustmentOptions(kind: Kind, parsed: ParsedAdjustment | undefined): AdjustmentOption[] {
   const label = t(KIND_LABEL[kind])
   const options: AdjustmentOption[] = [{ value: parsed, cost: 0, note: '' }]
-  if (parsed) options.push({ value: undefined, cost: 2, note: t('Bỏ {label} đọc được ({v}) vì không khớp tổng bill.', { label, v: describeAdjustment(parsed) }) })
+  if (parsed)
+    options.push({ value: undefined, cost: 2, note: t('Bỏ {label} đọc được ({v}) vì không khớp tổng bill.', { label, v: describeAdjustment(parsed) }) })
   for (const pct of COMMON_PERCENT[kind]) {
     const value: ParsedAdjustment = { mode: 'PERCENTAGE', value: pct }
     if (sameAdjustment(value, parsed)) continue
@@ -317,7 +335,10 @@ function findScenario(parsed: ParsedReceipt, useSubtotal: boolean, billTotal: nu
     : [
         { index: undefined, cost: 0 },
         ...suspects.map((index) => ({ index, cost: 2 })),
-        ...parsed.items.map((_, index) => index).filter((index) => !suspects.includes(index) && parsed.items.length > 2).map((index) => ({ index, cost: 3 })),
+        ...parsed.items
+          .map((_, index) => index)
+          .filter((index) => !suspects.includes(index) && parsed.items.length > 2)
+          .map((index) => ({ index, cost: 3 })),
       ]
   const discountOptions = adjustmentOptions('discount', parsed.discount)
   const serviceOptions = adjustmentOptions('service', parsed.service)
@@ -370,7 +391,12 @@ function applyScenario(parsed: ParsedReceipt, scenario: Scenario): { receipt: Pa
   const notes: string[] = []
   if (scenario.removed !== undefined) {
     const row = parsed.items[scenario.removed]
-    notes.push(t('Bỏ dòng "{name}" ({v}) vì không phải một món (giống dòng tổng của bill hoặc là rác OCR) và bỏ nó thì tổng mới khớp.', { name: row.name, v: formatMoney(row.rawAmount) }))
+    notes.push(
+      t('Bỏ dòng "{name}" ({v}) vì không phải một món (giống dòng tổng của bill hoặc là rác OCR) và bỏ nó thì tổng mới khớp.', {
+        name: row.name,
+        v: formatMoney(row.rawAmount),
+      }),
+    )
   }
 
   const items = scenario.kept.map((item, i) => {
@@ -451,14 +477,15 @@ function findBestAttempt(parsed: ParsedReceipt, rawText: string | undefined): At
   }
 
   let best: Attempt | null = null
-  for (const t of totals) {
+  for (const tot of totals) {
     for (const useSubtotal of billSubtotal !== undefined ? [true, false] : [false]) {
-      if (t.total === undefined && !useSubtotal) continue
-      const mustRemove = t.fromTrailing && parsed.items.some((i) => i.rawAmount === t.total)
-      const scenario = findScenario(parsed, useSubtotal, t.total, mustRemove)
+      if (tot.total === undefined && !useSubtotal) continue
+      const mustRemove = tot.fromTrailing && parsed.items.some((i) => i.rawAmount === tot.total)
+      const scenario = findScenario(parsed, useSubtotal, tot.total, mustRemove)
       if (!scenario) continue
-      const penalty = t.penalty + (billSubtotal !== undefined && !useSubtotal ? 3 : 0)
-      if (!best || scenario.cost + penalty < best.scenario.cost + best.penalty) best = { scenario, total: t.total, penalty, fromTrailing: t.fromTrailing, flipped: t.flipped }
+      const penalty = tot.penalty + (billSubtotal !== undefined && !useSubtotal ? 3 : 0)
+      if (!best || scenario.cost + penalty < best.scenario.cost + best.penalty)
+        best = { scenario, total: tot.total, penalty, fromTrailing: tot.fromTrailing, flipped: tot.flipped }
     }
   }
   return best
@@ -468,7 +495,13 @@ function findBestAttempt(parsed: ParsedReceipt, rawText: string | undefined): At
 function describeGroupChecks(parsed: ParsedReceipt): string[] {
   return (parsed.groupChecks ?? []).map((c) => {
     const name = c.group === 'drink' ? t('đồ uống') : c.group === 'food' ? t('đồ ăn') : t('đồ uống và đồ ăn')
-    const values = { name, read: formatMoney(c.read), expected: formatMoney(c.expected), gap: formatMoney(Math.abs(c.expected - c.read)), item: t('Món chưa đọc được') }
+    const values = {
+      name,
+      read: formatMoney(c.read),
+      expected: formatMoney(c.expected),
+      gap: formatMoney(Math.abs(c.expected - c.read)),
+      item: t('Món chưa đọc được'),
+    }
     return c.read < c.expected
       ? t('Nhóm {name}: các món cộng được {read}, dòng nhóm ghi {expected}, thiếu {gap}. Đã thêm dòng "{item}" cho phần thiếu.', values)
       : t('Nhóm {name}: các món cộng được {read}, nhiều hơn dòng nhóm ghi {expected}. Hãy xem lại các món trong nhóm.', values)
@@ -546,7 +579,14 @@ function fixMisreadOrMissing(parsed: ParsedReceipt, billTotal: number): { receip
       next[key] = adjustment
       if (totalOf(items, next) !== billTotal) continue
       const label = { discount: t('giảm giá'), service: t('phí phục vụ'), vat: 'VAT' }[key]
-      return { receipt: next, note: t('Dòng "{name}" ({v}) là {label} bị đọc thành món; đã chuyển thành {label} của bill.', { name: item.name, v: formatMoney(item.rawAmount), label }) }
+      return {
+        receipt: next,
+        note: t('Dòng "{name}" ({v}) là {label} bị đọc thành món; đã chuyển thành {label} của bill.', {
+          name: item.name,
+          v: formatMoney(item.rawAmount),
+          label,
+        }),
+      }
     }
     return null
   }
@@ -555,7 +595,13 @@ function fixMisreadOrMissing(parsed: ParsedReceipt, billTotal: number): { receip
     const amount = -gap
     const items: ParsedItem[] = [...parsed.items, { name: t(MISSING_ITEM_NAME), quantity: 1, unitPrice: amount, rawAmount: amount, uncertain: true }]
     if (totalOf(items, parsed) !== billTotal) return null
-    return { receipt: { ...parsed, items }, note: t('Tổng các món thiếu {v} so với bill: đã thêm dòng "{name}" với số tiền đó, hãy tìm đúng món.', { v: formatMoney(amount), name: t(MISSING_ITEM_NAME) }) }
+    return {
+      receipt: { ...parsed, items },
+      note: t('Tổng các món thiếu {v} so với bill: đã thêm dòng "{name}" với số tiền đó, hãy tìm đúng món.', {
+        v: formatMoney(amount),
+        name: t(MISSING_ITEM_NAME),
+      }),
+    }
   }
   return null
 }
@@ -572,7 +618,9 @@ function validateTotals(parsed: ParsedReceipt, rawText?: string): ReceiptCheck {
     const last = rawText === undefined ? [] : trailingAmounts(rawText, 1)
     const notes = [
       last.length > 0
-        ? t('Không đọc được dòng "Tổng cộng", và số ở cuối bill ({v}) không khớp tổng các món theo cách nào đã thử. Hãy tự so với ảnh bill.', { v: formatMoney(last[0]) })
+        ? t('Không đọc được dòng "Tổng cộng", và số ở cuối bill ({v}) không khớp tổng các món theo cách nào đã thử. Hãy tự so với ảnh bill.', {
+            v: formatMoney(last[0]),
+          })
         : t('Bill không có dòng tổng nên chưa đối chiếu được tổng tiền. Hãy tự so với ảnh bill.'),
     ]
     if (inconsistent.length > 0) notes.push(t('Các dòng có SL × đơn giá không bằng thành tiền, cần xem lại:'), ...inconsistent)
@@ -587,13 +635,21 @@ function validateTotals(parsed: ParsedReceipt, rawText?: string): ReceiptCheck {
     const notes = [...changes]
     if (attempt.flipped && attempt.total !== undefined) {
       receipt.billTotal = attempt.total
-      notes.unshift(t('Tổng "{v}" đọc được không khớp tổng các món; đọc lại 1 ↔ 4 thành {v2} thì khớp nên được dùng làm tổng bill.', { v: formatMoney(billTotal ?? billSubtotal ?? 0), v2: formatMoney(attempt.total) }))
+      notes.unshift(
+        t('Tổng "{v}" đọc được không khớp tổng các món; đọc lại 1 ↔ 4 thành {v2} thì khớp nên được dùng làm tổng bill.', {
+          v: formatMoney(billTotal ?? billSubtotal ?? 0),
+          v2: formatMoney(attempt.total),
+        }),
+      )
     } else if (attempt.fromTrailing && attempt.total !== undefined) {
       receipt.billTotal = attempt.total
       notes.unshift(
         billTotal === undefined
           ? t('Không đọc được dòng "Tổng cộng"; số ở cuối bill {v} khớp tổng tính được nên được dùng làm tổng bill.', { v: formatMoney(attempt.total) })
-          : t('Tổng "{v}" đọc được không khớp; số ở cuối bill {v2} khớp tổng tính được nên được dùng làm tổng bill.', { v: formatMoney(billTotal), v2: formatMoney(attempt.total) }),
+          : t('Tổng "{v}" đọc được không khớp; số ở cuối bill {v2} khớp tổng tính được nên được dùng làm tổng bill.', {
+              v: formatMoney(billTotal),
+              v2: formatMoney(attempt.total),
+            }),
       )
     }
     if (changes.length === 0) {
@@ -612,12 +668,12 @@ function validateTotals(parsed: ParsedReceipt, rawText?: string): ReceiptCheck {
   }
 
   if (billTotal !== undefined) {
-    const fixed = fixMisreadOrMissing(parsed, billTotal)
-    if (fixed) {
+    const repaired = fixMisreadOrMissing(parsed, billTotal)
+    if (repaired) {
       return {
         status: 'CORRECTED',
-        receipt: fixed.receipt,
-        notes: [t('Số đọc từ ảnh chưa khớp tổng bill, đã tự sửa theo kịch bản khớp nhất. Hãy xem lại các dòng được đánh dấu:'), fixed.note, ...inconsistent],
+        receipt: repaired.receipt,
+        notes: [t('Số đọc từ ảnh chưa khớp tổng bill, đã tự sửa theo kịch bản khớp nhất. Hãy xem lại các dòng được đánh dấu:'), repaired.note, ...inconsistent],
       }
     }
   }
@@ -631,7 +687,10 @@ function validateTotals(parsed: ParsedReceipt, rawText?: string): ReceiptCheck {
         ? t('Tổng tính được {v} (sau giảm giá, phí phục vụ, VAT) lệch tổng trên bill {v2}', { v: formatMoney(amounts.total), v2: formatMoney(billTotal) })
         : t('Số đọc được không khớp tổng trên bill')
   const notes = [
-    t('{reading}. Đã thử các cách đọc khác (sửa SL, đơn giá, thành tiền; bỏ dòng tổng; đổi giảm giá, phí phục vụ, VAT và cách tính) nhưng không cách nào khớp. Hãy đối chiếu từng món với ảnh bill và chỉnh tay.', { reading }),
+    t(
+      '{reading}. Đã thử các cách đọc khác (sửa SL, đơn giá, thành tiền; bỏ dòng tổng; đổi giảm giá, phí phục vụ, VAT và cách tính) nhưng không cách nào khớp. Hãy đối chiếu từng món với ảnh bill và chỉnh tay.',
+      { reading },
+    ),
   ]
   if (inconsistent.length > 0) notes.push(t('Các dòng có SL × đơn giá không bằng thành tiền:'), ...inconsistent)
   return { status: 'MISMATCH', receipt: { ...parsed, items: flagInconsistent(items) }, notes }

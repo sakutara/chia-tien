@@ -29,7 +29,12 @@ function CopyRow({ label, value, copyValue }: { label: string; value: string; co
           icon={done ? Check : Copy}
           label={t('Sao chép {v}', { v: label.toLowerCase() })}
           className="!h-7 !w-7 shrink-0"
-          onClick={() => void copyTextToClipboard(copyValue).then(() => setDone(true), () => undefined)}
+          onClick={() =>
+            void copyTextToClipboard(copyValue).then(
+              () => setDone(true),
+              () => undefined,
+            )
+          }
         />
       </dd>
     </div>
@@ -49,7 +54,12 @@ function AmountCopy({ amount }: { amount: number }) {
       icon={done ? Check : Copy}
       label={t('Sao chép số tiền')}
       className="!h-7 !w-7"
-      onClick={() => void copyTextToClipboard(String(amount)).then(() => setDone(true), () => undefined)}
+      onClick={() =>
+        void copyTextToClipboard(String(amount)).then(
+          () => setDone(true),
+          () => undefined,
+        )
+      }
     />
   )
 }
@@ -79,7 +89,11 @@ function BankPayButton({ slide }: { slide: PaymentSlide }) {
           shareTransferToBankApp(slide).catch((err: unknown) => setError(err instanceof Error ? err.message : ''))
         }}
       />
-      {error && <p role="alert" className="text-center text-xs text-usd-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="text-center text-xs text-usd-red-600">
+          {error}
+        </p>
+      )}
     </div>
   )
 }
@@ -134,7 +148,11 @@ export default function PaymentSlides({ slides }: Props) {
               </div>
 
               {s.qrPayload && s.bank ? (
-                <QrCode value={s.qrPayload} label={t('Mã QR chuyển {v} tới {accountName}', { v: formatMoney(s.amount), accountName: s.bank.accountName })} className="mx-auto w-[min(52vw,27dvh)]" />
+                <QrCode
+                  value={s.qrPayload}
+                  label={t('Mã QR chuyển {v} tới {accountName}', { v: formatMoney(s.amount), accountName: s.bank.accountName })}
+                  className="mx-auto w-[min(52vw,27dvh)]"
+                />
               ) : (
                 <p role="note" className="flex items-start gap-2 rounded-lg border border-amber-600 bg-amber-50 p-2 text-xs text-amber-900">
                   <Landmark className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />

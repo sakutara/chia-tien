@@ -14,11 +14,25 @@ const NOW = '2026-10-19T10:00:00.000Z'
 
 function snapshotHash(): string {
   const members: Member[] = ['an', 'binh'].map((id) => ({
-    id, name: id === 'an' ? 'An' : 'Bình', normalizedName: id, avatarColor: '#2D6A4F', createdAt: NOW, lastUsedAt: NOW,
+    id,
+    name: id === 'an' ? 'An' : 'Bình',
+    normalizedName: id,
+    avatarColor: '#2D6A4F',
+    createdAt: NOW,
+    lastUsedAt: NOW,
   }))
   const meal: Meal = {
-    id: 'm', title: 'Lẩu cuối tuần', date: '2026-10-19', status: 'ACTIVE', participantIds: ['an', 'binh'], hostMemberId: 'an',
-    settlementMode: 'SELF_SETTLEMENT', paymentGroups: [], settlementStatuses: {}, createdAt: NOW, updatedAt: NOW,
+    id: 'm',
+    title: 'Lẩu cuối tuần',
+    date: '2026-10-19',
+    status: 'ACTIVE',
+    participantIds: ['an', 'binh'],
+    hostMemberId: 'an',
+    settlementMode: 'SELF_SETTLEMENT',
+    paymentGroups: [],
+    settlementStatuses: {},
+    createdAt: NOW,
+    updatedAt: NOW,
   }
   const payments = [{ key: 'binh->an', fromId: 'binh', fromName: 'Bình', toId: 'an', toName: 'An', amount: 45_000, content: 'Binh thanh toan Lau' }]
   return `#/snapshot/${encodeSnapshotPayload(buildSnapshotPayload({ meal, members, sessions: [], invoices: [], items: [], exportedAt: NOW, payments }))}`

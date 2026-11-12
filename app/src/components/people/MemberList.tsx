@@ -70,8 +70,14 @@ export default function MemberList({ meal, participants, groups, readOnly, creat
       setDissolving(g)
       return
     }
-    await dissolveGroup(meal.id, g.id)
-    setOpenGroupId(null)
+    // Lỗi (ví dụ nhóm đã bị xoá ở nơi khác) hiện ở thông báo role="alert" như các thao tác khác.
+    setError(null)
+    try {
+      await dissolveGroup(meal.id, g.id)
+      setOpenGroupId(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('Có lỗi không xác định.'))
+    }
   }
 
   return (
@@ -107,28 +113,39 @@ export default function MemberList({ meal, participants, groups, readOnly, creat
             >
               {m.name.charAt(0)}
             </span>
-            <span className="min-w-0 flex-1 truncate" title={m.name}>{m.name}</span>
+            <span className="min-w-0 flex-1 truncate" title={m.name}>
+              {m.name}
+            </span>
             {m.id === meal.hostMemberId && <Crown className="h-3.5 w-3.5 shrink-0 text-usd-gold-600" aria-label={t('Chủ trì')} />}
             {!readOnly && (
               <IconButton
-    icon={Landmark}
-    label={t('Tài khoản ngân hàng của {name}', { name: m.name })}
-    tone={m.bank ? 'primary' : 'default'}
-    className="!h-7 !w-7 shrink-0 rounded-full"
-    onClick={() => setBankFor(m)}
-  />
+                icon={Landmark}
+                label={t('Tài khoản ngân hàng của {name}', { name: m.name })}
+                tone={m.bank ? 'primary' : 'default'}
+                className="!h-7 !w-7 shrink-0 rounded-full"
+                onClick={() => setBankFor(m)}
+              />
             )}
             {readOnly || m.id === meal.hostMemberId ? (
               <span className="w-1" />
             ) : (
-              <IconButton icon={X} label={t('Bỏ {name} khỏi bữa', { name: m.name })} className="!h-7 !w-7 shrink-0 rounded-full" onClick={() => requestRemove(m)} />
+              <IconButton
+                icon={X}
+                label={t('Bỏ {name} khỏi bữa', { name: m.name })}
+                className="!h-7 !w-7 shrink-0 rounded-full"
+                onClick={() => requestRemove(m)}
+              />
             )}
           </li>
         ))}
       </ul>
 
       {openGroup && (
-        <div className="space-y-2 rounded-lg border border-usd-green-600/40 bg-usd-green-100/40 p-2 text-sm" role="group" aria-label={t('Chi tiết nhóm {name}', { name: openGroup.name })}>
+        <div
+          className="space-y-2 rounded-lg border border-usd-green-600/40 bg-usd-green-100/40 p-2 text-sm"
+          role="group"
+          aria-label={t('Chi tiết nhóm {name}', { name: openGroup.name })}
+        >
           <div className="flex items-center justify-between gap-2">
             <span className="min-w-0 break-words">
               <strong>{openGroup.name}</strong>: {openGroup.members.map((m) => m.name).join(', ')}
@@ -146,16 +163,21 @@ export default function MemberList({ meal, participants, groups, readOnly, creat
                 <li key={m.id} className={`${CHIP} pl-3`}>
                   <span>{m.name}</span>
                   <IconButton
-    icon={Landmark}
-    label={t('Tài khoản ngân hàng của {name}', { name: m.name })}
-    tone={m.bank ? 'primary' : 'default'}
-    className="!h-7 !w-7 shrink-0 rounded-full"
-    onClick={() => setBankFor(m)}
-  />
+                    icon={Landmark}
+                    label={t('Tài khoản ngân hàng của {name}', { name: m.name })}
+                    tone={m.bank ? 'primary' : 'default'}
+                    className="!h-7 !w-7 shrink-0 rounded-full"
+                    onClick={() => setBankFor(m)}
+                  />
                   {m.id === meal.hostMemberId ? (
                     <Crown className="h-3.5 w-3.5 text-usd-gold-600" aria-label={t('Chủ trì')} />
                   ) : (
-                    <IconButton icon={X} label={t('Bỏ {name} khỏi bữa', { name: m.name })} className="!h-7 !w-7 shrink-0 rounded-full" onClick={() => requestRemove(m)} />
+                    <IconButton
+                      icon={X}
+                      label={t('Bỏ {name} khỏi bữa', { name: m.name })}
+                      className="!h-7 !w-7 shrink-0 rounded-full"
+                      onClick={() => requestRemove(m)}
+                    />
                   )}
                 </li>
               ))}

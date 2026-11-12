@@ -39,8 +39,7 @@ export const LEGACY_SNAPSHOT_PARAM = 'snapshot'
 const SNAPSHOT_MEAL_ID = 'snapshot'
 const DEFAULT_AVATAR = '#2D6A4F'
 
-const invalidSnapshot = () =>
-  new PeopleError('INVALID_SNAPSHOT', t('Link Snapshot không hợp lệ hoặc đã bị cắt bớt khi gửi tin nhắn.'))
+const invalidSnapshot = () => new PeopleError('INVALID_SNAPSHOT', t('Link Snapshot không hợp lệ hoặc đã bị cắt bớt khi gửi tin nhắn.'))
 
 /** R-1: đóng gói toàn bộ dữ liệu của bữa; không đưa ảnh, OCR hay đường dẫn file vào payload. */
 export function buildSnapshotPayload(
@@ -132,11 +131,8 @@ export function buildSnapshotPayload(
               })),
           })),
       })),
-    settlementStatuses: scoped
-      ? Object.fromEntries(Object.entries(meal.settlementStatuses).filter(([key]) => allowedKeys.has(key)))
-      : meal.settlementStatuses,
-    archivedSummary:
-      scoped && archived ? { ...archived, entitiesSummary: [], transfers: [] } : archived,
+    settlementStatuses: scoped ? Object.fromEntries(Object.entries(meal.settlementStatuses).filter(([key]) => allowedKeys.has(key))) : meal.settlementStatuses,
+    archivedSummary: scoped && archived ? { ...archived, entitiesSummary: [], transfers: [] } : archived,
     ...(scoped ? { payments } : {}),
   }
 }
@@ -271,12 +267,12 @@ function decodeItemShares(raw: unknown, nameAt: (i: unknown) => string): Snapsho
 
 function decodeCompactSnapshot(raw: unknown[]): MealSnapshotPayload {
   const [title, names, accounts, rows, keos] = raw
-  const title_ = asString(title)
+  const titleText = asString(title)
   const nameList = asArray(names).map(asString)
   const bankList = asArray(accounts).map((a) => {
-    const t = asArray(a)
-    const bankBin = asString(t[0])
-    const bank = parseBank({ bankBin, bankName: t[3] ?? findBankByBin(bankBin)?.name ?? bankBin, accountNumber: t[1], accountName: t[2] })
+    const parts = asArray(a)
+    const bankBin = asString(parts[0])
+    const bank = parseBank({ bankBin, bankName: parts[3] ?? findBankByBin(bankBin)?.name ?? bankBin, accountNumber: parts[1], accountName: parts[2] })
     if (!bank) throw invalidSnapshot()
     return bank
   })
@@ -286,24 +282,24 @@ function decodeCompactSnapshot(raw: unknown[]): MealSnapshotPayload {
     return n
   }
   const payments = asArray(rows).map<SnapshotPayment>((r) => {
-    const t = asArray(r)
-    const bank = bankList[asNumber(t[3])]
-    const fromName = nameAt(t[0])
+    const parts = asArray(r)
+    const bank = bankList[asNumber(parts[3])]
+    const fromName = nameAt(parts[0])
     return {
-      key: `${asNumber(t[0])}->${asNumber(t[1])}`,
-      fromId: `p${asNumber(t[0])}`,
+      key: `${asNumber(parts[0])}->${asNumber(parts[1])}`,
+      fromId: `p${asNumber(parts[0])}`,
       fromName,
-      toId: `p${asNumber(t[1])}`,
-      toName: nameAt(t[1]),
-      amount: asNumber(t[2]),
-      content: isString(t[4]) ? t[4] : buildTransferContent(fromName, title_),
+      toId: `p${asNumber(parts[1])}`,
+      toName: nameAt(parts[1]),
+      amount: asNumber(parts[2]),
+      content: isString(parts[4]) ? parts[4] : buildTransferContent(fromName, titleText),
       ...(bank ? { bank } : {}),
     }
   })
   return {
     v: 1,
     exportedAt: '',
-    meal: { title: title_, date: '', status: 'ACTIVE', settlementMode: 'SELF_SETTLEMENT', hostMemberId: '' },
+    meal: { title: titleText, date: '', status: 'ACTIVE', settlementMode: 'SELF_SETTLEMENT', hostMemberId: '' },
     members: [],
     paymentGroups: [],
     sessions: [],
@@ -510,10 +506,7 @@ export function decodeSnapshotPayload(encoded: string): MealSnapshotPayload {
 }
 
 /** Đường dẫn Custom URL đầy đủ có `?s=<encoded>`; chuỗi đã URL-safe nên không cần escape thêm (R-2). */
-export function buildSnapshotUrl(
-  payload: MealSnapshotPayload | string,
-  baseLocation: Pick<Location, 'origin' | 'pathname'> = window.location,
-): string {
+export function buildSnapshotUrl(payload: MealSnapshotPayload | string, baseLocation: Pick<Location, 'origin' | 'pathname'> = window.location): string {
   const encoded = typeof payload === 'string' ? payload : encodeSnapshotPayload(payload)
   return `${baseLocation.origin}${baseLocation.pathname}?${SNAPSHOT_PARAM}=${encoded}`
 }
@@ -619,9 +612,7 @@ export function hydrateSnapshotForSettlement(payload: MealSnapshotPayload): Sett
 }
 
 /** R-3: tên thực thể trong tin nhắn — cá nhân là tên; nhóm là các thành viên nối bằng " + ". */
-export function formatEntityShareLabel(
-  entity: Pick<PaymentEntitySettlement, 'entityName' | 'isGroup' | 'memberNames'>,
-): string {
+export function formatEntityShareLabel(entity: Pick<PaymentEntitySettlement, 'entityName' | 'isGroup' | 'memberNames'>): string {
   if (entity.isGroup && entity.memberNames.length > 0) return entity.memberNames.join(' + ')
   return entity.entityName
 }
@@ -641,18 +632,18 @@ export function hostRecipientLabels(
 }
 
 export interface FormatShareMessageInput {
-  mealTitle: string;
-  entities: ReadonlyArray<PaymentEntitySettlement>;
-  transfers: ReadonlyArray<SettlementTransfer>;
-  snapshotUrl: string;
+  mealTitle: string
+  entities: ReadonlyArray<PaymentEntitySettlement>
+  transfers: ReadonlyArray<SettlementTransfer>
+  snapshotUrl: string
   /** Nếu true, bỏ qua các khoản chuyển đã được tick xong (R-4). */
-  onlyUnpaid?: boolean;
+  onlyUnpaid?: boolean
   /** Tên người nhận hiển thị theo entityId (R-3). */
-  recipientLabelByEntityId?: Record<string, string>;
+  recipientLabelByEntityId?: Record<string, string>
   /** Chỉ liệt kê khoản chuyển của các thực thể này (gửi cho một số người); bỏ trống → tất cả. */
-  onlyEntityIds?: ReadonlyArray<string>;
+  onlyEntityIds?: ReadonlyArray<string>
   /** Ngôn ngữ của tin nhắn; mặc định theo ngôn ngữ giao diện (BR-9.6). */
-  lang?: Lang;
+  lang?: Lang
 }
 
 /**
@@ -662,21 +653,19 @@ export interface FormatShareMessageInput {
 export function formatShareMessage(input: FormatShareMessageInput): string {
   const { mealTitle, entities, transfers, snapshotUrl, onlyUnpaid = false, recipientLabelByEntityId = {}, onlyEntityIds, lang = getLang() } = input
   const entityById = new Map(entities.map((e) => [e.entityId, e] as const))
-  const recipientLabel = (t: SettlementTransfer) => {
-    const override = recipientLabelByEntityId[t.toEntityId]
+  const recipientLabel = (tf: SettlementTransfer) => {
+    const override = recipientLabelByEntityId[tf.toEntityId]
     if (override) return override
-    const target = entityById.get(t.toEntityId)
-    return target ? formatEntityShareLabel(target) : t.toEntityName
+    const target = entityById.get(tf.toEntityId)
+    return target ? formatEntityShareLabel(target) : tf.toEntityName
   }
 
   const lines: string[] = [mealTitle.trim()]
   for (const entity of entities) {
     if (onlyEntityIds && !onlyEntityIds.includes(entity.entityId)) continue
-    const outgoing = transfers.filter(
-      (t) => t.fromEntityId === entity.entityId && t.amount > 0 && !(onlyUnpaid && t.isPaid),
-    )
+    const outgoing = transfers.filter((tr) => tr.fromEntityId === entity.entityId && tr.amount > 0 && !(onlyUnpaid && tr.isPaid))
     if (outgoing.length === 0) continue
-    const debts = outgoing.map((t) => tIn(lang, 'chuyển cho {name} {amount}', { name: recipientLabel(t), amount: formatMoney(t.amount, lang) }))
+    const debts = outgoing.map((tr) => tIn(lang, 'chuyển cho {name} {amount}', { name: recipientLabel(tr), amount: formatMoney(tr.amount, lang) }))
     lines.push(`- ${formatEntityShareLabel(entity)}: ${debts.join(', ')}`)
   }
   if (lines.length === 1) lines.push(`- ${tIn(lang, 'Tất cả các khoản thanh toán đã hoàn tất.')}`)

@@ -7,15 +7,21 @@
 const LEGACY_CACHE_NAME = 'transformers-cache'
 
 /** Các khoá localStorage của tính năng AI và Gemini cũ. */
-const LEGACY_STORAGE_KEYS = [
-  'fee-calculator.useLocalAi',
-  'fee-calculator.localAiCached',
-  'fee-calculator.geminiApiKey',
-  'fee-calculator.geminiModel',
-] as const
+const LEGACY_STORAGE_KEYS = ['fee-calculator.useLocalAi', 'fee-calculator.localAiCached', 'fee-calculator.geminiApiKey', 'fee-calculator.geminiModel'] as const
 
-/** Xoá cache mô hình AI cũ và các khoá localStorage liên quan. Không ném lỗi. */
-export async function cleanUpLegacyLocalAi(): Promise<void> {
+/**
+ * Hạn chót (theo ngày UTC, dạng YYYY-MM-DD) của bước dọn dữ liệu AI cũ.
+ * Sau ngày này có thể xoá hẳn tệp này và lời gọi trong main.tsx.
+ */
+export const LEGACY_CLEANUP_UNTIL = '2027-02-12'
+
+/**
+ * Xoá cache mô hình AI cũ và các khoá localStorage liên quan. Không ném lỗi.
+ * Sau hạn LEGACY_CLEANUP_UNTIL thì không làm gì. Tham số `now` chỉ để kiểm thử.
+ */
+export async function cleanUpLegacyLocalAi(now: Date = new Date()): Promise<void> {
+  // So chuỗi YYYY-MM-DD theo UTC là đúng thứ tự thời gian.
+  if (now.toISOString().slice(0, 10) > LEGACY_CLEANUP_UNTIL) return
   try {
     if (typeof caches !== 'undefined') await caches.delete(LEGACY_CACHE_NAME)
   } catch {

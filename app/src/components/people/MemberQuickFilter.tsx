@@ -14,9 +14,7 @@ interface Props {
   disabled?: boolean
 }
 
-type Row =
-  | { kind: 'member'; key: string; member: Member }
-  | { kind: 'create'; key: string; name: string }
+type Row = { kind: 'member'; key: string; member: Member } | { kind: 'create'; key: string; name: string }
 
 /**
  * Quick Filter chọn người (BR-2.2 → 2.5, R-4 → R-6).
@@ -75,7 +73,7 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
       e.preventDefault()
       if (rows.length === 0) return
       const i = rows.findIndex((r) => r.key === activeKey)
-      const next = e.key === 'ArrowDown' ? (i + 1) % rows.length : (i <= 0 ? rows.length - 1 : i - 1)
+      const next = e.key === 'ArrowDown' ? (i + 1) % rows.length : i <= 0 ? rows.length - 1 : i - 1
       setActiveKey(rows[next].key)
       setOpen(true)
       return
@@ -185,7 +183,8 @@ export default function MemberQuickFilter({ members, participantIds, onPick, onC
       )}
 
       <p role="status" className="min-h-4 text-xs text-usd-green-700">
-        {message ?? (name && exact ? t('Đã có "{name}". Muốn thêm người khác cùng tên, hãy thêm họ hoặc hậu tố (ví dụ "{name} A").', { name: exact.name }) : '')}
+        {message ??
+          (name && exact ? t('Đã có "{name}". Muốn thêm người khác cùng tên, hãy thêm họ hoặc hậu tố (ví dụ "{name} A").', { name: exact.name }) : '')}
       </p>
     </div>
   )

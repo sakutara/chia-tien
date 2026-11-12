@@ -49,7 +49,7 @@ describe('computeInvoice — hoá đơn có món', () => {
     expect(result.bill.totalAmount).toBe(561_330)
 
     const sum = (key: 'finalAmount' | 'allocatedDiscountAmount' | 'allocatedServiceAmount' | 'allocatedVatAmount') =>
-      result.items.reduce((s, it) => s + it[key], 0)
+      result.items.reduce((s, item) => s + item[key], 0)
     expect(sum('finalAmount')).toBe(result.bill.totalAmount)
     expect(sum('allocatedDiscountAmount')).toBe(result.bill.discountAmount)
     expect(sum('allocatedServiceAmount')).toBe(result.bill.serviceAmount)
@@ -58,13 +58,11 @@ describe('computeInvoice — hoá đơn có món', () => {
 
   it('lấy thành tiền từ số lượng × đơn giá khi không nhập riêng', () => {
     const result = computeInvoice(itemized())
-    expect(result.items.map((it) => it.rawAmount)).toEqual([300_000, 250_000])
+    expect(result.items.map((item) => item.rawAmount)).toEqual([300_000, 250_000])
   })
 
   it('dùng thành tiền nhập tay khi có (ví dụ bill đã giảm giá từng dòng)', () => {
-    const result = computeInvoice(
-      itemized({ items: [{ name: 'Bia', quantity: 10, unitPrice: 25_000, rawAmount: 200_000 }] }),
-    )
+    const result = computeInvoice(itemized({ items: [{ name: 'Bia', quantity: 10, unitPrice: 25_000, rawAmount: 200_000 }] }))
     expect(result.subtotalAmount).toBe(200_000)
   })
 
@@ -89,10 +87,7 @@ describe('computeInvoice — chỉ nhập tổng tiền (TOTAL_ONLY)', () => {
   })
 
   it('bắt buộc có tiền hàng', () => {
-    expectCode(
-      () => computeInvoice({ inputMode: 'TOTAL_ONLY', items: [], discount: none, service: none, vat: none }),
-      'INVALID_AMOUNT',
-    )
+    expectCode(() => computeInvoice({ inputMode: 'TOTAL_ONLY', items: [], discount: none, service: none, vat: none }), 'INVALID_AMOUNT')
   })
 })
 
@@ -151,7 +146,10 @@ describe('quy tắc chia tiền Epic 5', () => {
 
   it('R-5: normalizeItemConsumers bỏ shares = 0 và kiểm tra phạm vi', () => {
     const kept = normalizeItemConsumers(
-      [{ memberId: 'a', shares: 2 }, { memberId: 'b', shares: 0 }],
+      [
+        { memberId: 'a', shares: 2 },
+        { memberId: 'b', shares: 0 },
+      ],
       ['a', 'b'],
     )
     expect(kept).toEqual([{ memberId: 'a', shares: 2 }])
@@ -160,7 +158,14 @@ describe('quy tắc chia tiền Epic 5', () => {
     expectCode(() => normalizeItemConsumers([{ memberId: 'a', shares: 1000 }], ['a']), 'INVALID_SHARES')
     expectCode(() => normalizeItemConsumers([{ memberId: 'a', shares: 1.5 }], ['a']), 'INVALID_SHARES')
     expectCode(
-      () => normalizeItemConsumers([{ memberId: 'a', shares: 1 }, { memberId: 'a', shares: 1 }], ['a']),
+      () =>
+        normalizeItemConsumers(
+          [
+            { memberId: 'a', shares: 1 },
+            { memberId: 'a', shares: 1 },
+          ],
+          ['a'],
+        ),
       'INVALID_SHARES',
     )
   })

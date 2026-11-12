@@ -34,9 +34,17 @@ async function fixture(withConsumers = false) {
   const chi = await member('chi', 'Chi')
   const now = new Date().toISOString()
   const meal: Meal = {
-    id: crypto.randomUUID(), title: 'Bữa', date: '2026-10-19', status: 'ACTIVE',
-    participantIds: [init.hostMemberId, bob.id, chi.id], hostMemberId: init.hostMemberId,
-    settlementMode: 'SELF_SETTLEMENT', paymentGroups: [], settlementStatuses: {}, createdAt: now, updatedAt: now,
+    id: crypto.randomUUID(),
+    title: 'Bữa',
+    date: '2026-10-19',
+    status: 'ACTIVE',
+    participantIds: [init.hostMemberId, bob.id, chi.id],
+    hostMemberId: init.hostMemberId,
+    settlementMode: 'SELF_SETTLEMENT',
+    paymentGroups: [],
+    settlementStatuses: {},
+    createdAt: now,
+    updatedAt: now,
   }
   await db.meals.put(meal)
   const session: SessionKeo = await addSession(meal.id, 'Kèo 1')
@@ -54,9 +62,16 @@ async function fixture(withConsumers = false) {
     vat: { mode: 'NONE', value: 0 },
   })
   // Bật chia từng món tự gán cả kèo; bỏ người ăn để giữ món trống cho các test.
-  for (const it of items) await setItemConsumers(it.id, [])
+  for (const item of items) await setItemConsumers(item.id, [])
   if (withConsumers) await setItemConsumers(items[0].id, [{ memberId: bob.id, shares: 1 }])
-  return { session, members: [...(await db.members.where('id').anyOf(meal.participantIds).toArray())], invoiceId: invoice.id, host: init.hostMemberId, bob, chi }
+  return {
+    session,
+    members: [...(await db.members.where('id').anyOf(meal.participantIds).toArray())],
+    invoiceId: invoice.id,
+    host: init.hostMemberId,
+    bob,
+    chi,
+  }
 }
 
 async function rowOf(invoiceId: string): Promise<InvoiceRow> {
@@ -76,16 +91,36 @@ function Live(props: Omit<Parameters<typeof InvoiceCard>[0], 'row' | 'index'> & 
 describe('InvoiceCard (Epic 5: BR-5.1, BR-5.4, BR-5.6, BR-5.8, R-8)', () => {
   it('cảnh báo món chưa có người ăn và cho phép gán cả kèo cho các món trống', async () => {
     const f = await fixture()
-    render(<Live invoiceId={f.invoiceId} session={f.session} sessionMembers={f.members} readOnly={false} onEditInvoice={() => {}} onDeleteInvoice={() => {}} onError={() => {}} />)
+    render(
+      <Live
+        invoiceId={f.invoiceId}
+        session={f.session}
+        sessionMembers={f.members}
+        readOnly={false}
+        onEditInvoice={() => {}}
+        onDeleteInvoice={() => {}}
+        onError={() => {}}
+      />,
+    )
     await screen.findByRole('switch', { name: 'Chia từng món' })
     expect(screen.getByText('Còn 2 món chưa chọn người ăn')).toBeTruthy()
     await userEvent.click(screen.getByRole('button', { name: 'Gán cả kèo cho các món trống' }))
-    await waitFor(async () => expect((await db.items.where('invoiceId').equals(f.invoiceId).toArray()).every((it) => it.consumers.length === 3)).toBe(true))
+    await waitFor(async () => expect((await db.items.where('invoiceId').equals(f.invoiceId).toArray()).every((item) => item.consumers.length === 3)).toBe(true))
   })
 
   it('đổi người ứng ngay trên thẻ hoá đơn (BR-5.1)', async () => {
     const f = await fixture()
-    render(<Live invoiceId={f.invoiceId} session={f.session} sessionMembers={f.members} readOnly={false} onEditInvoice={() => {}} onDeleteInvoice={() => {}} onError={() => {}} />)
+    render(
+      <Live
+        invoiceId={f.invoiceId}
+        session={f.session}
+        sessionMembers={f.members}
+        readOnly={false}
+        onEditInvoice={() => {}}
+        onDeleteInvoice={() => {}}
+        onError={() => {}}
+      />,
+    )
     await screen.findByRole('switch', { name: 'Chia từng món' })
     await userEvent.click(screen.getByRole('button', { name: /^Người ứng tiền hoá đơn #1/ }))
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('radio', { name: 'Bình' }))
@@ -94,7 +129,17 @@ describe('InvoiceCard (Epic 5: BR-5.1, BR-5.4, BR-5.6, BR-5.8, R-8)', () => {
 
   it('đổi chế độ chia và tick chọn người chia đều (BR-5.4, BR-5.5)', async () => {
     const f = await fixture()
-    render(<Live invoiceId={f.invoiceId} session={f.session} sessionMembers={f.members} readOnly={false} onEditInvoice={() => {}} onDeleteInvoice={() => {}} onError={() => {}} />)
+    render(
+      <Live
+        invoiceId={f.invoiceId}
+        session={f.session}
+        sessionMembers={f.members}
+        readOnly={false}
+        onEditInvoice={() => {}}
+        onDeleteInvoice={() => {}}
+        onError={() => {}}
+      />,
+    )
     await screen.findByRole('switch', { name: 'Chia từng món' })
     await userEvent.click(screen.getByRole('switch', { name: 'Chia từng món' }))
     await waitFor(async () => expect((await db.invoices.get(f.invoiceId))!.splitType).toBe('EQUAL_TOTAL'))
@@ -107,12 +152,22 @@ describe('InvoiceCard (Epic 5: BR-5.1, BR-5.4, BR-5.6, BR-5.8, R-8)', () => {
 
   it('chỉnh số phần trong khung chọn người và xác nhận khi xoá món đã có người ăn (R-5, R-8)', async () => {
     const f = await fixture(true)
-    render(<Live invoiceId={f.invoiceId} session={f.session} sessionMembers={f.members} readOnly={false} onEditInvoice={() => {}} onDeleteInvoice={() => {}} onError={() => {}} />)
+    render(
+      <Live
+        invoiceId={f.invoiceId}
+        session={f.session}
+        sessionMembers={f.members}
+        readOnly={false}
+        onEditInvoice={() => {}}
+        onDeleteInvoice={() => {}}
+        onError={() => {}}
+      />,
+    )
     await screen.findByRole('switch', { name: 'Chia từng món' })
     await userEvent.click(screen.getByRole('button', { name: /^Người ăn Lẩu bò/ }))
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Tăng số phần của Bình' }))
     await waitFor(async () => {
-      const lau = (await db.items.where('invoiceId').equals(f.invoiceId).toArray()).find((it) => it.name === 'Lẩu bò')!
+      const lau = (await db.items.where('invoiceId').equals(f.invoiceId).toArray()).find((item) => item.name === 'Lẩu bò')!
       expect(lau.consumers).toEqual([{ memberId: 'bob', shares: 2 }])
     })
 
@@ -125,7 +180,17 @@ describe('InvoiceCard (Epic 5: BR-5.1, BR-5.4, BR-5.6, BR-5.8, R-8)', () => {
 describe('InvoiceCard — món rút gọn', () => {
   it('đổi số lượng và đơn giá thì thành tiền tự tính lại', async () => {
     const f = await fixture()
-    render(<Live invoiceId={f.invoiceId} session={f.session} sessionMembers={f.members} readOnly={false} onEditInvoice={() => {}} onDeleteInvoice={() => {}} onError={() => {}} />)
+    render(
+      <Live
+        invoiceId={f.invoiceId}
+        session={f.session}
+        sessionMembers={f.members}
+        readOnly={false}
+        onEditInvoice={() => {}}
+        onDeleteInvoice={() => {}}
+        onError={() => {}}
+      />,
+    )
     await userEvent.click(await screen.findByRole('button', { name: /^Số lượng và đơn giá Bia/ }))
     const dialog = screen.getByRole('dialog')
     const qty = within(dialog).getByLabelText('Số lượng')
@@ -137,14 +202,24 @@ describe('InvoiceCard — món rút gọn', () => {
     expect(within(dialog).getByText(/= 120\.000/)).toBeTruthy()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu số lượng và đơn giá' }))
     await waitFor(async () => {
-      const bia = (await db.items.where('invoiceId').equals(f.invoiceId).toArray()).find((it) => it.name === 'Bia')!
+      const bia = (await db.items.where('invoiceId').equals(f.invoiceId).toArray()).find((item) => item.name === 'Bia')!
       expect(bia).toMatchObject({ quantity: 3, unitPrice: 40_000, rawAmount: 120_000 })
     })
   })
 
   it('bấm vào tên món để đổi tên tại chỗ', async () => {
     const f = await fixture()
-    render(<Live invoiceId={f.invoiceId} session={f.session} sessionMembers={f.members} readOnly={false} onEditInvoice={() => {}} onDeleteInvoice={() => {}} onError={() => {}} />)
+    render(
+      <Live
+        invoiceId={f.invoiceId}
+        session={f.session}
+        sessionMembers={f.members}
+        readOnly={false}
+        onEditInvoice={() => {}}
+        onDeleteInvoice={() => {}}
+        onError={() => {}}
+      />,
+    )
     await userEvent.click(await screen.findByRole('button', { name: 'Bia' }))
     const input = screen.getByRole('textbox', { name: 'Tên món' })
     await userEvent.clear(input)

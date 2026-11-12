@@ -64,11 +64,7 @@ export default function PeoplePicker(props: Props) {
   if (readOnly) return <span className="break-words">{text || '—'}</span>
 
   return (
-    <Popover
-      label={label}
-      summary={text || t('chưa chọn')}
-      trigger={text ? text : <span className="italic text-usd-green-700">{shown}</span>}
-    >
+    <Popover label={label} summary={text || t('chưa chọn')} trigger={text ? text : <span className="italic text-usd-green-700">{shown}</span>}>
       {props.mode === 'multi' && <MultiList {...props} />}
       {props.mode === 'shares' && <SharesList {...props} />}
       {props.mode === 'single' && <SingleList {...props} />}
@@ -90,7 +86,12 @@ function MultiList({ label, options, value, onChange, min = 0 }: MultiProps) {
         <span className="text-xs text-usd-green-700">
           {value.length}/{options.length}
         </span>
-        <IconButton icon={Check} label={t('Chọn tất cả: {label}', { label })} onClick={() => onChange(options.map((m) => m.id))} disabled={value.length === options.length} />
+        <IconButton
+          icon={Check}
+          label={t('Chọn tất cả: {label}', { label })}
+          onClick={() => onChange(options.map((m) => m.id))}
+          disabled={value.length === options.length}
+        />
       </div>
       <ul className="max-h-60 space-y-0.5 overflow-auto">
         {options.map((m) => {
@@ -147,11 +148,20 @@ function SharesList({ label, options, value, onChange }: SharesProps) {
               </label>
               {n > 0 && (
                 <span className="flex items-center gap-0.5">
-                  <IconButton icon={Minus} label={n > 1 ? t('Giảm số phần của {name}', { name: m.name }) : t('Bỏ {name}', { name: m.name })} onClick={() => set(m.id, n - 1)} />
+                  <IconButton
+                    icon={Minus}
+                    label={n > 1 ? t('Giảm số phần của {name}', { name: m.name }) : t('Bỏ {name}', { name: m.name })}
+                    onClick={() => set(m.id, n - 1)}
+                  />
                   <span className="min-w-5 text-center font-semibold" aria-live="polite">
                     {n}
                   </span>
-                  <IconButton icon={Plus} label={t('Tăng số phần của {name}', { name: m.name })} onClick={() => set(m.id, n + 1)} disabled={n >= MAX_ITEM_SHARES} />
+                  <IconButton
+                    icon={Plus}
+                    label={t('Tăng số phần của {name}', { name: m.name })}
+                    onClick={() => set(m.id, n + 1)}
+                    disabled={n >= MAX_ITEM_SHARES}
+                  />
                 </span>
               )}
             </li>

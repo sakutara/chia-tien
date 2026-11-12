@@ -48,7 +48,7 @@ describe('MealsPage — list view (AC-7)', () => {
     const first = screen.getAllByRole('article')[0]
     expect(first.textContent).toContain('19/10/2026')
     expect(within(first).getByText('Chưa có chi phí')).toBeTruthy()
-        expect(within(first).queryByLabelText('Đã lưu trữ')).toBeNull()
+    expect(within(first).queryByLabelText('Đã lưu trữ')).toBeNull()
     expect(within(screen.getAllByRole('article')[2]).getByLabelText('Đã lưu trữ')).toBeTruthy()
   })
 
@@ -160,9 +160,7 @@ describe('MealsPage — calendar view (AC-6)', () => {
   it('lists the meals of the selected day and marks the day on the grid', async () => {
     const today = todayLocal()
     await createMeal({ title: 'Bữa hôm nay', date: today })
-    await createMeal({ title: 'Bữa lưu trữ hôm nay', date: today }).then((m) =>
-      db.meals.update(m.id, { status: 'ARCHIVED' } as Partial<Meal>),
-    )
+    await createMeal({ title: 'Bữa lưu trữ hôm nay', date: today }).then((m) => db.meals.update(m.id, { status: 'ARCHIVED' } as Partial<Meal>))
     render(<MealsPage onOpenMeal={() => {}} />)
 
     const cell = await screen.findByRole('button', { name: new RegExp(`2 bữa, hôm nay`) })

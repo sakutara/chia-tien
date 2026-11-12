@@ -49,16 +49,16 @@ export type PeopleErrorCode =
   | 'ARCHIVE_UNASSIGNED_ITEMS'
   | 'ARCHIVE_UNPAID_ENTITIES'
   | 'INVALID_SNAPSHOT'
-  | 'SHARE_FAILED';
+  | 'SHARE_FAILED'
 
 export class PeopleError extends Error {
-  readonly code: PeopleErrorCode;
-  readonly detail?: Record<string, unknown>;
+  readonly code: PeopleErrorCode
+  readonly detail?: Record<string, unknown>
 
   constructor(code: PeopleErrorCode, message: string, detail?: Record<string, unknown>) {
-    super(message);
-    this.name = 'PeopleError';
-    this.code = code;
-    this.detail = detail;
+    super(message)
+    this.name = 'PeopleError'
+    this.code = code
+    this.detail = detail
   }
 }

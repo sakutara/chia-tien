@@ -28,7 +28,11 @@ function moneyOf(cell: string): number | null {
 
 /** Dòng chỉ là tiêu đề cột (SL / ĐG / Thành tiền / Tên món). */
 function isColumnHeader(line: string): boolean {
-  return COLUMN_HEADERS.has(fold(line).replace(/[^a-z ]/g, '').trim())
+  return COLUMN_HEADERS.has(
+    fold(line)
+      .replace(/[^a-z ]/g, '')
+      .trim(),
+  )
 }
 
 function formatRow(row: Row): string {
@@ -78,9 +82,21 @@ function reflowFooter(footer: string[]): string[] {
 }
 
 export function reflowBlockText(text: string): string {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '')
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l !== '')
   const headerIdx = lines.map((l, i) => (isColumnHeader(l) ? i : -1)).filter((i) => i >= 0)
-  if (new Set(headerIdx.map((i) => fold(lines[i]).replace(/[^a-z ]/g, '').trim())).size < 3) return text
+  if (
+    new Set(
+      headerIdx.map((i) =>
+        fold(lines[i])
+          .replace(/[^a-z ]/g, '')
+          .trim(),
+      ),
+    ).size < 3
+  )
+    return text
 
   const start = headerIdx[headerIdx.length - 1] + 1
   const rows: Row[] = []

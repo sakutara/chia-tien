@@ -46,7 +46,13 @@ export async function addInvoiceImage(input: AddInvoiceImageInput): Promise<Invo
     if (inferred) file = new File([file], file.name, { type: inferred, lastModified: file.lastModified })
   }
   if (!(INVOICE_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-    throw new PeopleError('FILE_TYPE_NOT_ALLOWED', t('Chỉ nhận ảnh JPEG, PNG, WebP hoặc PDF (tệp này là "{v}"). Nếu máy chụp HEIC, hãy đổi sang JPEG trong cài đặt camera.', { v: file.type || t('không rõ') }), { type: file.type })
+    throw new PeopleError(
+      'FILE_TYPE_NOT_ALLOWED',
+      t('Chỉ nhận ảnh JPEG, PNG, WebP hoặc PDF (tệp này là "{v}"). Nếu máy chụp HEIC, hãy đổi sang JPEG trong cài đặt camera.', {
+        v: file.type || t('không rõ'),
+      }),
+      { type: file.type },
+    )
   }
   if (file.size > MAX_IMAGE_BYTES) {
     throw new PeopleError('FILE_TOO_LARGE', t('Ảnh tối đa 40 MB.'), { size: file.size })
@@ -158,10 +164,7 @@ export async function discardDraftFiles(invoiceId: string): Promise<void> {
  * Trả về số ảnh đã xoá.
  */
 export async function sweepOrphanFiles(mealId: string): Promise<number> {
-  const [files, invoices] = await Promise.all([
-    db.invoice_files.where('mealId').equals(mealId).toArray(),
-    db.invoices.where('mealId').equals(mealId).toArray(),
-  ])
+  const [files, invoices] = await Promise.all([db.invoice_files.where('mealId').equals(mealId).toArray(), db.invoices.where('mealId').equals(mealId).toArray()])
   const live = new Set(invoices.map((inv) => inv.id))
   const orphans = files.filter((f) => !live.has(f.invoiceId))
   for (const orphan of orphans) {

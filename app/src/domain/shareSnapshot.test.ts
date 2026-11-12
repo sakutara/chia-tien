@@ -38,31 +38,73 @@ const members: Member[] = [
 /** Bữa 4 người: An (chủ trì) trả lẩu 120 000 + VAT 8%, Cường & Dung là một nhóm. */
 function fixture() {
   const meal: Meal = {
-    id: 'meal-1', title: 'Lẩu cuối tuần', date: '2026-10-19', status: 'ACTIVE', note: 'Nhớ mang ô',
-    participantIds: ['an', 'binh', 'cuong', 'dung'], hostMemberId: 'an', settlementMode: 'SELF_SETTLEMENT',
+    id: 'meal-1',
+    title: 'Lẩu cuối tuần',
+    date: '2026-10-19',
+    status: 'ACTIVE',
+    note: 'Nhớ mang ô',
+    participantIds: ['an', 'binh', 'cuong', 'dung'],
+    hostMemberId: 'an',
+    settlementMode: 'SELF_SETTLEMENT',
     paymentGroups: [{ id: 'g1', mealId: 'meal-1', name: 'Cường - Dung', memberIds: ['cuong', 'dung'] }],
-    settlementStatuses: {}, createdAt: NOW, updatedAt: NOW,
+    settlementStatuses: {},
+    createdAt: NOW,
+    updatedAt: NOW,
   }
   const sessions: SessionKeo[] = [
     { id: 's1', mealId: 'meal-1', name: 'Kèo 1 - Lẩu', orderIndex: 0, participantIds: ['an', 'binh', 'cuong', 'dung'], createdAt: NOW },
   ]
   const invoices: Invoice[] = [
     {
-      id: 'i1', mealId: 'meal-1', sessionId: 's1', vendorName: 'Lẩu Bò Gỗ', payerMemberId: 'an',
-      inputMode: 'ITEMIZED', splitType: 'BY_ITEM', equalSplitParticipantIds: ['an', 'binh', 'cuong', 'dung'],
-      subtotalAmount: 120_000, discountMode: 'NONE', discountValue: 0, discountAmount: 0,
-      serviceMode: 'NONE', serviceValue: 0, serviceAmount: 0, vatMode: 'PERCENTAGE', vatValue: 8, vatAmount: 9_600,
-      totalAmount: 129_600, fileIds: ['f-secret'], createdAt: NOW,
+      id: 'i1',
+      mealId: 'meal-1',
+      sessionId: 's1',
+      vendorName: 'Lẩu Bò Gỗ',
+      payerMemberId: 'an',
+      inputMode: 'ITEMIZED',
+      splitType: 'BY_ITEM',
+      equalSplitParticipantIds: ['an', 'binh', 'cuong', 'dung'],
+      subtotalAmount: 120_000,
+      discountMode: 'NONE',
+      discountValue: 0,
+      discountAmount: 0,
+      serviceMode: 'NONE',
+      serviceValue: 0,
+      serviceAmount: 0,
+      vatMode: 'PERCENTAGE',
+      vatValue: 8,
+      vatAmount: 9_600,
+      totalAmount: 129_600,
+      fileIds: ['f-secret'],
+      createdAt: NOW,
     },
   ]
   const item = (id: string, finalAmount: number, consumers: InvoiceItem['consumers']): InvoiceItem => ({
-    id, mealId: 'meal-1', sessionId: 's1', invoiceId: 'i1', name: id, quantity: 1, unitPrice: finalAmount,
-    rawAmount: finalAmount, allocatedDiscountAmount: 0, allocatedServiceAmount: 0, allocatedVatAmount: 0,
-    finalAmount, consumers,
+    id,
+    mealId: 'meal-1',
+    sessionId: 's1',
+    invoiceId: 'i1',
+    name: id,
+    quantity: 1,
+    unitPrice: finalAmount,
+    rawAmount: finalAmount,
+    allocatedDiscountAmount: 0,
+    allocatedServiceAmount: 0,
+    allocatedVatAmount: 0,
+    finalAmount,
+    consumers,
   })
   const items: InvoiceItem[] = [
-    item('Lẩu', 80_000, [{ memberId: 'an', shares: 1 }, { memberId: 'binh', shares: 1 }, { memberId: 'cuong', shares: 1 }, { memberId: 'dung', shares: 1 }]),
-    item('Bia', 49_600, [{ memberId: 'binh', shares: 2 }, { memberId: 'cuong', shares: 1 }]),
+    item('Lẩu', 80_000, [
+      { memberId: 'an', shares: 1 },
+      { memberId: 'binh', shares: 1 },
+      { memberId: 'cuong', shares: 1 },
+      { memberId: 'dung', shares: 1 },
+    ]),
+    item('Bia', 49_600, [
+      { memberId: 'binh', shares: 2 },
+      { memberId: 'cuong', shares: 1 },
+    ]),
   ]
   return { meal, members, sessions, invoices, items }
 }
@@ -145,8 +187,16 @@ describe('buildSnapshotPayload / encode / decode (BR-8.1, R-1, R-2, BR-8.4)', ()
 
 describe('định dạng tin nhắn chia sẻ (BR-8.5, R-3, R-4)', () => {
   const entity = (overrides: Partial<PaymentEntitySettlement>): PaymentEntitySettlement => ({
-    entityId: 'x', entityName: 'X', isGroup: false, memberIds: [], memberNames: [], totalPaid: 0, totalOwed: 0,
-    netBalance: 0, isPaid: false, ...overrides,
+    entityId: 'x',
+    entityName: 'X',
+    isGroup: false,
+    memberIds: [],
+    memberNames: [],
+    totalPaid: 0,
+    totalOwed: 0,
+    netBalance: 0,
+    isPaid: false,
+    ...overrides,
   })
 
   it('nhóm thanh toán hiển thị "Cường + Dung"', () => {
@@ -166,7 +216,10 @@ describe('định dạng tin nhắn chia sẻ (BR-8.5, R-3, R-4)', () => {
       { fromEntityId: 'g1', fromEntityName: 'Cường - Dung', toEntityId: 'an', toEntityName: 'An', amount: 80_000, key: 'g1', isPaid: false },
     ]
     const text = formatShareMessage({
-      mealTitle: 'Lẩu cuối tuần', entities, transfers, snapshotUrl: 'https://chia.tien/?snapshot=abc',
+      mealTitle: 'Lẩu cuối tuần',
+      entities,
+      transfers,
+      snapshotUrl: 'https://chia.tien/?snapshot=abc',
     })
     expect(text.split('\n')).toEqual([
       'Lẩu cuối tuần',
@@ -181,9 +234,15 @@ describe('định dạng tin nhắn chia sẻ (BR-8.5, R-3, R-4)', () => {
     const transfers: SettlementTransfer[] = [
       { fromEntityId: 'binh', fromEntityName: 'Bình', toEntityId: 'an', toEntityName: 'An', amount: 1_620_000, key: 'binh->an', isPaid: false },
     ]
-    expect(formatShareMessage({ mealTitle: 'Dinner', entities, transfers, snapshotUrl: 'L', lang: 'en' }).split('\n')[1]).toBe('- Bình: transfer to An 1,620,000 ₫')
-    expect(formatShareMessage({ mealTitle: 'Dinner', entities, transfers, snapshotUrl: 'L', lang: 'vi' }).split('\n')[1]).toBe('- Bình: chuyển cho An 1.620.000 ₫')
-    expect(formatShareMessage({ mealTitle: 'Dinner', entities, transfers, snapshotUrl: 'L', lang: 'en', onlyEntityIds: ['x'] }).split('\n')[1]).toBe('- All payments are settled.')
+    expect(formatShareMessage({ mealTitle: 'Dinner', entities, transfers, snapshotUrl: 'L', lang: 'en' }).split('\n')[1]).toBe(
+      '- Bình: transfer to An 1,620,000 ₫',
+    )
+    expect(formatShareMessage({ mealTitle: 'Dinner', entities, transfers, snapshotUrl: 'L', lang: 'vi' }).split('\n')[1]).toBe(
+      '- Bình: chuyển cho An 1.620.000 ₫',
+    )
+    expect(formatShareMessage({ mealTitle: 'Dinner', entities, transfers, snapshotUrl: 'L', lang: 'en', onlyEntityIds: ['x'] }).split('\n')[1]).toBe(
+      '- All payments are settled.',
+    )
   })
 
   it('onlyUnpaid bỏ khoản đã tick; không còn khoản nợ thì ghi đã hoàn tất', () => {
@@ -208,11 +267,15 @@ describe('định dạng tin nhắn chia sẻ (BR-8.5, R-3, R-4)', () => {
     const text = formatShareMessage({ mealTitle: 'Bữa', entities, transfers, snapshotUrl: 'L', recipientLabelByEntityId: labels })
     expect(text.split('\n')[1]).toBe('- Bình: chuyển cho An 50.000 ₫')
   })
-
 })
 
 /** Dựng link theo định dạng cũ (JSON mảng + lz-string) để so sánh và kiểm tra tương thích ngược. */
-function toLegacy(title: string, names: string[], pays: Array<{ fromName: string; toName: string; amount: number; content: string }>, shares: ItemSharesInput[]): string {
+function toLegacy(
+  title: string,
+  names: string[],
+  pays: Array<{ fromName: string; toName: string; amount: number; content: string }>,
+  shares: ItemSharesInput[],
+): string {
   const rows = pays.map((p) => [names.indexOf(p.fromName), names.indexOf(p.toName), p.amount, -1, p.content])
   const keos = shares.map((k) => [k.name, k.lines.map((l) => [l.name, l.amount, 0])])
   const tuple: unknown[] = [title, names, [], rows]
@@ -224,7 +287,16 @@ describe('link gọn', () => {
   const bank = { bankBin: '970436', bankName: 'Vietcombank', accountName: 'NGUYEN VAN AN', accountNumber: '0123456789' }
   const payments = [
     { key: 'b->a', fromId: 'b', fromName: 'Bình', toId: 'a', toName: 'An', amount: 45_000, content: 'Binh thanh toan Lau', bank },
-    { key: 'c->a', fromId: 'c', fromName: 'Cường', toId: 'a', toName: 'An', amount: 52_500, content: 'Binh thanh toan Lau', bank: { ...bank, bankBin: '123456', bankName: 'NH lạ' } },
+    {
+      key: 'c->a',
+      fromId: 'c',
+      fromName: 'Cường',
+      toId: 'a',
+      toName: 'An',
+      amount: 52_500,
+      content: 'Binh thanh toan Lau',
+      bank: { ...bank, bankBin: '123456', bankName: 'NH lạ' },
+    },
     { key: 'd->a', fromId: 'd', fromName: 'Dung', toId: 'a', toName: 'An', amount: 10_000, content: 'Dung thanh toan Lau' },
   ]
 
@@ -257,7 +329,17 @@ describe('link gọn', () => {
   })
 
   it('ngắn hơn định dạng JSON + lz-string của link cũ', () => {
-    const shares = [{ name: 'Kèo 1 - Lẩu', lines: ['Lẩu thái hải sản', 'Bia Tiger', 'Nước suối', 'Rau thêm'].map((name, i) => ({ name, amount: 12_345 * (i + 1), ownerId: 'b', ownerName: 'Bình' })) }]
+    const shares = [
+      {
+        name: 'Kèo 1 - Lẩu',
+        lines: ['Lẩu thái hải sản', 'Bia Tiger', 'Nước suối', 'Rau thêm'].map((name, i) => ({
+          name,
+          amount: 12_345 * (i + 1),
+          ownerId: 'b',
+          ownerName: 'Bình',
+        })),
+      },
+    ]
     const names = ['Bình', 'An', 'Cường', 'Dung']
     const legacy = toLegacy('Lau', names, payments, shares)
     expect(encodeCompactSnapshot('Lau', payments, shares).length).toBeLessThan(legacy.length * 0.85)

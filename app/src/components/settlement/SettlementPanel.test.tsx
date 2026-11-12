@@ -26,9 +26,17 @@ async function fixture(): Promise<{ meal: Meal; host: Member; bob: Member }> {
   const bob: Member = { id: 'bob', name: 'Bình', normalizedName: 'binh', avatarColor: '#2D6A4F', createdAt: now, lastUsedAt: now }
   await db.members.put(bob)
   const meal: Meal = {
-    id: crypto.randomUUID(), title: 'Lẩu', date: '2026-10-19', status: 'ACTIVE',
-    participantIds: [init.hostMemberId, bob.id], hostMemberId: init.hostMemberId,
-    settlementMode: 'SELF_SETTLEMENT', paymentGroups: [], settlementStatuses: {}, createdAt: now, updatedAt: now,
+    id: crypto.randomUUID(),
+    title: 'Lẩu',
+    date: '2026-10-19',
+    status: 'ACTIVE',
+    participantIds: [init.hostMemberId, bob.id],
+    hostMemberId: init.hostMemberId,
+    settlementMode: 'SELF_SETTLEMENT',
+    paymentGroups: [],
+    settlementStatuses: {},
+    createdAt: now,
+    updatedAt: now,
   }
   await db.meals.put(meal)
   const session = await addSession(meal.id, 'Kèo 1')

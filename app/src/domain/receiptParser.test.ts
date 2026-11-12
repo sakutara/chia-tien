@@ -10,14 +10,19 @@ describe('parseReceipt — bộ bill mẫu', () => {
 
   it('đối chiếu được: tổng các món khớp tổng bill ở bill không lỗi', () => {
     const cafe = RECEIPT_FIXTURES.find((f) => f.name.startsWith('cafe, '))!.expected
-    const subtotal = cafe.items.reduce((s, it) => s + it.rawAmount, 0)
+    const subtotal = cafe.items.reduce((s, item) => s + item.rawAmount, 0)
     expect(subtotal).toBe(120_000)
     expect(cafe.billTotal).toBe(122_472)
   })
 })
 
 describe('parseReceipt — OCR không đọc đúng dấu tiếng Việt', () => {
-  const stripMarks = (t: string) => t.replace(/đ/g, 'd').replace(/Đ/g, 'D').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const stripMarks = (t: string) =>
+    t
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
 
   it.each(RECEIPT_FIXTURES.map((f) => [f.name, f] as const))('%s: vẫn cho ra cùng số liệu', (_name, fixture) => {
     const parsed = parseReceipt(stripMarks(fixture.text))
@@ -172,7 +177,9 @@ describe('bill tính riêng đồ uống và đồ ăn', () => {
   })
 
   it('bill liệt kê món lẻ khớp tổng nhóm thì giữ món lẻ, không tính trùng', () => {
-    const r = parseReceipt(['Cà phê 2 x 30.000 = 60.000', 'Phở bò 1 x 60.000 = 60.000', 'Tổng đồ uống 60.000', 'Tổng đồ ăn 60.000', 'Tổng cộng 120.000'].join('\n'))
+    const r = parseReceipt(
+      ['Cà phê 2 x 30.000 = 60.000', 'Phở bò 1 x 60.000 = 60.000', 'Tổng đồ uống 60.000', 'Tổng đồ ăn 60.000', 'Tổng cộng 120.000'].join('\n'),
+    )
     expect(r.items.map((i) => i.name)).toEqual(['Cà phê', 'Phở bò'])
   })
 })
@@ -180,7 +187,10 @@ describe('bill tính riêng đồ uống và đồ ăn', () => {
 describe('bill nhóm Food / Drink', () => {
   it('nhận tiêu đề tiếng Anh, "Soft drink" là món thường không phải nhóm', () => {
     const r = parseReceipt(['Drink 120.000đ', 'Food 300.000đ', 'Tổng cộng 420.000đ'].join('\n'))
-    expect(r.items.map((i) => [i.name, i.rawAmount])).toEqual([['Tổng đồ uống', 120000], ['Tổng đồ ăn', 300000]])
+    expect(r.items.map((i) => [i.name, i.rawAmount])).toEqual([
+      ['Tổng đồ uống', 120000],
+      ['Tổng đồ ăn', 300000],
+    ])
     const soft = parseReceipt('Soft drink 2 x 20.000 = 40.000')
     expect(soft.items.map((i) => i.name)).toEqual(['Soft drink'])
   })

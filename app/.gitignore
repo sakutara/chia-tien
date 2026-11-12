@@ -25,3 +25,6 @@ dist-ssr
 
 # Kết quả chạy test của Vitest
 .vitest
+
+# Báo cáo coverage của Vitest
+coverage

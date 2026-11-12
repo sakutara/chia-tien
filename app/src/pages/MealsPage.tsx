@@ -43,20 +43,9 @@ export default function MealsPage({ onOpenMeal }: Props) {
         </div>
       </div>
 
-      {mode === 'CALENDAR' && (
-        <MealCalendarView
-          summaries={summaries}
-          onCreateForDate={openCreate}
-          onOpen={onOpenMeal}
-          onDelete={setDeletingId}
-        />
-      )}
-      {mode === 'LIST' && (
-        <MealListView summaries={summaries} onOpen={onOpenMeal} onDelete={setDeletingId} onCreate={() => openCreate()} />
-      )}
-      {mode === 'STATUS' && (
-        <MealStatusView summaries={summaries} onOpen={onOpenMeal} onDelete={setDeletingId} onCreate={() => openCreate()} />
-      )}
+      {mode === 'CALENDAR' && <MealCalendarView summaries={summaries} onCreateForDate={openCreate} onOpen={onOpenMeal} onDelete={setDeletingId} />}
+      {mode === 'LIST' && <MealListView summaries={summaries} onOpen={onOpenMeal} onDelete={setDeletingId} onCreate={() => openCreate()} />}
+      {mode === 'STATUS' && <MealStatusView summaries={summaries} onOpen={onOpenMeal} onDelete={setDeletingId} onCreate={() => openCreate()} />}
 
       {createDate !== undefined && (
         <MealFormDialog mode="create" initialDate={createDate || undefined} onClose={() => setCreateDate(undefined)} onSaved={saved} />

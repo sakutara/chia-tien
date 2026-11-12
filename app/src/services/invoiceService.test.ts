@@ -91,7 +91,7 @@ describe('invoiceService', () => {
     expect(invoice.payerMemberId).toBe(bob)
     expect(invoice.totalAmount).toBe(594_000) // 550 000 + VAT 8%
     expect(items).toHaveLength(2)
-    expect(items.reduce((s, it) => s + it.finalAmount, 0)).toBe(invoice.totalAmount)
+    expect(items.reduce((s, item) => s + item.finalAmount, 0)).toBe(invoice.totalAmount)
     expect(await db.invoices.get(invoice.id)).toBeTruthy()
     expect(await db.items.where('invoiceId').equals(invoice.id).count()).toBe(2)
   })
@@ -271,21 +271,21 @@ describe('invoiceService — Epic 5 (người ứng, chế độ chia, món)', (
   it('US-5.3 / R-7: thêm, sửa, xoá món tính lại tổng và phân bổ khớp 100%', async () => {
     const { session } = await setup()
     const { invoice, items } = await createInvoice(draft(session.id, hostId))
-    const beforeIds = items.map((it) => it.id)
+    const beforeIds = items.map((item) => item.id)
 
     const added = await addInvoiceItem(invoice.id, { name: 'Trà đá', quantity: 3, unitPrice: 10_000 })
     expect(added.items).toHaveLength(3)
     expect(added.invoice.subtotalAmount).toBe(580_000)
-    expect(added.items.reduce((s, it) => s + it.finalAmount, 0)).toBe(added.invoice.totalAmount)
-    expect(added.items.map((it) => it.orderIndex)).toEqual([0, 1, 2])
+    expect(added.items.reduce((s, item) => s + item.finalAmount, 0)).toBe(added.invoice.totalAmount)
+    expect(added.items.map((item) => item.orderIndex)).toEqual([0, 1, 2])
 
     const edited = await updateInvoiceItem(beforeIds[1], { name: 'Bia Tiger', quantity: 2, unitPrice: 125_000 })
     expect(edited.invoice.subtotalAmount).toBe(580_000) // 300 000 + 250 000 + 30 000
-    expect(edited.items.reduce((s, it) => s + it.finalAmount, 0)).toBe(edited.invoice.totalAmount)
+    expect(edited.items.reduce((s, item) => s + item.finalAmount, 0)).toBe(edited.invoice.totalAmount)
 
     const deleted = await deleteInvoiceItem(beforeIds[0])
     expect(deleted.items).toHaveLength(2)
-    expect(deleted.items.reduce((s, it) => s + it.finalAmount, 0)).toBe(deleted.invoice.totalAmount)
+    expect(deleted.items.reduce((s, item) => s + item.finalAmount, 0)).toBe(deleted.invoice.totalAmount)
     expect(await db.items.get(beforeIds[0])).toBeUndefined()
   })
 
@@ -302,12 +302,12 @@ describe('invoiceService — Epic 5 (người ứng, chế độ chia, món)', (
     const { session } = await setup()
     const { invoice, items } = await createInvoice(draft(session.id, hostId))
     await setItemConsumers(items[0].id, [{ memberId: bobId, shares: 2 }])
-    const ids = items.map((it) => it.id)
+    const ids = items.map((item) => item.id)
     const reversed = [...ids].reverse()
 
     const result = await reorderInvoiceItems(invoice.id, reversed)
-    expect(result.items.map((it) => it.id)).toEqual(reversed)
-    expect(result.items.map((it) => it.orderIndex)).toEqual(reversed.map((_, i) => i))
+    expect(result.items.map((item) => item.id)).toEqual(reversed)
+    expect(result.items.map((item) => item.orderIndex)).toEqual(reversed.map((_, i) => i))
     expect((await db.items.get(ids[0]))?.consumers).toEqual([{ memberId: bobId, shares: 2 }])
     expect(result.invoice.totalAmount).toBe(invoice.totalAmount)
   })
@@ -340,11 +340,11 @@ describe('invoiceService — Epic 5 (người ứng, chế độ chia, món)', (
   it('bật chia từng món: mọi người trong kèo tự được gán vào món chưa có người ăn', async () => {
     const { session } = await setup()
     const { invoice, items } = await createInvoice(draft(session.id, hostId))
-    expect(items.every((it) => it.consumers.length === 0)).toBe(true)
+    expect(items.every((item) => item.consumers.length === 0)).toBe(true)
 
     await setInvoiceSplitType(invoice.id, 'BY_ITEM')
     const after = await db.items.where('invoiceId').equals(invoice.id).toArray()
-    expect(after.every((it) => it.consumers.length === 3)).toBe(true)
+    expect(after.every((item) => item.consumers.length === 3)).toBe(true)
   })
 
   it('BR-5.6 / R-6: gán nhanh cho mọi món hoặc chỉ món còn trống', async () => {
@@ -354,7 +354,7 @@ describe('invoiceService — Epic 5 (người ứng, chế độ chia, món)', (
     await setItemConsumers(items[1].id, [])
 
     const onlyEmpty = await setAllItemsConsumers(invoice.id, [hostId, bobId], 'UNASSIGNED_ONLY')
-    expect(onlyEmpty.map((it) => it.id)).toEqual([items[1].id])
+    expect(onlyEmpty.map((item) => item.id)).toEqual([items[1].id])
     expect((await db.items.get(items[0].id))?.consumers).toEqual([{ memberId: carolId, shares: 4 }])
 
     const all = await setAllItemsConsumers(invoice.id, [hostId, bobId])
@@ -379,12 +379,15 @@ describe('invoiceService — Epic 5 (người ứng, chế độ chia, món)', (
     const { session } = await setup()
     const { invoice, items } = await createInvoice(draft(session.id, hostId))
     await setItemConsumers(items[0].id, [{ memberId: bobId, shares: 2 }])
-    await updateInvoice(invoice.id, draft(session.id, hostId, {
-      items: [
-        { id: items[0].id, name: 'Lẩu bò', quantity: 2, unitPrice: 150_000 },
-        { id: items[1].id, name: 'Bia', quantity: 1, unitPrice: 250_000 },
-      ],
-    }))
+    await updateInvoice(
+      invoice.id,
+      draft(session.id, hostId, {
+        items: [
+          { id: items[0].id, name: 'Lẩu bò', quantity: 2, unitPrice: 150_000 },
+          { id: items[1].id, name: 'Bia', quantity: 1, unitPrice: 250_000 },
+        ],
+      }),
+    )
     expect((await db.items.get(items[0].id))?.consumers).toEqual([{ memberId: bobId, shares: 2 }])
   })
 

@@ -1,5 +1,4 @@
-
-import { t } from '../i18n'/*
+import { t } from '../i18n' /*
  * Dựng chuỗi VietQR (EMVCo, dịch vụ chuyển nhanh NAPAS 247 đến tài khoản). Hàm thuần.
  * Ứng dụng ngân hàng quét mã sẽ tự điền số tài khoản, số tiền và nội dung.
  */
@@ -20,12 +19,13 @@ export function crc16(input: string): string {
 
 /** Nội dung chuyển khoản: bỏ dấu, chỉ giữ chữ-số-khoảng trắng (nhiều ngân hàng từ chối ký tự lạ), tối đa 50 ký tự. */
 export function sanitizeTransferContent(raw: string): string {
-  const folded = raw
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-  return folded.replace(/[^A-Za-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50).trim()
+  const folded = raw.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
+  return folded
+    .replace(/[^A-Za-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 50)
+    .trim()
 }
 
 /** Nội dung mặc định: "<người nợ> thanh toán <tên bữa>". */

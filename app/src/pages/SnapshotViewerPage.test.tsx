@@ -24,27 +24,84 @@ function encodedSnapshot(opts: { withBank?: boolean; extraDebtor?: boolean; only
   const ids = opts.extraDebtor ? ['an', 'binh', 'cuong'] : ['an', 'binh']
   const names: Record<string, string> = { an: 'An', binh: 'Bình', cuong: 'Cường' }
   const members: Member[] = ids.map((id) => ({
-    id, name: names[id], normalizedName: id, avatarColor: '#2D6A4F', createdAt: NOW, lastUsedAt: NOW,
-    ...(id === 'an' && opts.withBank ? { bank: { bankBin: '970436', bankName: 'Vietcombank', accountName: 'NGUYEN VAN AN', accountNumber: '0123456789' } } : {}),
+    id,
+    name: names[id],
+    normalizedName: id,
+    avatarColor: '#2D6A4F',
+    createdAt: NOW,
+    lastUsedAt: NOW,
+    ...(id === 'an' && opts.withBank
+      ? { bank: { bankBin: '970436', bankName: 'Vietcombank', accountName: 'NGUYEN VAN AN', accountNumber: '0123456789' } }
+      : {}),
   }))
   const meal: Meal = {
-    id: 'm', title: 'Lẩu cuối tuần', date: '2026-10-19', status: 'ACTIVE', participantIds: ids, hostMemberId: 'an',
-    settlementMode: 'SELF_SETTLEMENT', paymentGroups: [], settlementStatuses: {}, createdAt: NOW, updatedAt: NOW,
+    id: 'm',
+    title: 'Lẩu cuối tuần',
+    date: '2026-10-19',
+    status: 'ACTIVE',
+    participantIds: ids,
+    hostMemberId: 'an',
+    settlementMode: 'SELF_SETTLEMENT',
+    paymentGroups: [],
+    settlementStatuses: {},
+    createdAt: NOW,
+    updatedAt: NOW,
   }
   const sessions: SessionKeo[] = [{ id: 's', mealId: 'm', name: 'Kèo 1 - Lẩu', orderIndex: 0, participantIds: ids, createdAt: NOW }]
-  const invoices: Invoice[] = [{
-    id: 'i', mealId: 'm', sessionId: 's', vendorName: 'Lẩu Bò Gỗ', payerMemberId: 'an', inputMode: 'ITEMIZED', splitType: 'BY_ITEM',
-    equalSplitParticipantIds: ids, subtotalAmount: 90_000, discountMode: 'NONE', discountValue: 0, discountAmount: 0,
-    serviceMode: 'NONE', serviceValue: 0, serviceAmount: 0, vatMode: 'NONE', vatValue: 0, vatAmount: 0, totalAmount: 90_000,
-    fileIds: [], createdAt: NOW,
-  }]
-  const items: InvoiceItem[] = [{
-    id: 'it', mealId: 'm', sessionId: 's', invoiceId: 'i', name: 'Lẩu', quantity: 1, unitPrice: 90_000, rawAmount: 90_000,
-    allocatedDiscountAmount: 0, allocatedServiceAmount: 0, allocatedVatAmount: 0, finalAmount: 90_000,
-    consumers: ids.map((memberId) => ({ memberId, shares: 1 })),
-  }]
+  const invoices: Invoice[] = [
+    {
+      id: 'i',
+      mealId: 'm',
+      sessionId: 's',
+      vendorName: 'Lẩu Bò Gỗ',
+      payerMemberId: 'an',
+      inputMode: 'ITEMIZED',
+      splitType: 'BY_ITEM',
+      equalSplitParticipantIds: ids,
+      subtotalAmount: 90_000,
+      discountMode: 'NONE',
+      discountValue: 0,
+      discountAmount: 0,
+      serviceMode: 'NONE',
+      serviceValue: 0,
+      serviceAmount: 0,
+      vatMode: 'NONE',
+      vatValue: 0,
+      vatAmount: 0,
+      totalAmount: 90_000,
+      fileIds: [],
+      createdAt: NOW,
+    },
+  ]
+  const items: InvoiceItem[] = [
+    {
+      id: 'it',
+      mealId: 'm',
+      sessionId: 's',
+      invoiceId: 'i',
+      name: 'Lẩu',
+      quantity: 1,
+      unitPrice: 90_000,
+      rawAmount: 90_000,
+      allocatedDiscountAmount: 0,
+      allocatedServiceAmount: 0,
+      allocatedVatAmount: 0,
+      finalAmount: 90_000,
+      consumers: ids.map((memberId) => ({ memberId, shares: 1 })),
+    },
+  ]
   const payments = opts.onlyPayer
-    ? [{ key: `${opts.onlyPayer}->an`, fromId: opts.onlyPayer, fromName: names[opts.onlyPayer], toId: 'an', toName: 'An', amount: 300_000, content: 'x thanh toan' }]
+    ? [
+        {
+          key: `${opts.onlyPayer}->an`,
+          fromId: opts.onlyPayer,
+          fromName: names[opts.onlyPayer],
+          toId: 'an',
+          toName: 'An',
+          amount: 300_000,
+          content: 'x thanh toan',
+        },
+      ]
     : undefined
   return encodeSnapshotPayload(buildSnapshotPayload({ meal, members, sessions, invoices, items, exportedAt: NOW, payments }))
 }
@@ -99,7 +156,15 @@ describe('SnapshotViewerPage (Epic 8: BR-8.2, BR-8.3, BR-8.4, AC-6)', () => {
 
   it('link gọn kèm món: có tab Hoá đơn hiện món và số tiền phần của người chuyển', async () => {
     const payments = [{ key: 'b->a', fromId: 'b', fromName: 'Bình', toId: 'a', toName: 'An', amount: 45_000, content: 'Binh thanh toan Lau' }]
-    const shares = [{ name: 'Kèo 1 - Lẩu', lines: [{ name: 'Lẩu bò', amount: 30_000, ownerId: 'b', ownerName: 'Bình' }, { name: 'Bia', amount: 15_000, ownerId: 'b', ownerName: 'Bình' }] }]
+    const shares = [
+      {
+        name: 'Kèo 1 - Lẩu',
+        lines: [
+          { name: 'Lẩu bò', amount: 30_000, ownerId: 'b', ownerName: 'Bình' },
+          { name: 'Bia', amount: 15_000, ownerId: 'b', ownerName: 'Bình' },
+        ],
+      },
+    ]
     render(<SnapshotViewerPage encoded={encodeCompactSnapshot('Lau', payments, shares)} onExit={() => {}} />)
 
     expect(await screen.findByRole('tab', { name: /Hoá đơn/ })).toBeTruthy()

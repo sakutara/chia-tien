@@ -134,10 +134,22 @@ function forEachComponent(prob: Float32Array, w: number, h: number, visit: (c: C
       if (x > c.x1) c.x1 = x
       if (y < c.y0) c.y0 = y
       if (y > c.y1) c.y1 = y
-      if (x > 0 && mask[idx - 1] && !seen[idx - 1]) { seen[idx - 1] = 1; stack.push(idx - 1) }
-      if (x < w - 1 && mask[idx + 1] && !seen[idx + 1]) { seen[idx + 1] = 1; stack.push(idx + 1) }
-      if (y > 0 && mask[idx - w] && !seen[idx - w]) { seen[idx - w] = 1; stack.push(idx - w) }
-      if (y < h - 1 && mask[idx + w] && !seen[idx + w]) { seen[idx + w] = 1; stack.push(idx + w) }
+      if (x > 0 && mask[idx - 1] && !seen[idx - 1]) {
+        seen[idx - 1] = 1
+        stack.push(idx - 1)
+      }
+      if (x < w - 1 && mask[idx + 1] && !seen[idx + 1]) {
+        seen[idx + 1] = 1
+        stack.push(idx + 1)
+      }
+      if (y > 0 && mask[idx - w] && !seen[idx - w]) {
+        seen[idx - w] = 1
+        stack.push(idx - w)
+      }
+      if (y < h - 1 && mask[idx + w] && !seen[idx + w]) {
+        seen[idx + w] = 1
+        stack.push(idx + w)
+      }
     }
     visit(c)
   }

@@ -72,7 +72,8 @@ export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) 
 
           {result.unassignedItemCount > 0 && (
             <div role="alert" className="rounded-lg border border-amber-600 bg-amber-50 p-2 text-sm text-amber-900">
-              {t('Còn')} <strong>{result.unassignedItemCount}</strong> {t('món chưa có người ăn ({amount}) chưa tính cho ai.', { amount: formatMoney(result.unassignedAmount) })}
+              {t('Còn')} <strong>{result.unassignedItemCount}</strong>{' '}
+              {t('món chưa có người ăn ({amount}) chưa tính cho ai.', { amount: formatMoney(result.unassignedAmount) })}
             </div>
           )}
 
@@ -80,12 +81,24 @@ export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) 
             transfers={result.transfers}
             hasCost={hasCost}
             readOnly={readOnly}
-            onToggle={(t) => void run(() => toggleTransferPaid(meal.id, t.key, !t.isPaid))}
-            onMarkAll={() => void run(() => setTransfersPaid(meal.id, result.transfers.filter((t) => !t.isPaid).map((t) => t.key), true))}
+            onToggle={(tr) => void run(() => toggleTransferPaid(meal.id, tr.key, !tr.isPaid))}
+            onMarkAll={() =>
+              void run(() =>
+                setTransfersPaid(
+                  meal.id,
+                  result.transfers.filter((tr) => !tr.isPaid).map((tr) => tr.key),
+                  true,
+                ),
+              )
+            }
             progress={
               <span
                 role="status"
-                aria-label={result.isAllSettled ? t('Đã thanh toán xong toàn bữa') : t('Đã thanh toán {paid}/{total} khoản chuyển tiền', { paid: result.paidTransferCount, total: result.transferCount })}
+                aria-label={
+                  result.isAllSettled
+                    ? t('Đã thanh toán xong toàn bữa')
+                    : t('Đã thanh toán {paid}/{total} khoản chuyển tiền', { paid: result.paidTransferCount, total: result.transferCount })
+                }
                 className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${result.isAllSettled ? 'bg-usd-green-100 text-usd-green-800' : 'bg-usd-paper-200 text-usd-green-700'}`}
               >
                 <Check className="h-3.5 w-3.5" aria-hidden="true" />
@@ -101,11 +114,14 @@ export default function SettlementPanel({ meal, readOnly, actionsSlot }: Props) 
           <Collapse title={t('Chi tiết quyết toán')} label={t('Chi tiết quyết toán')}>
             <EntityGroupList entities={result.entities} breakdowns={result.memberBreakdowns} />
           </Collapse>
-
         </>
       )}
 
-      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-red-700">
+          {error}
+        </p>
+      )}
     </section>
   )
 }

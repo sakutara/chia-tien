@@ -25,15 +25,29 @@ async function fixture(): Promise<{ meal: Meal; host: string; bob: string }> {
   const now = new Date().toISOString()
   await db.members.put({ id: 'bob', name: 'Bình', normalizedName: 'binh', avatarColor: '#2D6A4F', createdAt: now, lastUsedAt: now })
   const meal: Meal = {
-    id: crypto.randomUUID(), title: 'Lẩu', date: '2026-10-19', status: 'ACTIVE',
-    participantIds: [init.hostMemberId, 'bob'], hostMemberId: init.hostMemberId,
-    settlementMode: 'SELF_SETTLEMENT', paymentGroups: [], settlementStatuses: {}, createdAt: now, updatedAt: now,
+    id: crypto.randomUUID(),
+    title: 'Lẩu',
+    date: '2026-10-19',
+    status: 'ACTIVE',
+    participantIds: [init.hostMemberId, 'bob'],
+    hostMemberId: init.hostMemberId,
+    settlementMode: 'SELF_SETTLEMENT',
+    paymentGroups: [],
+    settlementStatuses: {},
+    createdAt: now,
+    updatedAt: now,
   }
   await db.meals.put(meal)
   const session = await addSession(meal.id, 'Kèo 1')
   await createInvoice({
-    sessionId: session.id, payerMemberId: init.hostMemberId, inputMode: 'TOTAL_ONLY', items: [],
-    subtotalAmount: 90_000, discount: { mode: 'NONE', value: 0 }, service: { mode: 'NONE', value: 0 }, vat: { mode: 'NONE', value: 0 },
+    sessionId: session.id,
+    payerMemberId: init.hostMemberId,
+    inputMode: 'TOTAL_ONLY',
+    items: [],
+    subtotalAmount: 90_000,
+    discount: { mode: 'NONE', value: 0 },
+    service: { mode: 'NONE', value: 0 },
+    vat: { mode: 'NONE', value: 0 },
   })
   return { meal, host: init.hostMemberId, bob: 'bob' }
 }

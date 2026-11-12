@@ -68,11 +68,7 @@ export function resolveRecipientBank(
 const isHostFirst = (settlement: MealSettlementResult, entity?: PaymentEntitySettlement) =>
   settlement.settlementMode === 'HOST_MEDIATED' && !!entity?.memberIds.includes(settlement.hostMemberId)
 
-export function buildPaymentSlides(input: {
-  settlement: MealSettlementResult
-  mealTitle: string
-  people: ReadonlyArray<PersonBank>
-}): PaymentSlide[] {
+export function buildPaymentSlides(input: { settlement: MealSettlementResult; mealTitle: string; people: ReadonlyArray<PersonBank> }): PaymentSlide[] {
   const { settlement, mealTitle, people } = input
   const peopleById = new Map(people.map((p) => [p.id, p] as const))
   const entityById = new Map(settlement.entities.map((e) => [e.entityId, e] as const))

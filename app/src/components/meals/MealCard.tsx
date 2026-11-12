@@ -24,7 +24,12 @@ export default function MealCard({ summary, onOpen, onDelete, hideDate }: Props)
         <div className="min-w-0 flex-1">
           {!hideDate && <p className="money !text-left text-xs text-usd-green-700">{formatDateVi(meal.date)}</p>}
           <h3>
-            <button type="button" className="flex w-full items-center gap-1.5 rounded-lg py-0.5 text-left" onClick={() => onOpen(meal.id)} aria-label={t('Mở chi tiết: {title}', { title: meal.title })}>
+            <button
+              type="button"
+              className="flex w-full items-center gap-1.5 rounded-lg py-0.5 text-left"
+              onClick={() => onOpen(meal.id)}
+              aria-label={t('Mở chi tiết: {title}', { title: meal.title })}
+            >
               <span className="break-words font-semibold">{meal.title}</span>
               {archived && <Lock className="h-3.5 w-3.5 shrink-0 text-usd-gold-600" aria-label={t('Đã lưu trữ')} />}
             </button>
@@ -52,9 +57,7 @@ export default function MealCard({ summary, onOpen, onDelete, hideDate }: Props)
         {hasCost && (
           <div>
             <dt className="sr-only">{t('Tiến độ thanh toán')}</dt>
-            <dd className="text-usd-green-700">
-              {t('{paid}/{total} đã trả', { paid: paidCount, total: entityCount })}
-            </dd>
+            <dd className="text-usd-green-700">{t('{paid}/{total} đã trả', { paid: paidCount, total: entityCount })}</dd>
           </div>
         )}
       </dl>

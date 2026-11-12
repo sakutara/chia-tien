@@ -1,28 +1,28 @@
 import { generateId } from '../lib/id'
-import { db } from '../db/db';
-import { MEMBER_NAME_MAX, cleanName, formatMemberName, normalizeName } from '../db/normalize';
-import { allocateKey, findExactMatch } from '../domain/memberFilter';
-import type { BankAccount, Member } from '../types';
-import { PeopleError } from './peopleErrors';
-import { t } from '../i18n';
+import { db } from '../db/db'
+import { MEMBER_NAME_MAX, cleanName, formatMemberName, normalizeName } from '../db/normalize'
+import { allocateKey, findExactMatch } from '../domain/memberFilter'
+import type { BankAccount, Member } from '../types'
+import { PeopleError } from './peopleErrors'
+import { t } from '../i18n'
 
 /** Dải màu xanh USD; màu được băm từ khoá để cùng một người luôn cùng màu. */
-const AVATAR_PALETTE = ['#1B4332', '#2D6A4F', '#40916C', '#52796F', '#3A5A40', '#386641'];
+const AVATAR_PALETTE = ['#1B4332', '#2D6A4F', '#40916C', '#52796F', '#3A5A40', '#386641']
 
 export function avatarColorFor(key: string): string {
-  let h = 0;
-  for (const ch of key) h = (h * 31 + ch.codePointAt(0)!) >>> 0;
-  return AVATAR_PALETTE[h % AVATAR_PALETTE.length];
+  let h = 0
+  for (const ch of key) h = (h * 31 + ch.codePointAt(0)!) >>> 0
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length]
 }
 
 /** R-1: chuẩn hoá và kiểm độ dài; ném INVALID_NAME nếu rỗng hoặc quá dài. */
 export function validateMemberName(raw: string): string {
-  const name = formatMemberName(raw);
-  if (!name) throw new PeopleError('INVALID_NAME', t('Tên không được để trống.'));
+  const name = formatMemberName(raw)
+  if (!name) throw new PeopleError('INVALID_NAME', t('Tên không được để trống.'))
   if ([...name].length > MEMBER_NAME_MAX) {
-    throw new PeopleError('INVALID_NAME', t('Tên tối đa {MEMBER_NAME_MAX} ký tự.', { MEMBER_NAME_MAX }));
+    throw new PeopleError('INVALID_NAME', t('Tên tối đa {MEMBER_NAME_MAX} ký tự.', { MEMBER_NAME_MAX }))
   }
-  return name;
+  return name
 }
 
 /**
@@ -30,23 +30,23 @@ export function validateMemberName(raw: string): string {
  * Không mở transaction: caller phải đang trong transaction có `db.members`.
  */
 export async function findMemberByName(name: string): Promise<Member | undefined> {
-  return findExactMatch(await db.members.toArray(), name);
+  return findExactMatch(await db.members.toArray(), name)
 }
 
 /**
  * Lấy hoặc tạo người theo tên (R-2a, R-2b). Không ghi đè tên đã có.
  * Không mở transaction: caller phải đang trong transaction có `db.members`.
  */
-export async function getOrCreateMember(
-  rawName: string,
-  now: string,
-): Promise<{ member: Member; created: boolean }> {
-  const name = validateMemberName(rawName);
-  const all = await db.members.toArray();
-  const existing = findExactMatch(all.filter((m) => !m.groupMemberIds), name);
-  if (existing) return { member: existing, created: false };
+export async function getOrCreateMember(rawName: string, now: string): Promise<{ member: Member; created: boolean }> {
+  const name = validateMemberName(rawName)
+  const all = await db.members.toArray()
+  const existing = findExactMatch(
+    all.filter((m) => !m.groupMemberIds),
+    name,
+  )
+  if (existing) return { member: existing, created: false }
 
-  const key = allocateKey(all, name);
+  const key = allocateKey(all, name)
   const member: Member = {
     id: generateId(),
     name,
@@ -54,9 +54,9 @@ export async function getOrCreateMember(
     avatarColor: avatarColorFor(key),
     createdAt: now,
     lastUsedAt: now,
-  };
-  await db.members.add(member);
-  return { member, created: true };
+  }
+  await db.members.add(member)
+  return { member, created: true }
 }
 
 /**
@@ -65,53 +65,53 @@ export async function getOrCreateMember(
  */
 export async function renameMember(id: string, rawName: string): Promise<Member> {
   return db.transaction('rw', db.members, async () => {
-    const member = await db.members.get(id);
-    if (!member) throw new PeopleError('MEMBER_NOT_FOUND', t('Không tìm thấy người này.'), { memberId: id });
+    const member = await db.members.get(id)
+    if (!member) throw new PeopleError('MEMBER_NOT_FOUND', t('Không tìm thấy người này.'), { memberId: id })
 
-    const name = validateMemberName(rawName);
-    const all = await db.members.toArray();
+    const name = validateMemberName(rawName)
+    const all = await db.members.toArray()
     const clash = findExactMatch(
       all.filter((m) => m.id !== id),
       name,
-    );
+    )
     if (clash) {
       throw new PeopleError('DUPLICATE_NAME', t('Đã có người tên "{name}".', { name: clash.name }), {
         existingMemberId: clash.id,
-      });
+      })
     }
 
-    const keepKey = normalizeName(member.name) === normalizeName(name);
-    const normalizedName = keepKey ? member.normalizedName : allocateKey(all, name, id);
-    const updated: Member = { ...member, name, normalizedName };
-    await db.members.put(updated);
-    return updated;
-  });
+    const keepKey = normalizeName(member.name) === normalizeName(name)
+    const normalizedName = keepKey ? member.normalizedName : allocateKey(all, name, id)
+    const updated: Member = { ...member, name, normalizedName }
+    await db.members.put(updated)
+    return updated
+  })
 }
 
 /** Số tài khoản: chỉ chữ số/chữ cái (bỏ khoảng trắng, dấu gạch), 6–19 ký tự. */
 export function validateAccountNumber(raw: string): string {
-  const number = raw.replace(/[\s.-]+/g, '');
+  const number = raw.replace(/[\s.-]+/g, '')
   if (!/^[A-Za-z0-9]{6,19}$/.test(number)) {
-    throw new PeopleError('INVALID_BANK', t('Số tài khoản gồm 6–19 chữ số.'));
+    throw new PeopleError('INVALID_BANK', t('Số tài khoản gồm 6–19 chữ số.'))
   }
-  return number;
+  return number
 }
 
 /** Lưu hoặc xoá (`null`) tài khoản ngân hàng của một người. */
 export async function updateMemberBank(id: string, bank: BankAccount | null): Promise<Member> {
   return db.transaction('rw', db.members, async () => {
-    const member = await db.members.get(id);
-    if (!member) throw new PeopleError('MEMBER_NOT_FOUND', t('Không tìm thấy người này.'), { memberId: id });
+    const member = await db.members.get(id)
+    if (!member) throw new PeopleError('MEMBER_NOT_FOUND', t('Không tìm thấy người này.'), { memberId: id })
     if (bank === null) {
-      const { bank: _removed, ...rest } = member;
-      await db.members.put(rest);
-      return rest;
+      const { bank: _removed, ...rest } = member
+      await db.members.put(rest)
+      return rest
     }
     if (!/^\d{6}$/.test(bank.bankBin) || !bank.bankName.trim()) {
-      throw new PeopleError('INVALID_BANK', t('Hãy chọn ngân hàng.'));
+      throw new PeopleError('INVALID_BANK', t('Hãy chọn ngân hàng.'))
     }
-    const accountName = cleanName(bank.accountName);
-    if (!accountName) throw new PeopleError('INVALID_BANK', t('Tên chủ tài khoản không được để trống.'));
+    const accountName = cleanName(bank.accountName)
+    if (!accountName) throw new PeopleError('INVALID_BANK', t('Tên chủ tài khoản không được để trống.'))
     const updated: Member = {
       ...member,
       bank: {
@@ -120,8 +120,8 @@ export async function updateMemberBank(id: string, bank: BankAccount | null): Pr
         accountName,
         accountNumber: validateAccountNumber(bank.accountNumber),
       },
-    };
-    await db.members.put(updated);
-    return updated;
-  });
+    }
+    await db.members.put(updated)
+    return updated
+  })
 }

@@ -92,15 +92,13 @@ describe('invoiceFileService', () => {
     const sessionId = await makeSession(meal.id, hostId)
     const invoiceId = crypto.randomUUID()
 
-    await expect(
-      addInvoiceImage({ mealId: meal.id, sessionId, invoiceId, file: bill('a.gif', 'image/gif') }),
-    ).rejects.toMatchObject({ code: 'FILE_TYPE_NOT_ALLOWED' })
+    await expect(addInvoiceImage({ mealId: meal.id, sessionId, invoiceId, file: bill('a.gif', 'image/gif') })).rejects.toMatchObject({
+      code: 'FILE_TYPE_NOT_ALLOWED',
+    })
 
     const huge = bill('big.jpg')
     Object.defineProperty(huge, 'size', { value: 41 * 1024 * 1024 })
-    await expect(
-      addInvoiceImage({ mealId: meal.id, sessionId, invoiceId, file: huge }),
-    ).rejects.toBeInstanceOf(PeopleError)
+    await expect(addInvoiceImage({ mealId: meal.id, sessionId, invoiceId, file: huge })).rejects.toBeInstanceOf(PeopleError)
   })
 
   it('giới hạn 10 ảnh cho mỗi hoá đơn', async () => {
@@ -111,9 +109,7 @@ describe('invoiceFileService', () => {
     for (let i = 0; i < MAX_IMAGES_PER_INVOICE; i++) {
       await addInvoiceImage({ mealId: meal.id, sessionId, invoiceId, file: bill(`${i}.jpg`) })
     }
-    await expect(
-      addInvoiceImage({ mealId: meal.id, sessionId, invoiceId, file: bill('extra.jpg') }),
-    ).rejects.toMatchObject({ code: 'TOO_MANY_FILES' })
+    await expect(addInvoiceImage({ mealId: meal.id, sessionId, invoiceId, file: bill('extra.jpg') })).rejects.toMatchObject({ code: 'TOO_MANY_FILES' })
   })
 
   it('luôn nén ở mức Cân bằng và ghi dung lượng gốc để hiện "trước → sau"', async () => {
@@ -180,9 +176,7 @@ describe('invoiceFileService', () => {
 
     await db.meals.update(meal.id, { status: 'ARCHIVED' })
 
-    await expect(
-      addInvoiceImage({ mealId: meal.id, sessionId, invoiceId, file: bill('late.jpg') }),
-    ).rejects.toMatchObject({ code: 'MEAL_ARCHIVED' })
+    await expect(addInvoiceImage({ mealId: meal.id, sessionId, invoiceId, file: bill('late.jpg') })).rejects.toMatchObject({ code: 'MEAL_ARCHIVED' })
     await expect(removeInvoiceImage(record.id)).rejects.toMatchObject({ code: 'MEAL_ARCHIVED' })
     expect(await db.invoice_files.get(record.id)).toBeDefined()
   })

@@ -19,93 +19,93 @@ import { t } from '../i18n'
  */
 
 export interface SettlementEngineInput {
-  meal: Meal;
-  members: ReadonlyArray<Member>;
-  sessions: ReadonlyArray<SessionKeo>;
-  invoices: ReadonlyArray<Invoice>;
-  items: ReadonlyArray<InvoiceItem>;
+  meal: Meal
+  members: ReadonlyArray<Member>
+  sessions: ReadonlyArray<SessionKeo>
+  invoices: ReadonlyArray<Invoice>
+  items: ReadonlyArray<InvoiceItem>
 }
 
 interface Accumulator {
-  paid: number;
-  raw: number;
-  paidInvoices: MemberBreakdown['paidInvoices'];
-  chargeLines: MemberChargeLine[];
+  paid: number
+  raw: number
+  paidInvoices: MemberBreakdown['paidInvoices']
+  chargeLines: MemberChargeLine[]
 }
 
-const FRACTION_EPSILON = 1e-9;
+const FRACTION_EPSILON = 1e-9
 
 /** Khoá trạng thái tick của một khoản chuyển tiền. */
-export const transferKey = (fromEntityId: string, toEntityId: string): string => `${fromEntityId}->${toEntityId}`;
+export const transferKey = (fromEntityId: string, toEntityId: string): string => `${fromEntityId}->${toEntityId}`
 
 /** Khoản chuyển tiền chưa gắn khoá và trạng thái tick (kết quả thuần của thuật toán ghép). */
-export type TransferDraft = Omit<SettlementTransfer, 'key' | 'isPaid'>;
+export type TransferDraft = Omit<SettlementTransfer, 'key' | 'isPaid'>
 
 function emptyAccumulator(): Accumulator {
-  return { paid: 0, raw: 0, paidInvoices: [], chargeLines: [] };
+  return { paid: 0, raw: 0, paidInvoices: [], chargeLines: [] }
 }
 
 /** Tính toàn bộ bảng quyết toán của bữa (R-1…R-7). */
 export function computeMealSettlement(input: SettlementEngineInput): MealSettlementResult {
-  const { meal, members, sessions, invoices, items } = input;
+  const { meal, members, sessions, invoices, items } = input
 
   if (meal.status === 'ARCHIVED' && meal.archivedSummary) {
-    return fromArchivedSummary(meal);
+    return fromArchivedSummary(meal)
   }
 
-  const nameById = new Map(members.map((m) => [m.id, m.name] as const));
-  const sessionById = new Map(sessions.map((s) => [s.id, s] as const));
-  const itemsByInvoice = new Map<string, InvoiceItem[]>();
+  const nameById = new Map(members.map((m) => [m.id, m.name] as const))
+  const sessionById = new Map(sessions.map((s) => [s.id, s] as const))
+  const itemsByInvoice = new Map<string, InvoiceItem[]>()
   for (const it of items) {
-    const list = itemsByInvoice.get(it.invoiceId);
-    if (list) list.push(it);
-    else itemsByInvoice.set(it.invoiceId, [it]);
+    const list = itemsByInvoice.get(it.invoiceId)
+    if (list) list.push(it)
+    else itemsByInvoice.set(it.invoiceId, [it])
   }
 
-  const acc = new Map<string, Accumulator>();
+  const acc = new Map<string, Accumulator>()
   const accOf = (id: string): Accumulator => {
-    let a = acc.get(id);
+    let a = acc.get(id)
     if (!a) {
-      a = emptyAccumulator();
-      acc.set(id, a);
+      a = emptyAccumulator()
+      acc.set(id, a)
     }
-    return a;
-  };
+    return a
+  }
 
-  let totalMealAmount = 0;
-  let unassignedAmount = 0;
-  let unassignedItemCount = 0;
+  let totalMealAmount = 0
+  let unassignedAmount = 0
+  let unassignedItemCount = 0
 
   // Bước 1 (R-1, R-2): chi phí từng hoá đơn, chỉ tính trên người tham gia kèo đó.
   for (const inv of invoices) {
-    const session = sessionById.get(inv.sessionId);
-    if (!session) continue;
-    totalMealAmount += inv.totalAmount;
-    const sessionMembers = new Set(session.participantIds);
-    const sessionName = session.name;
+    const session = sessionById.get(inv.sessionId)
+    if (!session) continue
+    totalMealAmount += inv.totalAmount
+    const sessionMembers = new Set(session.participantIds)
+    const sessionName = session.name
 
     if (sessionMembers.has(inv.payerMemberId)) {
-      const payer = accOf(inv.payerMemberId);
-      payer.paid += inv.totalAmount;
+      const payer = accOf(inv.payerMemberId)
+      payer.paid += inv.totalAmount
       payer.paidInvoices.push({
         invoiceId: inv.id,
         sessionId: session.id,
         sessionName,
         vendorName: inv.vendorName,
         amount: inv.totalAmount,
-      });
+      })
     }
 
     if (inv.splitType === 'EQUAL_TOTAL') {
-      const equal = [...new Set(inv.equalSplitParticipantIds)].filter((id) => sessionMembers.has(id));
+      const equal = [...new Set(inv.equalSplitParticipantIds)].filter((id) => sessionMembers.has(id))
       if (equal.length === 0) {
-        unassignedAmount += inv.totalAmount;
-        continue;
+        unassignedAmount += inv.totalAmount
+        continue
       }
-      const share = inv.totalAmount / equal.length;
+      const share = inv.totalAmount / equal.length
       for (const memberId of equal) {
-        const a = accOf(memberId);
-        a.raw += share;
+        const a = accOf(memberId)
+        a.raw += share
         a.chargeLines.push({
           sessionId: session.id,
           sessionName,
@@ -115,23 +115,23 @@ export function computeMealSettlement(input: SettlementEngineInput): MealSettlem
           totalShares: equal.length,
           sourceAmount: inv.totalAmount,
           rawCost: share,
-        });
+        })
       }
-      continue;
+      continue
     }
 
     for (const item of itemsByInvoice.get(inv.id) ?? []) {
-      const consumers = item.consumers.filter((c) => sessionMembers.has(c.memberId) && c.shares > 0);
-      const totalShares = consumers.reduce((sum, c) => sum + c.shares, 0);
+      const consumers = item.consumers.filter((c) => sessionMembers.has(c.memberId) && c.shares > 0)
+      const totalShares = consumers.reduce((sum, c) => sum + c.shares, 0)
       if (totalShares === 0) {
-        unassignedAmount += item.finalAmount;
-        unassignedItemCount += 1;
-        continue;
+        unassignedAmount += item.finalAmount
+        unassignedItemCount += 1
+        continue
       }
       for (const c of consumers) {
-        const share = (item.finalAmount * c.shares) / totalShares;
-        const a = accOf(c.memberId);
-        a.raw += share;
+        const share = (item.finalAmount * c.shares) / totalShares
+        const a = accOf(c.memberId)
+        a.raw += share
         a.chargeLines.push({
           sessionId: session.id,
           sessionName,
@@ -143,22 +143,22 @@ export function computeMealSettlement(input: SettlementEngineInput): MealSettlem
           totalShares,
           sourceAmount: item.finalAmount,
           rawCost: share,
-        });
+        })
       }
     }
   }
 
-  const assignedAmount = totalMealAmount - unassignedAmount;
-  const owedById = largestRemainderRound(acc, assignedAmount, meal.participantIds);
+  const assignedAmount = totalMealAmount - unassignedAmount
+  const owedById = largestRemainderRound(acc, assignedAmount, meal.participantIds)
 
   // Bước 3 (R-4): gom thực thể thanh toán.
-  const participantSet = new Set(meal.participantIds);
-  const grouped = new Set<string>();
-  const entities: PaymentEntitySettlement[] = [];
+  const participantSet = new Set(meal.participantIds)
+  const grouped = new Set<string>()
+  const entities: PaymentEntitySettlement[] = []
   for (const group of meal.paymentGroups) {
-    const liveIds = group.memberIds.filter((id) => participantSet.has(id));
-    if (liveIds.length < 2) continue;
-    liveIds.forEach((id) => grouped.add(id));
+    const liveIds = group.memberIds.filter((id) => participantSet.has(id))
+    if (liveIds.length < 2) continue
+    liveIds.forEach((id) => grouped.add(id))
     entities.push(
       buildEntity({
         entityId: group.id,
@@ -170,10 +170,10 @@ export function computeMealSettlement(input: SettlementEngineInput): MealSettlem
         acc,
         owedById,
       }),
-    );
+    )
   }
   for (const id of meal.participantIds) {
-    if (grouped.has(id)) continue;
+    if (grouped.has(id)) continue
     entities.push(
       buildEntity({
         entityId: id,
@@ -184,29 +184,26 @@ export function computeMealSettlement(input: SettlementEngineInput): MealSettlem
         acc,
         owedById,
       }),
-    );
+    )
   }
 
-  const hostEntityId = entities.find((e) => e.memberIds.includes(meal.hostMemberId))?.entityId ?? meal.hostMemberId;
-  const drafts =
-    meal.settlementMode === 'HOST_MEDIATED'
-      ? computeHostMediatedTransfers(entities, hostEntityId)
-      : computeSelfSettlementTransfers(entities);
-  const transfers: SettlementTransfer[] = drafts.map((t) => {
-    const key = transferKey(t.fromEntityId, t.toEntityId);
-    const status = meal.settlementStatuses[key];
-    const isPaid = status?.isPaid === true && (status.amount === undefined || status.amount === t.amount);
-    return { ...t, key, isPaid };
-  });
+  const hostEntityId = entities.find((e) => e.memberIds.includes(meal.hostMemberId))?.entityId ?? meal.hostMemberId
+  const drafts = meal.settlementMode === 'HOST_MEDIATED' ? computeHostMediatedTransfers(entities, hostEntityId) : computeSelfSettlementTransfers(entities)
+  const transfers: SettlementTransfer[] = drafts.map((draft) => {
+    const key = transferKey(draft.fromEntityId, draft.toEntityId)
+    const status = meal.settlementStatuses[key]
+    const isPaid = status?.isPaid === true && (status.amount === undefined || status.amount === draft.amount)
+    return { ...draft, key, isPaid }
+  })
   // Thực thể "đã xong" khi mọi khoản chuyển liên quan tới nó đã được tick.
   for (const e of entities) {
-    e.isPaid = transfers.filter((t) => t.fromEntityId === e.entityId || t.toEntityId === e.entityId).every((t) => t.isPaid);
+    e.isPaid = transfers.filter((tr) => tr.fromEntityId === e.entityId || tr.toEntityId === e.entityId).every((tr) => tr.isPaid)
   }
 
-  const memberIds = [...new Set([...meal.participantIds, ...acc.keys()])];
+  const memberIds = [...new Set([...meal.participantIds, ...acc.keys()])]
   const memberBreakdowns: MemberBreakdown[] = memberIds.map((memberId) => {
-    const a = acc.get(memberId) ?? emptyAccumulator();
-    const totalOwed = owedById.get(memberId) ?? 0;
+    const a = acc.get(memberId) ?? emptyAccumulator()
+    const totalOwed = owedById.get(memberId) ?? 0
     return {
       memberId,
       memberName: nameById.get(memberId) ?? t('Đã rời bữa'),
@@ -216,11 +213,11 @@ export function computeMealSettlement(input: SettlementEngineInput): MealSettlem
       rawOwed: a.raw,
       totalOwed,
       netBalance: a.paid - totalOwed,
-    };
-  });
+    }
+  })
 
-  const paidTransferCount = transfers.filter((t) => t.isPaid).length;
-  const hasCost = invoices.length > 0;
+  const paidTransferCount = transfers.filter((tr) => tr.isPaid).length
+  const hasCost = invoices.length > 0
 
   return {
     mealId: meal.id,
@@ -238,61 +235,57 @@ export function computeMealSettlement(input: SettlementEngineInput): MealSettlem
     transferCount: transfers.length,
     paidTransferCount,
     isAllSettled: hasCost && unassignedItemCount === 0 && paidTransferCount === transfers.length,
-  };
+  }
 }
 
 /**
  * R-3: làm tròn chi phí về đồng bằng phương pháp phần dư lớn nhất để Σ Owed = assignedAmount.
  * Phần thiếu được cộng 1đ cho các thành viên có phần thập phân lớn nhất; hoà thì theo thứ tự tham gia bữa.
  */
-function largestRemainderRound(
-  acc: Map<string, Accumulator>,
-  assignedAmount: number,
-  participantIds: string[],
-): Map<string, number> {
-  const ids = [...new Set([...participantIds, ...acc.keys()])];
-  const base = new Map<string, number>();
-  const frac = new Map<string, number>();
+function largestRemainderRound(acc: Map<string, Accumulator>, assignedAmount: number, participantIds: string[]): Map<string, number> {
+  const ids = [...new Set([...participantIds, ...acc.keys()])]
+  const base = new Map<string, number>()
+  const frac = new Map<string, number>()
   for (const id of ids) {
-    const raw = acc.get(id)?.raw ?? 0;
-    const floor = Math.floor(raw);
-    base.set(id, floor);
-    frac.set(id, raw - floor);
+    const raw = acc.get(id)?.raw ?? 0
+    const floor = Math.floor(raw)
+    base.set(id, floor)
+    frac.set(id, raw - floor)
   }
 
-  const baseSum = ids.reduce((sum, id) => sum + (base.get(id) ?? 0), 0);
-  const deficit = Math.round(assignedAmount) - baseSum;
+  const baseSum = ids.reduce((sum, id) => sum + (base.get(id) ?? 0), 0)
+  const deficit = Math.round(assignedAmount) - baseSum
   const candidates = ids
     .filter((id) => (acc.get(id)?.raw ?? 0) > 0)
     .sort((a, b) => {
-      const diff = (frac.get(b) ?? 0) - (frac.get(a) ?? 0);
-      if (Math.abs(diff) > FRACTION_EPSILON) return diff;
-      return ids.indexOf(a) - ids.indexOf(b);
-    });
+      const diff = (frac.get(b) ?? 0) - (frac.get(a) ?? 0)
+      if (Math.abs(diff) > FRACTION_EPSILON) return diff
+      return ids.indexOf(a) - ids.indexOf(b)
+    })
 
-  const bonusIds = new Set(deficit > 0 ? candidates.slice(0, deficit) : []);
-  const result = new Map<string, number>();
+  const bonusIds = new Set(deficit > 0 ? candidates.slice(0, deficit) : [])
+  const result = new Map<string, number>()
   for (const id of ids) {
-    result.set(id, (base.get(id) ?? 0) + (bonusIds.has(id) ? 1 : 0));
+    result.set(id, (base.get(id) ?? 0) + (bonusIds.has(id) ? 1 : 0))
   }
-  return result;
+  return result
 }
 
 interface EntityInput {
-  entityId: string;
-  entityName: string;
-  isGroup: boolean;
-  memberIds: string[];
-  representativeId?: string;
-  nameById: Map<string, string>;
-  acc: Map<string, Accumulator>;
-  owedById: Map<string, number>;
+  entityId: string
+  entityName: string
+  isGroup: boolean
+  memberIds: string[]
+  representativeId?: string
+  nameById: Map<string, string>
+  acc: Map<string, Accumulator>
+  owedById: Map<string, number>
 }
 
 function buildEntity(input: EntityInput): PaymentEntitySettlement {
-  const totalPaid = input.memberIds.reduce((sum, id) => sum + (input.acc.get(id)?.paid ?? 0), 0);
-  const totalOwed = input.memberIds.reduce((sum, id) => sum + (input.owedById.get(id) ?? 0), 0);
-  const netBalance = totalPaid - totalOwed;
+  const totalPaid = input.memberIds.reduce((sum, id) => sum + (input.acc.get(id)?.paid ?? 0), 0)
+  const totalOwed = input.memberIds.reduce((sum, id) => sum + (input.owedById.get(id) ?? 0), 0)
+  const netBalance = totalPaid - totalOwed
   return {
     entityId: input.entityId,
     entityName: input.entityName,
@@ -304,7 +297,7 @@ function buildEntity(input: EntityInput): PaymentEntitySettlement {
     totalOwed,
     netBalance,
     isPaid: true, // được tính lại sau khi đã có danh sách khoản chuyển
-  };
+  }
 }
 
 /** R-5: Greedy Net-Balance Matching — ghép chủ nợ lớn nhất với con nợ lớn nhất, mỗi lần một khoản. */
@@ -314,32 +307,32 @@ export function computeSelfSettlementTransfers(
   const creditors = entities
     .filter((e) => e.netBalance > 0)
     .map((e) => ({ id: e.entityId, name: e.entityName, amount: e.netBalance }))
-    .sort((a, b) => b.amount - a.amount);
+    .sort((a, b) => b.amount - a.amount)
   const debtors = entities
     .filter((e) => e.netBalance < 0)
     .map((e) => ({ id: e.entityId, name: e.entityName, amount: -e.netBalance }))
-    .sort((a, b) => b.amount - a.amount);
+    .sort((a, b) => b.amount - a.amount)
 
-  const transfers: TransferDraft[] = [];
-  let i = 0;
-  let j = 0;
+  const transfers: TransferDraft[] = []
+  let i = 0
+  let j = 0
   while (i < debtors.length && j < creditors.length) {
-    const debtor = debtors[i];
-    const creditor = creditors[j];
-    const amount = Math.min(debtor.amount, creditor.amount);
+    const debtor = debtors[i]
+    const creditor = creditors[j]
+    const amount = Math.min(debtor.amount, creditor.amount)
     transfers.push({
       fromEntityId: debtor.id,
       fromEntityName: debtor.name,
       toEntityId: creditor.id,
       toEntityName: creditor.name,
       amount,
-    });
-    debtor.amount -= amount;
-    creditor.amount -= amount;
-    if (debtor.amount === 0) i += 1;
-    if (creditor.amount === 0) j += 1;
+    })
+    debtor.amount -= amount
+    creditor.amount -= amount
+    if (debtor.amount === 0) i += 1
+    if (creditor.amount === 0) j += 1
   }
-  return transfers;
+  return transfers
 }
 
 /**
@@ -350,11 +343,11 @@ export function computeHostMediatedTransfers(
   entities: ReadonlyArray<Pick<PaymentEntitySettlement, 'entityId' | 'entityName' | 'netBalance'>>,
   hostEntityId: string,
 ): TransferDraft[] {
-  const host = entities.find((e) => e.entityId === hostEntityId);
-  const hostName = host?.entityName ?? t('Chủ trì');
-  const transfers: TransferDraft[] = [];
+  const host = entities.find((e) => e.entityId === hostEntityId)
+  const hostName = host?.entityName ?? t('Chủ trì')
+  const transfers: TransferDraft[] = []
   for (const e of entities) {
-    if (e.entityId === hostEntityId || e.netBalance === 0) continue;
+    if (e.entityId === hostEntityId || e.netBalance === 0) continue
     if (e.netBalance < 0) {
       transfers.push({
         fromEntityId: e.entityId,
@@ -362,7 +355,7 @@ export function computeHostMediatedTransfers(
         toEntityId: hostEntityId,
         toEntityName: hostName,
         amount: -e.netBalance,
-      });
+      })
     } else {
       transfers.push({
         fromEntityId: hostEntityId,
@@ -370,15 +363,15 @@ export function computeHostMediatedTransfers(
         toEntityId: e.entityId,
         toEntityName: e.entityName,
         amount: e.netBalance,
-      });
+      })
     }
   }
-  return transfers;
+  return transfers
 }
 
 /** Bữa đã lưu trữ: dựng kết quả chỉ đọc từ `archivedSummary` (R-8). */
 function fromArchivedSummary(meal: Meal): MealSettlementResult {
-  const summary = meal.archivedSummary!;
+  const summary = meal.archivedSummary!
   const entities: PaymentEntitySettlement[] = summary.entitiesSummary.map((e) => ({
     entityId: e.entityId,
     entityName: e.entityName,
@@ -389,18 +382,18 @@ function fromArchivedSummary(meal: Meal): MealSettlementResult {
     totalOwed: e.totalOwed,
     netBalance: e.netBalance,
     isPaid: e.isPaid,
-  }));
-  const idByName = new Map(entities.map((e) => [e.entityName, e.entityId] as const));
-  const idOf = (name: string) => idByName.get(name) ?? name;
-  const transfers: SettlementTransfer[] = summary.transfers.map((t) => ({
-    fromEntityId: idOf(t.fromEntityName),
-    fromEntityName: t.fromEntityName,
-    toEntityId: idOf(t.toEntityName),
-    toEntityName: t.toEntityName,
-    amount: t.amount,
-    key: transferKey(idOf(t.fromEntityName), idOf(t.toEntityName)),
+  }))
+  const idByName = new Map(entities.map((e) => [e.entityName, e.entityId] as const))
+  const idOf = (name: string) => idByName.get(name) ?? name
+  const transfers: SettlementTransfer[] = summary.transfers.map((tr) => ({
+    fromEntityId: idOf(tr.fromEntityName),
+    fromEntityName: tr.fromEntityName,
+    toEntityId: idOf(tr.toEntityName),
+    toEntityName: tr.toEntityName,
+    amount: tr.amount,
+    key: transferKey(idOf(tr.fromEntityName), idOf(tr.toEntityName)),
     isPaid: true,
-  }));
+  }))
   return {
     mealId: meal.id,
     status: meal.status,
@@ -417,5 +410,5 @@ function fromArchivedSummary(meal: Meal): MealSettlementResult {
     transferCount: transfers.length,
     paidTransferCount: transfers.length,
     isAllSettled: entities.every((e) => e.isPaid),
-  };
+  }
 }

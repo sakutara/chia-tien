@@ -33,8 +33,14 @@ async function fixture() {
   const session = await addSession(meal.id, 'Kèo 1')
   const none = { mode: 'NONE' as const, value: 0 }
   await createInvoice({
-    sessionId: session.id, payerMemberId: init.hostMemberId, inputMode: 'TOTAL_ONLY', items: [],
-    subtotalAmount: 90_000, discount: none, service: none, vat: none,
+    sessionId: session.id,
+    payerMemberId: init.hostMemberId,
+    inputMode: 'TOTAL_ONLY',
+    items: [],
+    subtotalAmount: 90_000,
+    discount: none,
+    service: none,
+    vat: none,
   })
   return meal.id
 }

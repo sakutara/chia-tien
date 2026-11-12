@@ -32,7 +32,10 @@ describe('MemberBankDialog', () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalled())
     expect((await db.members.get(member.id))?.bank).toEqual({
-      bankBin: '970422', bankName: 'MB Bank', accountName: 'TRAN VAN BINH', accountNumber: '0987654321',
+      bankBin: '970422',
+      bankName: 'MB Bank',
+      accountName: 'TRAN VAN BINH',
+      accountNumber: '0987654321',
     })
   })
 

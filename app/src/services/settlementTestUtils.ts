@@ -12,5 +12,9 @@ export async function payAllTransfers(mealId: string, isPaid = true) {
     db.items.where('mealId').equals(mealId).toArray(),
   ])
   const { transfers } = computeMealSettlement({ meal, members, sessions, invoices, items })
-  return setTransfersPaid(mealId, transfers.map((t) => t.key), isPaid)
+  return setTransfersPaid(
+    mealId,
+    transfers.map((t) => t.key),
+    isPaid,
+  )
 }

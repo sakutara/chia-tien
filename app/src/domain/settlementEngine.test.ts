@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Invoice, InvoiceItem, Meal, Member, SessionKeo } from '../types'
-import {
-  computeHostMediatedTransfers,
-  computeMealSettlement,
-  computeSelfSettlementTransfers,
-} from './settlementEngine'
+import { computeHostMediatedTransfers, computeMealSettlement, computeSelfSettlementTransfers } from './settlementEngine'
 
 const NOW = '2026-10-19T10:00:00.000Z'
 
@@ -127,7 +123,16 @@ describe('computeMealSettlement — chi phí & làm tròn (R-1, R-3)', () => {
       sessions: [session('s1', ['a', 'b'])],
       invoices: [invoice({ id: 'i1', sessionId: 's1', payerMemberId: 'a', totalAmount: 100_000, inputMode: 'ITEMIZED', splitType: 'BY_ITEM' })],
       items: [
-        item({ id: 'it1', invoiceId: 'i1', sessionId: 's1', finalAmount: 100_000, consumers: [{ memberId: 'a', shares: 3 }, { memberId: 'b', shares: 1 }] }),
+        item({
+          id: 'it1',
+          invoiceId: 'i1',
+          sessionId: 's1',
+          finalAmount: 100_000,
+          consumers: [
+            { memberId: 'a', shares: 3 },
+            { memberId: 'b', shares: 1 },
+          ],
+        }),
       ],
     })
     const [a, b] = result.memberBreakdowns

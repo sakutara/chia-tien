@@ -35,9 +35,7 @@ export default function InvoiceItemsEditor({ rows, onChange }: Props) {
       <ul className="space-y-2">
         {rows.map((row, i) => (
           <li key={row.key} className={`space-y-1.5 rounded-lg border p-2 ${row.uncertain ? 'border-amber-600 bg-amber-50' : 'border-usd-paper-200'}`}>
-            {row.uncertain && (
-              <p className="text-xs font-semibold text-amber-800">{t('Cần xem lại: thành tiền không khớp SL × đơn giá trên bill.')}</p>
-            )}
+            {row.uncertain && <p className="text-xs font-semibold text-amber-800">{t('Cần xem lại: thành tiền không khớp SL × đơn giá trên bill.')}</p>}
             <div className="flex items-center gap-1.5">
               <input
                 aria-label={t('Tên món {v}', { v: i + 1 })}
@@ -65,7 +63,9 @@ export default function InvoiceItemsEditor({ rows, onChange }: Props) {
                 onChange={(e) => update(row.key, { unitPrice: e.target.value })}
                 className={INPUT}
               />
-              <span aria-hidden="true" className="text-usd-green-700">×</span>
+              <span aria-hidden="true" className="text-usd-green-700">
+                ×
+              </span>
               <input
                 aria-label={t('Số lượng {v}', { v: i + 1 })}
                 placeholder="SL"
@@ -74,7 +74,9 @@ export default function InvoiceItemsEditor({ rows, onChange }: Props) {
                 onChange={(e) => update(row.key, { quantity: e.target.value })}
                 className={`${INPUT} text-center`}
               />
-              <span aria-hidden="true" className="text-usd-green-700">=</span>
+              <span aria-hidden="true" className="text-usd-green-700">
+                =
+              </span>
               <input
                 aria-label={t('Thành tiền {v}', { v: i + 1 })}
                 placeholder={t('Thành tiền')}
@@ -90,9 +92,7 @@ export default function InvoiceItemsEditor({ rows, onChange }: Props) {
 
       <div className="flex items-center justify-between gap-2">
         <IconButton icon={Plus} label={t('Thêm món')} tone="outline" onClick={() => onChange([...rows, newItemRow()])} />
-        <span className="money text-sm">
-          {t('Tổng món: {amount}', { amount: formatMoney(rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)) })}
-        </span>
+        <span className="money text-sm">{t('Tổng món: {amount}', { amount: formatMoney(rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)) })}</span>
       </div>
     </div>
   )

@@ -28,8 +28,7 @@ export default function PaymentGroupDialog({ meal, participants, group, onClose 
   const [saving, setSaving] = useState(false)
   const [confirmingSave, setConfirmingSave] = useState(false)
 
-  const groupOf = (memberId: string) =>
-    meal.paymentGroups.find((g) => g.id !== group?.id && g.memberIds.includes(memberId))
+  const groupOf = (memberId: string) => meal.paymentGroups.find((g) => g.id !== group?.id && g.memberIds.includes(memberId))
 
   function toggle(id: string) {
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
@@ -38,8 +37,7 @@ export default function PaymentGroupDialog({ meal, participants, group, onClose 
   function requestSave() {
     setError(null)
     if (group) {
-      const compositionChanged =
-        group.memberIds.length !== selected.length || group.memberIds.some((id) => !selected.includes(id))
+      const compositionChanged = group.memberIds.length !== selected.length || group.memberIds.some((id) => !selected.includes(id))
       if (compositionChanged && hasPaidStatusAffected(meal, [...group.memberIds, ...selected], group.id)) {
         setConfirmingSave(true)
         return
@@ -93,7 +91,9 @@ export default function PaymentGroupDialog({ meal, participants, group, onClose 
           <ul className="flex flex-wrap gap-1.5">
             {available.map((p) => (
               <li key={p.id}>
-                <label className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-full border px-3 text-sm ${selected.includes(p.id) ? 'border-usd-green-700 bg-usd-green-100' : 'border-usd-paper-200 hover:bg-usd-paper-200'}`}>
+                <label
+                  className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-full border px-3 text-sm ${selected.includes(p.id) ? 'border-usd-green-700 bg-usd-green-100' : 'border-usd-paper-200 hover:bg-usd-paper-200'}`}
+                >
                   <input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggle(p.id)} className="h-4 w-4 accent-usd-green-800" />
                   <span>{p.name}</span>
                 </label>
@@ -122,7 +122,13 @@ export default function PaymentGroupDialog({ meal, participants, group, onClose 
         }}
       />
 
-      <DialogActions onCancel={onClose} saveLabel={group ? t('Lưu thay đổi') : t('Tạo nhóm')} onSave={requestSave} saving={saving} saveDisabled={selected.length < 2} />
+      <DialogActions
+        onCancel={onClose}
+        saveLabel={group ? t('Lưu thay đổi') : t('Tạo nhóm')}
+        onSave={requestSave}
+        saving={saving}
+        saveDisabled={selected.length < 2}
+      />
     </div>
   )
 }

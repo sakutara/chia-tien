@@ -29,8 +29,14 @@ async function settledMeal() {
   await db.meals.update(meal.id, { participantIds: [init.hostMemberId, 'bob'] })
   const session = await addSession(meal.id, 'Kèo 1')
   await createInvoice({
-    sessionId: session.id, payerMemberId: init.hostMemberId, inputMode: 'TOTAL_ONLY', items: [],
-    subtotalAmount: 90_000, discount: none, service: none, vat: none,
+    sessionId: session.id,
+    payerMemberId: init.hostMemberId,
+    inputMode: 'TOTAL_ONLY',
+    items: [],
+    subtotalAmount: 90_000,
+    discount: none,
+    service: none,
+    vat: none,
   })
   await payAllTransfers(meal.id)
   return meal.id
@@ -43,13 +49,25 @@ describe('Snapshot chỉ chứa khoản chuyển của người được chọn'
   async function threePeople() {
     const init = await initMealPeople()
     const now = new Date().toISOString()
-    for (const [id, name] of [['bob', 'Bình'], ['cuong', 'Cường']]) {
+    for (const [id, name] of [
+      ['bob', 'Bình'],
+      ['cuong', 'Cường'],
+    ]) {
       await db.members.put({ id, name, normalizedName: id, avatarColor: '#2D6A4F', createdAt: now, lastUsedAt: now })
     }
     const meal = await createMeal({ title: 'Lẩu', date: '2026-10-19' })
     await db.meals.update(meal.id, { participantIds: [init.hostMemberId, 'bob', 'cuong'] })
     const session = await addSession(meal.id, 'Kèo 1')
-    await createInvoice({ sessionId: session.id, payerMemberId: init.hostMemberId, inputMode: 'TOTAL_ONLY', items: [], subtotalAmount: 120_000, discount: none, service: none, vat: none })
+    await createInvoice({
+      sessionId: session.id,
+      payerMemberId: init.hostMemberId,
+      inputMode: 'TOTAL_ONLY',
+      items: [],
+      subtotalAmount: 120_000,
+      discount: none,
+      service: none,
+      vat: none,
+    })
     await db.members.update(init.hostMemberId, { bank: bank('CHU TRI') })
     await db.members.update('bob', { bank: bank('BINH') })
     await db.members.update('cuong', { bank: bank('CUONG') })

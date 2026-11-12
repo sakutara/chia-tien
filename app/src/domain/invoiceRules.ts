@@ -239,10 +239,7 @@ export function previewItemConsumerShares(
 }
 
 /** R-6, BR-5.8: số món chưa có người ăn khi hoá đơn ở chế độ BY_ITEM. */
-export function countUnassignedItems(
-  splitType: InvoiceSplitType,
-  items: ReadonlyArray<Pick<InvoiceItem, 'consumers'>>,
-): number {
+export function countUnassignedItems(splitType: InvoiceSplitType, items: ReadonlyArray<Pick<InvoiceItem, 'consumers'>>): number {
   if (splitType !== 'BY_ITEM') return 0
   return items.filter((it) => it.consumers.length === 0).length
 }

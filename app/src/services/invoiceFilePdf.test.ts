@@ -5,11 +5,12 @@ import { ensureDefaultData } from '../db/seed'
 import type { Meal } from '../types'
 import { initMealPeople } from './mealPeopleService'
 import { MAX_IMAGES_PER_INVOICE, addInvoicePdf } from './invoiceFileService'
+import type * as PdfImport from '../lib/pdfImport'
 import { importPdf } from '../lib/pdfImport'
 
 // pdf.js và Canvas không chạy trong jsdom: giả lập kết quả dựng trang, giữ nguyên `isPdfFile` thật.
 vi.mock('../lib/pdfImport', async (original) => ({
-  ...(await original<typeof import('../lib/pdfImport')>()),
+  ...(await original<typeof PdfImport>()),
   importPdf: vi.fn(),
 }))
 
@@ -19,8 +20,17 @@ const pdf = (name = 'hd.pdf') => new File(['%PDF-1.4'], name, { type: 'applicati
 async function setup(hostId: string) {
   const now = new Date().toISOString()
   const meal: Meal = {
-    id: crypto.randomUUID(), title: 'Bữa', date: '2026-10-19', status: 'ACTIVE', participantIds: [hostId], hostMemberId: hostId,
-    settlementMode: 'SELF_SETTLEMENT', paymentGroups: [], settlementStatuses: {}, createdAt: now, updatedAt: now,
+    id: crypto.randomUUID(),
+    title: 'Bữa',
+    date: '2026-10-19',
+    status: 'ACTIVE',
+    participantIds: [hostId],
+    hostMemberId: hostId,
+    settlementMode: 'SELF_SETTLEMENT',
+    paymentGroups: [],
+    settlementStatuses: {},
+    createdAt: now,
+    updatedAt: now,
   }
   await db.meals.put(meal)
   const sessionId = crypto.randomUUID()
@@ -55,7 +65,15 @@ describe('addInvoicePdf (Epic 4: nhập PDF làm hoá đơn)', () => {
   it('chỉ nhận số trang còn chỗ và báo bị cắt', async () => {
     const ctx = await setup(hostId)
     for (let i = 0; i < MAX_IMAGES_PER_INVOICE - 1; i++) {
-      await db.invoice_files.put({ id: crypto.randomUUID(), ...ctx, fileName: `a${i}.jpg`, mimeType: 'image/jpeg', sizeBytes: 1, createdAt: new Date().toISOString(), blobData: new Blob(['x']) } as never)
+      await db.invoice_files.put({
+        id: crypto.randomUUID(),
+        ...ctx,
+        fileName: `a${i}.jpg`,
+        mimeType: 'image/jpeg',
+        sizeBytes: 1,
+        createdAt: new Date().toISOString(),
+        blobData: new Blob(['x']),
+      } as never)
     }
     vi.mocked(importPdf).mockResolvedValue({ pages: [page(1, 'Một trang có chữ rất rõ ràng')], totalPages: 3 })
 

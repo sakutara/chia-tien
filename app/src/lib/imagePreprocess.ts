@@ -1,5 +1,4 @@
-
-import { t } from '../i18n'/*
+import { t } from '../i18n' /*
  * Tiền xử lý ảnh trước khi OCR (02 §3, bước 1): đưa cạnh dài về khoảng 2800 px (phóng to ảnh nhỏ, thu ảnh quá lớn),
  * chuyển xám, kéo giãn tương phản. VietOCR đọc dòng ở chiều cao 32 px, nên chữ phải đủ cao trước khi cắt; ảnh bill đã nén thường chỉ rộng ~600 px nên
  * không phóng to thì đọc sai gần hết.

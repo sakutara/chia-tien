@@ -22,9 +22,7 @@ interface Props {
 
 const EMPTY_SETTLEMENT = { entities: [], transfers: [] } as unknown as MealSettlementResult
 
-type Loaded =
-  | { ok: true; payload: MealSnapshotPayload; settlement: MealSettlementResult }
-  | { ok: false; message: string }
+type Loaded = { ok: true; payload: MealSnapshotPayload; settlement: MealSettlementResult } | { ok: false; message: string }
 
 /**
  * Xem Snapshot chỉ đọc (BR-8.2, BR-8.3, R-6). Dữ liệu chỉ nằm trong bộ nhớ; không ghi vào IndexedDB.
@@ -38,14 +36,13 @@ export default function SnapshotViewerPage({ encoded, onExit }: Props) {
     try {
       const payload = decodeSnapshotPayload(encoded)
       // Snapshot mang sẵn khoản chuyển tiền thì không cần tính lại từ hoá đơn.
-      const settlement = payload.payments
-        ? EMPTY_SETTLEMENT
-        : computeMealSettlement(hydrateSnapshotForSettlement(payload))
+      const settlement = payload.payments ? EMPTY_SETTLEMENT : computeMealSettlement(hydrateSnapshotForSettlement(payload))
       return { ok: true, payload, settlement }
     } catch (err) {
       const message = err instanceof PeopleError ? err.message : t('Link Snapshot không hợp lệ.')
       return { ok: false, message }
     }
+    // oxlint-disable-next-line react/memo-dependencies -- lang là chủ đích: dựng lại khi đổi ngôn ngữ, vì chuỗi lỗi và nội dung chuyển khoản theo ngôn ngữ
   }, [encoded, lang])
 
   if (!loaded.ok) {
@@ -96,15 +93,16 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
   const paymentsOnly = !!payload.payments && payload.sessions.length === 0 && !payload.itemShares
   const [step, setStep] = useState<StepKey>('settle')
   const [selected, setSelected] = useState<string[]>([])
-  useSwipeSteps(() => setStep(STEPS[0].key), () => setStep(STEPS[STEPS.length - 1].key))
+  useSwipeSteps(
+    () => setStep(STEPS[0].key),
+    () => setStep(STEPS[STEPS.length - 1].key),
+  )
   const nameById = new Map(payload.members.map((m) => [m.id, m.name] as const))
   const memberName = (id: string) => nameById.get(id) ?? t('Đã rời bữa')
   // Snapshot mới mang sẵn các khoản chuyển của đúng người được chọn; link cũ (không có `payments`) thì tính lại.
   const allSlides = useMemo(
     () =>
-      payload.payments
-        ? slidesFromPayments(payload.payments)
-        : buildPaymentSlides({ settlement, mealTitle: payload.meal.title, people: payload.members }),
+      payload.payments ? slidesFromPayments(payload.payments) : buildPaymentSlides({ settlement, mealTitle: payload.meal.title, people: payload.members }),
     [settlement, payload],
   )
   const options = useMemo(() => personFilterOptions(allSlides), [allSlides])
@@ -165,7 +163,9 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
                           <li className="font-semibold">{t('Đã chốt {n} hoá đơn', { n: archivedInvoiceCount(payload, session.id) })}</li>
                           {session.archivedPayerSummary.map((p) => (
                             <li key={p.memberId} className="flex justify-between gap-2">
-                              <span>{t('Ứng trước:')} {memberName(p.memberId)}</span>
+                              <span>
+                                {t('Ứng trước:')} {memberName(p.memberId)}
+                              </span>
                               <span className="money">{formatMoney(p.paidAmount)}</span>
                             </li>
                           ))}
@@ -176,7 +176,9 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
                         {session.invoices.map((inv, index) => (
                           <li key={inv.id} className="space-y-1 rounded-lg border border-usd-paper-200 bg-white/70 p-2 text-sm">
                             <div className="flex flex-wrap items-start justify-between gap-2">
-                              <p className="break-words font-medium">#{index + 1} {inv.vendorName ?? t('Không rõ tên quán')}</p>
+                              <p className="break-words font-medium">
+                                #{index + 1} {inv.vendorName ?? t('Không rõ tên quán')}
+                              </p>
                               <p className="money font-semibold">{formatMoney(inv.totalAmount)}</p>
                             </div>
                             <p className="text-usd-green-700">
@@ -184,19 +186,28 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
                               {inv.inputMode === 'TOTAL_ONLY' && t(' · Chỉ nhập tổng')}
                             </p>
                             {inv.splitType === 'EQUAL_TOTAL' && (
-                              <p>{t('Chia đều:')} {inv.equalSplitParticipantIds.map(memberName).join(', ')}</p>
+                              <p>
+                                {t('Chia đều:')} {inv.equalSplitParticipantIds.map(memberName).join(', ')}
+                              </p>
                             )}
                             {inv.items.length > 0 && (
                               <ul className="space-y-1">
                                 {inv.items.map((it, i) => (
                                   <li key={i} className="rounded border border-usd-paper-200 px-2 py-1">
                                     <div className="flex flex-wrap justify-between gap-2">
-                                      <span className="break-words">{it.name} · {it.quantity} × {formatMoney(it.unitPrice)}</span>
+                                      <span className="break-words">
+                                        {it.name} · {it.quantity} × {formatMoney(it.unitPrice)}
+                                      </span>
                                       <span className="money">{formatMoney(it.finalAmount)}</span>
                                     </div>
                                     {inv.splitType === 'BY_ITEM' && (
                                       <p className="text-xs text-usd-green-700">
-                                        {t('Tham gia:')} {it.consumers.length === 0 ? t('chưa có') : it.consumers.map((c) => (c.shares > 1 ? `${memberName(c.memberId)} ×${c.shares}` : memberName(c.memberId))).join(', ')}
+                                        {t('Tham gia:')}{' '}
+                                        {it.consumers.length === 0
+                                          ? t('chưa có')
+                                          : it.consumers
+                                              .map((c) => (c.shares > 1 ? `${memberName(c.memberId)} ×${c.shares}` : memberName(c.memberId)))
+                                              .join(', ')}
                                       </p>
                                     )}
                                   </li>
@@ -225,7 +236,11 @@ function SnapshotView({ payload, settlement, onExit }: { payload: MealSnapshotPa
         {step === 'settle' && (
           <section className="space-y-2" aria-label={t('Chia tiền')}>
             {options.length > 1 && (
-              <div role="radiogroup" aria-label={t('Lọc theo người')} className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div
+                role="radiogroup"
+                aria-label={t('Lọc theo người')}
+                className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
                 <button
                   type="button"
                   role="radio"

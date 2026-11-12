@@ -32,9 +32,7 @@ export default function EqualSplitPicker({ invoice, sessionMembers, readOnly, on
         readOnly={readOnly}
         onChange={(ids) => void setEqualSplitParticipants(invoice.id, ids).catch((err) => onError(errorText(err)))}
       />
-      <span className="money ml-1 text-xs text-usd-green-700">
-        · {t('{amount}/người', { amount: formatMoney(perPerson) })}
-      </span>
+      <span className="money ml-1 text-xs text-usd-green-700">· {t('{amount}/người', { amount: formatMoney(perPerson) })}</span>
     </div>
   )
 }

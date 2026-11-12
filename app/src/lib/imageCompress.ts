@@ -57,7 +57,7 @@ export async function readHeaderSize(file: Blob): Promise<ImageDimensions | null
           i++
           continue
         }
-        if ((marker >= 0xc0 && marker <= 0xcf) && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
           return { width: buf.getUint16(i + 7), height: buf.getUint16(i + 5) }
         }
         i += 2 + buf.getUint16(i + 2)

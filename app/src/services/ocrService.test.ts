@@ -57,11 +57,13 @@ const img = (name: string) => new Blob([name], { type: 'image/png' })
 vi.stubGlobal('Worker', FakeWorker)
 
 import { runOcr, terminateOcrWorker } from './ocrService'
+import { isOcrModelReady } from './ocrModelConsent'
 
 beforeEach(() => {
   FakeWorker.instances = []
   results = []
   failNextRecognize = false
+  localStorage.removeItem('chia-tien.ocrModelReady')
 })
 
 afterEach(() => {
@@ -141,5 +143,12 @@ describe('runOcr (VietOCR)', () => {
     await runOcr([img('a')])
     terminateOcrWorker()
     expect(FakeWorker.instances[0].terminated).toBe(true)
+  })
+
+  it('quét thành công thì đánh dấu bộ đọc chữ đã sẵn sàng trên máy', async () => {
+    results = [[word('a', 0, 0)]]
+    expect(isOcrModelReady()).toBe(false)
+    await runOcr([img('a')])
+    expect(isOcrModelReady()).toBe(true)
   })
 })

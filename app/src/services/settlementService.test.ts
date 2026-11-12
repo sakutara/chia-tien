@@ -34,7 +34,16 @@ describe('settlementService (Epic 6: BR-6.5, BR-6.7, R-7, R-8)', () => {
     await db.meals.update(meal.id, { participantIds: [init.hostMemberId, 'bob'] })
     const session = await addSession(meal.id, 'Kèo 1')
     const none = { mode: 'NONE' as const, value: 0 }
-    await createInvoice({ sessionId: session.id, payerMemberId: init.hostMemberId, inputMode: 'TOTAL_ONLY', items: [], subtotalAmount: 90_000, discount: none, service: none, vat: none })
+    await createInvoice({
+      sessionId: session.id,
+      payerMemberId: init.hostMemberId,
+      inputMode: 'TOTAL_ONLY',
+      items: [],
+      subtotalAmount: 90_000,
+      discount: none,
+      service: none,
+      vat: none,
+    })
     return { mealId: meal.id, host: init.hostMemberId, key: `bob->${init.hostMemberId}` }
   }
 

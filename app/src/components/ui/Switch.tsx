@@ -23,9 +23,7 @@ export default function Switch({ checked, onChange, label, disabled, className =
         aria-hidden="true"
         className={`relative inline-block h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-usd-green-700' : 'bg-usd-paper-200'}`}
       >
-        <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? 'left-[1.125rem]' : 'left-0.5'}`}
-        />
+        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? 'left-[1.125rem]' : 'left-0.5'}`} />
       </span>
       <span>{label}</span>
     </button>

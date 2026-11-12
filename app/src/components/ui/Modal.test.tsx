@@ -59,9 +59,7 @@ describe('Modal', () => {
 
 describe('ConfirmDialog', () => {
   it('focuses Cancel by default (R-7, AC-12)', () => {
-    render(
-      <ConfirmDialog open title="Xoá?" message="Chắc không?" confirmLabel="Xoá" tone="danger" onConfirm={() => {}} onCancel={() => {}} />,
-    )
+    render(<ConfirmDialog open title="Xoá?" message="Chắc không?" confirmLabel="Xoá" tone="danger" onConfirm={() => {}} onCancel={() => {}} />)
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Huỷ' }))
   })
 

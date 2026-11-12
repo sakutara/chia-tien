@@ -54,11 +54,5 @@ export function hasUserEntries(input: {
 }): boolean {
   const filledRow = input.rows.some((r) => r.name.trim() !== '' || r.unitPrice.trim() !== '')
   const filledAdj = [input.discount, input.service, input.vat].some((a) => a.mode !== 'NONE' && a.value.trim() !== '')
-  return (
-    input.vendorName.trim() !== '' ||
-    input.invoiceDate !== '' ||
-    filledRow ||
-    input.subtotal.trim() !== '' ||
-    filledAdj
-  )
+  return input.vendorName.trim() !== '' || input.invoiceDate !== '' || filledRow || input.subtotal.trim() !== '' || filledAdj
 }

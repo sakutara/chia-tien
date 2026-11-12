@@ -49,7 +49,11 @@ export default function ImageViewerDialog({ fileId, fileName, onClose }: Props) 
   return (
     <Modal open title={fileName} onClose={onClose}>
       <div className="space-y-3">
-        {missing && <p role="alert" className="text-sm text-red-700">{t('Không còn dữ liệu ảnh này.')}</p>}
+        {missing && (
+          <p role="alert" className="text-sm text-red-700">
+            {t('Không còn dữ liệu ảnh này.')}
+          </p>
+        )}
         {!missing && !url && <p className="text-sm text-usd-green-700">{t('Đang mở ảnh…')}</p>}
         {url && <img src={url} alt={t('Ảnh hoá đơn {fileName}', { fileName })} className="max-h-[70vh] w-full rounded-lg object-contain" />}
         <div className="flex justify-end">

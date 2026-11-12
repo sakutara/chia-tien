@@ -54,10 +54,7 @@ function InvoiceItemRow({ item, splitType, sessionMembers, readOnly, canDelete, 
   }
 
   return (
-    <li
-      className="flex gap-1.5 rounded-lg border border-usd-paper-200 bg-white/70 px-2 py-1.5 text-sm"
-      aria-label={t('Món {name}', { name: item.name })}
-    >
+    <li className="flex gap-1.5 rounded-lg border border-usd-paper-200 bg-white/70 px-2 py-1.5 text-sm" aria-label={t('Món {name}', { name: item.name })}>
       {onMove && (
         <div className="-my-1.5 -ml-2 flex w-8 shrink-0 flex-col self-stretch">
           <button
@@ -83,57 +80,61 @@ function InvoiceItemRow({ item, splitType, sessionMembers, readOnly, canDelete, 
         </div>
       )}
       <div className="min-w-0 flex-1 space-y-0.5">
-      <div className="flex items-start gap-1">
-        <span aria-hidden="true" data-item-number className="shrink-0 select-none font-semibold tabular-nums text-usd-green-700">
-          {number}.
-        </span>
-        <p className="min-w-0 flex-1 break-words font-medium">
-          <InlineText label={t('Tên món')} value={item.name} readOnly={readOnly} maxLength={ITEM_NAME_MAX} onCommit={rename} />
-        </p>
-        {!readOnly && (
-          <IconButton
-            icon={Trash2}
-            label={t('Xoá món {name}', { name: item.name })}
-            tone="danger"
-            className="-my-1.5"
-            onClick={requestDelete}
-            disabled={!canDelete}
-            title={canDelete ? t('Xoá món {name}', { name: item.name }) : t('Hoá đơn phải có ít nhất một món')}
-          />
-        )}
-      </div>
-
-      <div className="text-usd-green-900">
-        <AmountLine item={item} readOnly={readOnly} onError={onError} />
-      </div>
-
-      {showConsumers && (
-        <div className={unassigned ? 'text-amber-800' : ''}>
-          <span className="text-usd-green-700">Tham gia: </span>
-          <PeoplePicker
-            mode="shares"
-            label={t('Người ăn {name}', { name: item.name })}
-            options={sessionMembers}
-            value={consumers}
-            readOnly={readOnly}
-            empty={t('Chưa chọn người')}
-            onChange={(next) => void setItemConsumers(item.id, next).catch((err) => onError(errorText(err)))}
-          />
+        <div className="flex items-start gap-1">
+          <span aria-hidden="true" data-item-number className="shrink-0 select-none font-semibold tabular-nums text-usd-green-700">
+            {number}.
+          </span>
+          <p className="min-w-0 flex-1 break-words font-medium">
+            <InlineText label={t('Tên món')} value={item.name} readOnly={readOnly} maxLength={ITEM_NAME_MAX} onCommit={rename} />
+          </p>
+          {!readOnly && (
+            <IconButton
+              icon={Trash2}
+              label={t('Xoá món {name}', { name: item.name })}
+              tone="danger"
+              className="-my-1.5"
+              onClick={requestDelete}
+              disabled={!canDelete}
+              title={canDelete ? t('Xoá món {name}', { name: item.name }) : t('Hoá đơn phải có ít nhất một món')}
+            />
+          )}
         </div>
-      )}
 
-      <ConfirmDialog
-        open={confirming}
-        title={t('Xoá món đã có người ăn?')}
-        message={<>{t('Món')} <strong>{item.name}</strong> {t('đang có {n} người ăn. Các phần đã chọn sẽ mất.', { n: consumers.length })}</>}
-        confirmLabel={t('Xoá món')}
-        tone="danger"
-        onConfirm={() => {
-          setConfirming(false)
-          onDelete(item.id)
-        }}
-        onCancel={() => setConfirming(false)}
-      />
+        <div className="text-usd-green-900">
+          <AmountLine item={item} readOnly={readOnly} onError={onError} />
+        </div>
+
+        {showConsumers && (
+          <div className={unassigned ? 'text-amber-800' : ''}>
+            <span className="text-usd-green-700">Tham gia: </span>
+            <PeoplePicker
+              mode="shares"
+              label={t('Người ăn {name}', { name: item.name })}
+              options={sessionMembers}
+              value={consumers}
+              readOnly={readOnly}
+              empty={t('Chưa chọn người')}
+              onChange={(next) => void setItemConsumers(item.id, next).catch((err) => onError(errorText(err)))}
+            />
+          </div>
+        )}
+
+        <ConfirmDialog
+          open={confirming}
+          title={t('Xoá món đã có người ăn?')}
+          message={
+            <>
+              {t('Món')} <strong>{item.name}</strong> {t('đang có {n} người ăn. Các phần đã chọn sẽ mất.', { n: consumers.length })}
+            </>
+          }
+          confirmLabel={t('Xoá món')}
+          tone="danger"
+          onConfirm={() => {
+            setConfirming(false)
+            onDelete(item.id)
+          }}
+          onCancel={() => setConfirming(false)}
+        />
       </div>
     </li>
   )
@@ -206,7 +207,14 @@ function AmountForm({ item, onDone, onError }: { item: InvoiceItem; onDone: () =
       <div className="grid grid-cols-[1fr_4rem] gap-2">
         <label className="text-xs">
           {t('Đơn giá')}
-          <input data-autofocus inputMode="numeric" aria-label={t('Đơn giá')} value={price} onChange={(e) => setPrice(e.target.value)} className="field mt-0.5" />
+          <input
+            data-autofocus
+            inputMode="numeric"
+            aria-label={t('Đơn giá')}
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            className="field mt-0.5"
+          />
         </label>
         <label className="text-xs">
           SL

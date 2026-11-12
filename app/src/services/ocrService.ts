@@ -5,6 +5,7 @@ import { t } from '../i18n'
 import type { VietOcrWorkerRequest, VietOcrWorkerResponse } from './workerContracts'
 import { registerMemoryCleaner } from './memoryLifecycle'
 import { PeopleError } from './peopleErrors'
+import { markOcrModelReady } from './ocrModelConsent'
 
 /*
  * OCR trên máy bằng VietOCR ONNX (BR-4.7, BR-4.13): detector DB + recognizer vgg_seq2seq chạy trong Web Worker
@@ -81,12 +82,9 @@ function ask<T>(
 function createSession(): Session {
   const worker = new Worker(new URL('../workers/vietOcrWorker.ts', import.meta.url), { type: 'module' })
   const abort = new AbortController()
-  const ready = ask(
-    worker,
-    { type: 'INIT', requestId: generateId(), baseUrl: BASE },
-    (msg) => (msg.type === 'READY' ? { value: undefined } : undefined),
-    { signal: abort.signal },
-  )
+  const ready = ask(worker, { type: 'INIT', requestId: generateId(), baseUrl: BASE }, (msg) => (msg.type === 'READY' ? { value: undefined } : undefined), {
+    signal: abort.signal,
+  })
   // Lỗi khởi tạo được báo qua `ready`; tránh unhandled rejection khi chưa có ai await.
   ready.catch(() => undefined)
   return { worker, abort, ready }
@@ -119,10 +117,7 @@ registerMemoryCleaner(terminateOcrWorker)
  * Quét văn bản từ từng ảnh theo thứ tự, trả về văn bản đã ghép thành dòng và cột của từng ảnh.
  * Huỷ bằng `signal`: worker bị dừng và ném `OCR_CANCELLED`.
  */
-export async function runOcr(
-  images: Blob[],
-  options: { onProgress?: OcrProgressHandler; signal?: AbortSignal } = {},
-): Promise<string[]> {
+export async function runOcr(images: Blob[], options: { onProgress?: OcrProgressHandler; signal?: AbortSignal } = {}): Promise<string[]> {
   const { onProgress, signal } = options
   if (signal?.aborted) throw cancelled()
   const onAbort = () => terminateOcrWorker()
@@ -136,6 +131,8 @@ export async function runOcr(
     onProgress?.(0, t('Đang khởi tạo bộ đọc chữ…'))
     const current = getSession()
     await current.ready
+    // Bộ đọc chữ đã tải và khởi tạo xong: các lần sau không cần hỏi xác nhận tải lại.
+    markOcrModelReady()
 
     const texts: string[] = []
     for (let i = 0; i < images.length; i++) {

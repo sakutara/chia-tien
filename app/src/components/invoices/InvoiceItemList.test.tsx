@@ -6,15 +6,35 @@ import InvoiceItemList from './InvoiceItemList'
 afterEach(cleanup)
 
 const item = (id: string, name: string, orderIndex: number): InvoiceItem => ({
-  id, mealId: 'm', sessionId: 's', invoiceId: 'i', name, quantity: 1, unitPrice: 1000, rawAmount: 1000,
-  allocatedDiscountAmount: 0, allocatedServiceAmount: 0, allocatedVatAmount: 0, finalAmount: 1000, consumers: [], orderIndex,
+  id,
+  mealId: 'm',
+  sessionId: 's',
+  invoiceId: 'i',
+  name,
+  quantity: 1,
+  unitPrice: 1000,
+  rawAmount: 1000,
+  allocatedDiscountAmount: 0,
+  allocatedServiceAmount: 0,
+  allocatedVatAmount: 0,
+  finalAmount: 1000,
+  consumers: [],
+  orderIndex,
 })
 const items = [item('a', 'Bia', 0), item('b', 'Gà', 1), item('c', 'Cơm', 2)]
 
 function mount(readOnly = false) {
   const onReorder = vi.fn()
   render(
-    <InvoiceItemList items={items} splitType="EQUAL_TOTAL" sessionMembers={[]} readOnly={readOnly} onDelete={() => {}} onReorder={onReorder} onError={() => {}} />,
+    <InvoiceItemList
+      items={items}
+      splitType="EQUAL_TOTAL"
+      sessionMembers={[]}
+      readOnly={readOnly}
+      onDelete={() => {}}
+      onReorder={onReorder}
+      onError={() => {}}
+    />,
   )
   return onReorder
 }

@@ -12,9 +12,7 @@ export type { OcrWord }
 export type CleanupCallback = () => Promise<void> | void
 
 /** Thông điệp Main Thread → vietOcrWorker. */
-export type VietOcrWorkerRequest =
-  | { type: 'INIT'; requestId: string; baseUrl: string }
-  | { type: 'RECOGNIZE'; requestId: string; image: Blob }
+export type VietOcrWorkerRequest = { type: 'INIT'; requestId: string; baseUrl: string } | { type: 'RECOGNIZE'; requestId: string; image: Blob }
 
 /** Thông điệp vietOcrWorker → Main Thread. `lines` là từng dòng chữ kèm hộp, toạ độ theo ảnh gốc. */
 export type VietOcrWorkerResponse =

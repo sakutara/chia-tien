@@ -27,12 +27,14 @@ export default function DeleteMealDialog({ mealId, title, date, onClose, onDelet
   }, [mealId])
 
   const parts = preview
-    ? ([
-        [preview.sessions, t('kèo')],
-        [preview.invoices, t('hoá đơn')],
-        [preview.items, t('món')],
-        [preview.files, t('file ảnh')],
-      ] as const)
+    ? (
+        [
+          [preview.sessions, t('kèo')],
+          [preview.invoices, t('hoá đơn')],
+          [preview.items, t('món')],
+          [preview.files, t('file ảnh')],
+        ] as const
+      )
         .filter(([n]) => n > 0)
         .map(([n, label]) => `${n} ${label}`)
     : []
