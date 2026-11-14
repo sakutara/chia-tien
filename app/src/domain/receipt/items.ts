@@ -303,6 +303,53 @@ export function isStrongItemRow(line: string): boolean {
   return q !== null && unit !== null && amount !== null && q >= 1 && q <= 99 && unit >= MIN_UNIT_PRICE && q * unit === amount
 }
 
+/** Dòng không phải món: giảm giá, phí, tổng, ngày, địa chỉ, tiêu đề, chân trang, ghi chú, mã số… */
+export function isNonItemLine(line: string, strongRow: boolean = isStrongItemRow(line)): boolean {
+  return (
+    isAdjustmentLine(line) ||
+    isTotalLine(line) ||
+    isDateLine(line) ||
+    hit(ADDRESS_RE, line) ||
+    (!strongRow && (hit(HEADER_RE, line) || hit(FOOTER_RE, line))) ||
+    isColumnHeader(line) ||
+    hit(CASH_GIVEN_RE, line) ||
+    hit(COLUMN_INDEX_RE, line) ||
+    hit(NOTE_RE, line) ||
+    hit(ITEM_NOTE_RE, line) ||
+    isLongNumberLine(line) ||
+    isCodeLine(line) ||
+    hit(LONG_NUMBER_LABEL_RE, line) ||
+    isFreeRow(line)
+  )
+}
+
+/**
+ * Bố cục "đơn giá ở dòng dưới": đếm dòng món (tên kèm số trên cùng một dòng) và dòng giá (dòng chỉ có một số tiền).
+ * Mỗi dòng giá phải thuộc về đúng một dòng món phía trên nó (giữa hai dòng chỉ có thể là dòng chữ), tức số giá không vượt số món.
+ * Khi đó dòng chữ nằm giữa không còn giá nào cho riêng nó: nó là phần tên bị xuống dòng. Chỉ cần một dòng giá không có dòng
+ * món phía trên (bill dạng "tên ở trên, số tiền ở dưới") thì dòng chữ là món riêng, không nối.
+ */
+export function hasUnitPriceRows(lines: string[], start: number): boolean {
+  /** Dòng món phía trên chưa có dòng giá. */
+  let open = false
+  let paired = 0
+  for (let i = start; i < lines.length; i++) {
+    const line = lines[i]
+    if (isNonItemLine(line) || line.includes('=')) {
+      open = false
+      continue
+    }
+    const tail = splitTail(line)
+    if (tail && cleanItemName(tail.name)) open = true
+    else if (tail && tail.numbers.length === 1 && interpretTail(tail.numbers)) {
+      if (!open) return false
+      open = false
+      paired++
+    } else if (tail || !isNameOnly(line)) open = false
+  }
+  return paired > 0
+}
+
 export function parseItems(
   lines: string[],
   vendorName: string | undefined,
@@ -321,8 +368,12 @@ export function parseItems(
   let last: ParsedItem | undefined
   /** Dòng cuối mà món `last` đã dùng hết; dòng số ngay sau nó dùng để nhận đơn giá. */
   let lastEnd = -2
+  /** Món `last` có tên và thành tiền trên cùng một dòng, chưa có cột đơn giá: đơn giá có thể nằm ở dòng dưới, sau phần tên xuống dòng. */
+  let lastOpen = false
   const { start, boundaries, numbering } = layout
   const blockMode = boundaries.size > 0 || numbering !== null
+  // Dòng chữ giữa món và dòng đơn giá chỉ được nối vào tên món khi đếm dòng món và dòng giá cho thấy bill in đơn giá ở dòng dưới.
+  const unitPriceRows = hasUnitPriceRows(lines, start)
   // Tiêu đề có cột số thứ tự (TT / STT / #) ngay trên món đầu tiên: số đầu dòng là STT, không thuộc tên món.
   const sttColumn = start > 0 && STT_HEADER_RE.test(fold(lines[start - 1]))
 
@@ -378,21 +429,7 @@ export function parseItems(
       last = undefined
       continue
     }
-    const isClassified =
-      isAdjustmentLine(line) ||
-      isTotalLine(line) ||
-      isDateLine(line) ||
-      hit(ADDRESS_RE, line) ||
-      (!strongRow && (hit(HEADER_RE, line) || hit(FOOTER_RE, line))) ||
-      isColumnHeader(line) ||
-      hit(CASH_GIVEN_RE, line) ||
-      hit(COLUMN_INDEX_RE, line) ||
-      hit(NOTE_RE, line) ||
-      hit(ITEM_NOTE_RE, line) ||
-      isLongNumberLine(line) ||
-      isCodeLine(line) ||
-      hit(LONG_NUMBER_LABEL_RE, line) ||
-      isFreeRow(line)
+    const isClassified = isNonItemLine(line, strongRow)
     if (isClassified) {
       pending = []
       last = undefined
@@ -435,11 +472,20 @@ export function parseItems(
     const repaired = tail ? repairBlankAmount(tail.numbers) : false
     const tailItem = tail ? interpretTail(tail.numbers) : null
     // Dòng dưới chỉ có một số tiền ngay sau món đã có SL và thành tiền: số đó là đơn giá nếu SL × số đó = thành tiền.
-    if (tail && tail.numbers.length === 1 && !cleanItemName(tail.name) && last && lastEnd === i - 1) {
+    // Giữa món và dòng đơn giá có thể là phần tên bị xuống dòng ("Canh Cải thịt/  1  80,000" + "bầu(L)" + "80,000"):
+    // các dòng chữ đó thuộc tên món phía trên, không phải một món mới.
+    const wrapped = unitPriceRows && lastOpen && pending.length > 0 && pending.length === i - 1 - lastEnd ? pending : []
+    if (tail && tail.numbers.length === 1 && !cleanItemName(tail.name) && last && (lastEnd === i - 1 || wrapped.length > 0)) {
       const unit = parseMoney(tail.numbers[0])
       if (unit !== null && last.quantity * unit === last.rawAmount) {
+        for (const part of wrapped) {
+          const clean = cleanItemName(part)
+          if (clean) last.name = `${last.name} ${clean}`
+        }
         last.unitPrice = unit
+        pending = []
         lastEnd = i
+        lastOpen = false
         continue
       }
     }
@@ -462,9 +508,11 @@ export function parseItems(
         } else uncertain = true
       }
       if (nameAbove) pending = []
+      const before = items.length
       push(name, quantity, unitPrice, tailItem.amount, uncertain)
       pending = []
       lastEnd = i
+      lastOpen = items.length > before && !nameAbove && tail.numbers.length <= 2
       continue
     }
 
