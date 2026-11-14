@@ -1,6 +1,6 @@
 // Ghép các giai đoạn thành parseReceipt.
 import { DISCOUNT_RE, EXTRA_FEE_RE, REDUCTION_RE, SERVICE_RE, SUBTOTAL_RE, TAX_ID_RE, THANH_TIEN_RE, TOTAL_AMOUNT_RE, TOTAL_RE, VAT_RE, hit } from './patterns'
-import { PRETAX_RE, TAX_INCLUDED_TOTAL_RE, adjustmentOf, dropTotalRows, isTotalLine, majorityTotal, mergeRounding, roundingOf, totalValue, twoTotals, zeroBalanceTotal } from './adjustments'
+import { BARE_TONG_RE, PRETAX_RE, TAX_INCLUDED_TOTAL_RE, adjustmentOf, dropTotalRows, isAdjustmentLine, isTotalLine, majorityTotal, mergeRounding, roundingOf, totalValue, twoTotals, zeroBalanceTotal } from './adjustments'
 import { detectNumbering, findItemsStart, readItems, tidyItemName } from './items'
 import { findDate, findVendor } from './header'
 import { findGroupRows, groupKind, reconcileGroups } from './groups'
@@ -105,6 +105,19 @@ export function parseReceipt(rawText: string): ParsedReceipt {
     } else if (hit(SUBTOTAL_RE, line)) {
       const values = moneyValues(line)
       if (values.length > 0) result.billSubtotal = values[values.length - 1]
+    }
+  }
+
+  // Chỉ có một dòng nhãn "Tổng" đứng riêng ("Tổng 505,000") và không có dòng tổng nào khác: đó là tổng bill.
+  // Nếu phía dưới còn giảm giá, phí hay VAT thì nó là tiền hàng.
+  if (result.billTotal === undefined) {
+    const at = lines.findIndex((line) => hit(BARE_TONG_RE, line) && moneyValues(line).length > 0)
+    if (at >= 0) {
+      const values = moneyValues(lines[at])
+      const value = values[values.length - 1]
+      const adjustedBelow = lines.slice(at + 1).some((line) => isAdjustmentLine(line) && adjustmentOf(line) !== undefined)
+      if (!adjustedBelow) result.billTotal = value
+      else if (result.billSubtotal === undefined) result.billSubtotal = value
     }
   }
 
