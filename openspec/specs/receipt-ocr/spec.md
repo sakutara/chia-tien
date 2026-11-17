@@ -348,6 +348,17 @@ Hệ thống SHALL điền kết quả đọc vào form hoá đơn ở trạng t
 - **WHEN** một khoản như VAT không đọc được số tiền hay phần trăm
 - **THEN** ô tương ứng trong form để trống và không điền 0
 
+### Requirement: Lưu thẳng kết quả khớp trong luồng tạo nhanh
+Hệ thống SHALL lưu thẳng kết quả đọc thành hoá đơn, không qua form, chỉ trong luồng chụp bill tạo bữa nhanh (capability `quick-bill-capture`) và chỉ khi kết quả là `OK` hoặc `CORRECTED`, có ít nhất một món và không thiếu dòng hàng. Mọi trường hợp khác vẫn điền vào form chưa lưu.
+
+#### Scenario: Tạo nhanh từ bill đọc khớp
+- **WHEN** luồng chụp bill tạo bữa nhanh nhận kết quả `OK` có món và không thiếu dòng hàng
+- **THEN** hoá đơn được lưu thẳng, không mở form
+
+#### Scenario: Thêm hoá đơn trong kèo vẫn qua form
+- **WHEN** người dùng quét bill đọc khớp trong form thêm hoá đơn của một kèo có sẵn
+- **THEN** kết quả được điền vào form và chưa được lưu
+
 ### Requirement: Ghép văn bản dán theo khối thành dòng món
 Hệ thống SHALL ghép lại văn bản dán khi mỗi ô của bảng nằm trên một dòng riêng, thành từng dòng món dạng "STT. Tên SL ĐG Thành tiền" trước khi phân tích. Văn bản không có ít nhất ba loại tiêu đề cột trong SL, ĐG, Thành tiền và Tên món, hoặc không có món nào, được giữ nguyên văn. Hệ thống không đoán tên hay giá.
 

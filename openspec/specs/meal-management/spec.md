@@ -257,6 +257,17 @@ Hệ thống SHALL hiển thị trang làm việc của bữa thành bốn bư�
 - **THEN** nút "Bước sau" bị vô hiệu hoá
 - **AND** bấm "Bước trước" thì chuyển về bước 3 "Hoá đơn"
 
+### Requirement: Mở sẵn bước Người cho bữa vừa tạo nhanh
+Hệ thống SHALL mở sẵn bước 2 "Người" khi trang làm việc được mở ngay sau luồng chụp bill tạo nhanh (capability `quick-bill-capture`). Bước mở sẵn chỉ áp dụng cho lần mở đó; tải lại trang hoặc mở lại bữa từ danh sách thì mở bước 1.
+
+#### Scenario: Mở bữa vừa tạo nhanh từ bill
+- **WHEN** luồng chụp bill tạo nhanh kết thúc và mở trang làm việc của bữa mới
+- **THEN** tab "2. Người" được chọn sẵn
+
+#### Scenario: Tải lại trang sau khi tạo nhanh
+- **WHEN** người dùng tải lại trang làm việc của bữa vừa tạo nhanh
+- **THEN** tab "1. Bữa" được chọn sẵn
+
 ### Requirement: Vuốt ngang để đổi bước
 Hệ thống SHALL cho đổi bước bằng cử chỉ vuốt ngang trên trang làm việc của bữa: vuốt sang trái chuyển sang bước sau, vuốt sang phải chuyển sang bước trước. Cử chỉ chỉ được tính khi đủ dài và chủ yếu nằm ngang, và không vòng lại ở bước đầu hay bước cuối.
 

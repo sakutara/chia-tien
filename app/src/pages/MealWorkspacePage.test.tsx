@@ -234,4 +234,12 @@ describe('MyProfileDialog (BR-3.11, AC-11)', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled())
     expect(await db.members.get(me.id)).toMatchObject({ name: 'An Nguyễn', isDefaultHost: true })
   })
+
+  it('mở sẵn bước "Người" khi được yêu cầu (bữa vừa tạo nhanh từ bill)', async () => {
+    const meal = await createMeal({ title: 'Bữa nhanh', date: '2026-10-19' })
+    render(<MealWorkspacePage mealId={meal.id} onBack={() => {}} initialStep="people" />)
+    const tab = await screen.findByRole('tab', { name: /Người/ })
+    expect(tab.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tab', { name: /Bữa/ }).getAttribute('aria-selected')).toBe('false')
+  })
 })

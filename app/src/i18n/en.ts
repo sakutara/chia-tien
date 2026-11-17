@@ -65,7 +65,7 @@ export const en: Record<string, string> = {
   'Tiền hàng': 'Subtotal',
   'Giảm giá': 'Discount',
   'Phí phục vụ': 'Service charge',
-  'Chưa có ảnh để quét. Hãy chụp hoặc tải ảnh bill trước.': 'No photo to scan. Take or upload a receipt photo first.',
+  'Chưa có ảnh để quét.': 'No photo to scan.',
   'Đang chuẩn bị…': 'Preparing…',
   'Không đọc được dữ liệu ảnh đã lưu. Hãy xoá ảnh và chụp lại.': 'Could not read the saved photo data. Delete the photo and take it again.',
   'Đã lưu ảnh nhưng không nhận ra chữ nào trên bill. Hãy chụp lại rõ hơn (đủ sáng, thẳng, không rung) hoặc nhập tay.':
@@ -588,4 +588,10 @@ export const en: Record<string, string> = {
   'Để sau': 'Later',
   'Chưa tải bộ đọc chữ. Ảnh vẫn được lưu: bạn có thể nhập tay hoặc bấm "Quét lại bill" sau.':
     'The text reader was not downloaded. The photo is saved: you can enter the details by hand, or tap "Rescan bill" later.',
+  'Chụp bill tạo bữa nhanh': 'Snap a bill to start a meal',
+  'Đang lưu ảnh bill…': 'Saving the bill photo…',
+  'Đang đọc bill': 'Reading the bill',
+  'Đã huỷ quét. Ảnh vẫn được lưu: bạn có thể nhập tay hoặc bấm "Quét lại bill".':
+    'Scan cancelled. The photo is saved: you can enter the details by hand, or tap "Rescan bill".',
+  'Không tạo được bữa từ ảnh này — {reason}': 'Could not create a meal from this photo — {reason}',
 }

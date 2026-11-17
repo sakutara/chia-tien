@@ -19,12 +19,14 @@ import { formatMoney } from '../lib/money'
 import { addGroupContactToMeal, addParticipant, createAndAddParticipant } from '../services/mealPeopleService'
 import { T, t } from '../i18n'
 
+export type StepKey = 'info' | 'people' | 'bills' | 'settle'
+
 interface Props {
   mealId: string
   onBack: () => void
+  /** Bước mở sẵn; mặc định bước 1. Bữa vừa tạo nhanh từ bill mở ở bước "Người". */
+  initialStep?: StepKey
 }
-
-type StepKey = 'info' | 'people' | 'bills' | 'settle'
 
 const STEPS: ReadonlyArray<Step<StepKey>> = [
   { key: 'info', label: T('Bữa'), icon: ClipboardList },
@@ -37,11 +39,11 @@ const STEPS: ReadonlyArray<Step<StepKey>> = [
  * Chi tiết bữa (BR-3.9) dạng các bước nằm ngang: 1 Bữa → 2 Người → 3 Hoá đơn → 4 Chia tiền.
  * Trên máy tính, cột phải là tóm tắt luôn hiện để theo dõi tổng chi và tiến độ khi chuyển bước.
  */
-export default function MealWorkspacePage({ mealId, onBack }: Props) {
+export default function MealWorkspacePage({ mealId, onBack, initialStep = 'info' }: Props) {
   const view = useMealPeople(mealId)
   const members = useMembers()
   const summaries = useMealSummaries()
-  const [step, setStep] = useState<StepKey>('info')
+  const [step, setStep] = useState<StepKey>(initialStep)
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [deleting, setDeleting] = useState(false)
   useSwipeSteps(

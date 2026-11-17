@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { StrictMode } from 'react'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { db } from '../../db/db'
@@ -130,5 +131,45 @@ describe('InvoiceFormDialog — hỏi trước khi tải bộ đọc chữ', () 
 
     await waitFor(() => expect(runOcr).toHaveBeenCalledTimes(1))
     expect(screen.queryByRole('dialog', { name: 'Tải bộ đọc chữ lần đầu' })).toBeNull()
+  })
+})
+
+describe('InvoiceFormDialog — hoá đơn nháp đã quét sẵn (tạo nhanh từ bill)', () => {
+  it('điền từ chữ OCR đã lưu khi mở, không quét lại, và hiện thông báo truyền vào', async () => {
+    const f = await fixture()
+    await db.invoice_files.put({
+      id: 'file-q',
+      mealId: f.mealId,
+      sessionId: f.session.id,
+      invoiceId: 'draft-quick',
+      fileName: 'bill.jpg',
+      mimeType: 'image/jpeg',
+      sizeBytes: 7,
+      createdAt: new Date().toISOString(),
+      blobData: new NodeFile(['bill'], 'bill.jpg', { type: 'image/jpeg' }),
+      ocrRawText: 'PHO THIN\nNgày: 05/03/2026\nPhở bò 2 50.000 100.000\nTổng cộng 150.000',
+    } as never)
+    // StrictMode chạy cleanup ngay khi mở: ảnh nháp truyền vào không được bị dọn.
+    render(
+      <StrictMode>
+        <InvoiceFormDialog
+          session={f.session}
+          participants={f.participants}
+          defaultPayerId={f.host}
+          draftInvoiceId="draft-quick"
+          initialNotice="Thông báo mở sẵn"
+          onClose={() => {}}
+          onSaved={() => {}}
+        />
+      </StrictMode>,
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm hoá đơn' })
+    expect(within(dialog).getByText('Thông báo mở sẵn')).toBeTruthy()
+    await waitFor(() => expect((within(dialog).getByLabelText('Quán') as HTMLInputElement).value).toBe('PHO THIN'))
+    expect((within(dialog).getByLabelText('Ngày') as HTMLInputElement).value).toBe('2026-03-05')
+    expect(within(dialog).getByText(/lệch tổng trên bill/)).toBeTruthy()
+    expect(runOcr).not.toHaveBeenCalled()
+    expect(await db.invoice_files.get('file-q')).toBeDefined()
+    expect(within(dialog).getByText('1/10 ảnh')).toBeTruthy()
   })
 })

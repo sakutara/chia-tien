@@ -49,6 +49,13 @@ interface Props {
   defaultPayerId: string
   /** Hoá đơn đang sửa; bỏ trống thì tạo mới. */
   existing?: InvoiceRow
+  /**
+   * Id tạo trước của hoá đơn mới đã có ảnh (luồng chụp bill tạo bữa nhanh). Khi mở, form điền từ chữ OCR đã lưu
+   * của các ảnh này, không quét lại.
+   */
+  draftInvoiceId?: string
+  /** Thông báo hiện sẵn cạnh khu ảnh khi mở (ví dụ lý do chưa quét được). */
+  initialNotice?: string
   onClose: () => void
   onSaved: (result: InvoiceResult) => void
 }
@@ -59,10 +66,10 @@ const INPUT = 'field min-h-10'
  * Thêm / sửa hoá đơn (BR-4.4, BR-4.5, BR-4.7…BR-4.10, BR-4.15).
  * Hai tab: nhập chi tiết món, hoặc chỉ nhập tổng tiền. Quét OCR chỉ điền vào form; chưa lưu cho tới khi bấm Lưu.
  */
-export default function InvoiceFormDialog({ session, participants, defaultPayerId, existing, onClose, onSaved }: Props) {
+export default function InvoiceFormDialog({ session, participants, defaultPayerId, existing, draftInvoiceId, initialNotice, onClose, onSaved }: Props) {
   const invoice = existing?.invoice
   // Id tạo trước: ảnh thêm khi đang soạn gắn vào đúng hoá đơn sẽ lưu (BR-4.14).
-  const [draftId] = useState(() => invoice?.id ?? generateId())
+  const [draftId] = useState(() => invoice?.id ?? draftInvoiceId ?? generateId())
   const savedRef = useRef(false)
   const scanRef = useRef<AbortController | null>(null)
 
@@ -80,7 +87,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
   const [vat, setVat] = useState<AdjustmentState>(invoice ? adjustmentFrom(invoice.vatMode, invoice.vatValue) : NO_ADJUSTMENT)
   const [error, setError] = useState<string | null>(null)
   // Lỗi/cảnh báo quét OCR hiện ngay cạnh nút quét; ảnh vẫn được giữ lại.
-  const [scanNotice, setScanNotice] = useState<string | null>(null)
+  const [scanNotice, setScanNotice] = useState<string | null>(initialNotice ?? null)
   const [saving, setSaving] = useState(false)
 
   const [scan, setScan] = useState<{ percent: number; stage: string } | null>(null)
@@ -101,10 +108,30 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       scanRef.current?.abort()
       // Đóng form: trả RAM của worker OCR ngay.
       void releaseWorkerMemory()
-      if (!savedRef.current) void discardDraftFiles(draftId).catch(() => {})
+      // Ảnh nháp do nơi gọi truyền vào (tạo nhanh từ bill) thì nơi gọi tự dọn: form không xoá, kể cả khi
+      // StrictMode chạy cleanup ngay lúc mở.
+      if (!savedRef.current && !draftInvoiceId) void discardDraftFiles(draftId).catch(() => {})
     },
-    [draftId],
+    [draftId, draftInvoiceId],
   )
+
+  // Hoá đơn nháp đã có ảnh quét sẵn (tạo nhanh từ bill): điền từ chữ OCR đã lưu một lần khi mở.
+  // Hàm điền đổi theo mỗi lần render nên gọi qua ref, để effect chỉ chạy khi mở form.
+  const applyRawTextRef = useRef(applyRawText)
+  useEffect(() => {
+    applyRawTextRef.current = applyRawText
+  })
+  useEffect(() => {
+    if (invoice || !draftInvoiceId) return
+    let cancelled = false
+    void listFilesByInvoice(draftInvoiceId).then((files) => {
+      const text = files.map((f) => f.ocrRawText ?? '').join('\n')
+      if (!cancelled && text.trim() !== '') applyRawTextRef.current(text)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [invoice, draftInvoiceId])
 
   const payerOptions = participants.filter((m) => session.participantIds.includes(m.id))
 
@@ -195,7 +222,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
     setScanNotice(null)
     const files = await listFilesByInvoice(draftId)
     if (files.length === 0) {
-      setScanNotice(t('Chưa có ảnh để quét. Hãy chụp hoặc tải ảnh bill trước.'))
+      setScanNotice(t('Chưa có ảnh để quét.'))
       return
     }
     const targets = force ? files : files.filter((f) => f.ocrRawText === undefined)

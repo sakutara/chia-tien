@@ -202,3 +202,18 @@ describe('MealsPage — calendar view (AC-6)', () => {
     expect(next.getAttribute('data-ymd')! > today).toBe(true)
   })
 })
+
+describe('MealsPage — chụp bill tạo bữa nhanh', () => {
+  it('hiện nút chụp bill ở mọi chế độ xem', async () => {
+    await seed()
+    render(<MealsPage onOpenMeal={() => {}} />)
+    expect(await screen.findByRole('button', { name: 'Chụp bill tạo bữa nhanh' })).toBeTruthy()
+    const tabs = within(screen.getByRole('tablist', { name: 'Chế độ xem bữa' })).getAllByRole('tab')
+    expect(tabs).toHaveLength(3)
+    for (const tab of tabs) {
+      await userEvent.click(tab)
+      expect(tab.getAttribute('aria-selected')).toBe('true')
+      expect(screen.getByRole('button', { name: 'Chụp bill tạo bữa nhanh' })).toBeTruthy()
+    }
+  })
+})
