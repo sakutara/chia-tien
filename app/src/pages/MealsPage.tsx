@@ -6,6 +6,7 @@ import MealFormDialog from '../components/meals/MealFormDialog'
 import MealListView from '../components/meals/MealListView'
 import MealStatusView from '../components/meals/MealStatusView'
 import MealViewSwitcher from '../components/meals/MealViewSwitcher'
+import QuickBillCapture from '../components/meals/QuickBillCapture'
 import IconButton from '../components/ui/IconButton'
 import { useMealSummaries } from '../hooks/useMealSummaries'
 import { useMealViewMode } from '../hooks/useMealViewMode'
@@ -13,7 +14,8 @@ import type { Meal } from '../types'
 import { t } from '../i18n'
 
 interface Props {
-  onOpenMeal: (mealId: string) => void
+  /** `step` = bước mở sẵn của trang làm việc (bữa vừa tạo nhanh từ bill mở ở bước "Người"). */
+  onOpenMeal: (mealId: string, step?: 'people') => void
 }
 
 /** Màn hình Quản lý Bữa với 3 chế độ xem trên cùng một nguồn dữ liệu (BR-3.4…3.8). */
@@ -42,6 +44,8 @@ export default function MealsPage({ onOpenMeal }: Props) {
           <IconButton icon={Plus} label={t('Tạo bữa mới')} tone="primary" onClick={() => openCreate()} />
         </div>
       </div>
+
+      <QuickBillCapture onDone={(id) => onOpenMeal(id, 'people')} />
 
       {mode === 'CALENDAR' && <MealCalendarView summaries={summaries} onCreateForDate={openCreate} onOpen={onOpenMeal} onDelete={setDeletingId} />}
       {mode === 'LIST' && <MealListView summaries={summaries} onOpen={onOpenMeal} onDelete={setDeletingId} onCreate={() => openCreate()} />}

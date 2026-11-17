@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { RECEIPT_FIXTURES } from '../../domain/__fixtures__/receipts'
 import { parseReceipt } from '../../domain/receiptParser'
 import { NO_ADJUSTMENT, newItemRow } from './formState'
-import { fillFromReceipt, hasUserEntries } from './receiptFormState'
+import { draftFromFill, fillFromReceipt, hasUserEntries } from './receiptFormState'
+import { computeInvoice } from '../../domain/invoiceRules'
 
 describe('fillFromReceipt', () => {
   it('điền món, ngày, quán, VAT và tổng bill từ bill mẫu (bố cục 2 dòng)', () => {
@@ -49,5 +50,20 @@ describe('hasUserEntries', () => {
     expect(hasUserEntries({ ...empty, rows: [newItemRow({ name: 'Bia', unitPrice: '25000' })] })).toBe(true)
     expect(hasUserEntries({ ...empty, vendorName: 'Quán' })).toBe(true)
     expect(hasUserEntries({ ...empty, vat: { mode: 'PERCENTAGE', value: '8' } })).toBe(true)
+  })
+})
+
+describe('draftFromFill', () => {
+  it('dựng hoá đơn chi tiết món giống form khi lưu không sửa gì', () => {
+    const draft = draftFromFill({
+      vendorName: 'Phở Thìn',
+      invoiceDate: '2026-03-05',
+      rows: [newItemRow({ name: 'Phở', quantity: '2', unitPrice: '50000', amount: '100000' })],
+      vat: { mode: 'PERCENTAGE', value: '8' },
+    })
+    expect(draft).toMatchObject({ inputMode: 'ITEMIZED', vendorName: 'Phở Thìn', invoiceDate: '2026-03-05' })
+    expect(draft.items).toEqual([{ id: undefined, name: 'Phở', quantity: 2, unitPrice: 50000, rawAmount: 100000 }])
+    expect(draft.discount).toEqual({ mode: 'NONE', value: 0 })
+    expect(computeInvoice(draft).bill.totalAmount).toBe(108000)
   })
 })

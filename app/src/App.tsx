@@ -8,7 +8,7 @@ import { useLang } from './i18n'
 import { exitSnapshot, mealPath, useHashRoute } from './hooks/useHashRoute'
 import { useMembers } from './hooks/useMembers'
 import MealsPage from './pages/MealsPage'
-import MealWorkspacePage from './pages/MealWorkspacePage'
+import MealWorkspacePage, { type StepKey } from './pages/MealWorkspacePage'
 import SnapshotViewerPage from './pages/SnapshotViewerPage'
 import { t } from './i18n'
 
@@ -18,6 +18,8 @@ export default function App() {
   const [ready, setReady] = useState(false)
   const [seedError, setSeedError] = useState<string | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  // Bước mở sẵn cho lần mở bữa kế tiếp (chỉ trong bộ nhớ: tải lại trang thì về bước 1).
+  const [openStep, setOpenStep] = useState<{ mealId: string; step: StepKey } | null>(null)
   const { route, navigate } = useHashRoute()
   const members = useMembers()
   const me = members?.find((m) => m.isDefaultHost)
@@ -66,9 +68,19 @@ export default function App() {
         ) : !ready ? (
           <p className="text-usd-green-700">{t('Đang tải…')}</p>
         ) : route.name === 'meal' ? (
-          <MealWorkspacePage key={route.id} mealId={route.id} onBack={() => navigate('/')} />
+          <MealWorkspacePage
+            key={route.id}
+            mealId={route.id}
+            initialStep={openStep?.mealId === route.id ? openStep.step : undefined}
+            onBack={() => navigate('/')}
+          />
         ) : (
-          <MealsPage onOpenMeal={(id) => navigate(mealPath(id))} />
+          <MealsPage
+            onOpenMeal={(id, step) => {
+              setOpenStep(step ? { mealId: id, step } : null)
+              navigate(mealPath(id))
+            }}
+          />
         )}
       </main>
 

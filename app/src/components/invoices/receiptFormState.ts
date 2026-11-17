@@ -1,6 +1,8 @@
 import type { ParsedReceipt } from '../../domain/receiptParser'
 import type { ReceiptCheck } from '../../domain/receiptValidation'
-import { newItemRow, type AdjustmentState, type ItemRow } from './formState'
+import type { InvoiceRulesDraft } from '../../domain/invoiceRules'
+import { NO_ADJUSTMENT, newItemRow, parseAdjustment, parseItemRows, type AdjustmentState, type ItemRow } from './formState'
+import { t } from '../../i18n'
 
 /** Những gì kết quả OCR có thể điền vào form. Trường nào không đọc được thì là `undefined`. */
 export interface ReceiptFill {
@@ -55,4 +57,20 @@ export function hasUserEntries(input: {
   const filledRow = input.rows.some((r) => r.name.trim() !== '' || r.unitPrice.trim() !== '')
   const filledAdj = [input.discount, input.service, input.vat].some((a) => a.mode !== 'NONE' && a.value.trim() !== '')
   return input.vendorName.trim() !== '' || input.invoiceDate !== '' || filledRow || input.subtotal.trim() !== '' || filledAdj
+}
+
+/**
+ * Dựng dữ liệu hoá đơn từ kết quả quét, theo đúng đường của form khi bấm Lưu mà không sửa gì (luồng tạo nhanh từ bill).
+ * Ném `PeopleError` nếu có số không hợp lệ.
+ */
+export function draftFromFill(fill: ReceiptFill): InvoiceRulesDraft {
+  return {
+    inputMode: 'ITEMIZED',
+    vendorName: fill.vendorName ?? '',
+    invoiceDate: fill.invoiceDate,
+    items: parseItemRows(fill.rows ?? []),
+    discount: parseAdjustment(fill.discount ?? NO_ADJUSTMENT, t('Giảm giá')),
+    service: parseAdjustment(fill.service ?? NO_ADJUSTMENT, t('Phí phục vụ')),
+    vat: parseAdjustment(fill.vat ?? NO_ADJUSTMENT, 'VAT'),
+  }
 }
