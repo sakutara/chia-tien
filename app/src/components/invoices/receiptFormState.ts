@@ -12,6 +12,8 @@ export interface ReceiptFill {
   discount?: AdjustmentState
   service?: AdjustmentState
   vat?: AdjustmentState
+  /** Các mức VAT (%) ghi trên bill khi có từ hai mức (ví dụ 8 và 10), để giải thích khi VAT đã gộp hoặc chưa đọc được tiền. */
+  vatRates?: number[]
   billTotal?: number
   /** Kết quả đối chiếu OCR (SL × đơn giá, tổng bill) để báo người dùng. */
   check?: Pick<ReceiptCheck, 'status' | 'notes'>
@@ -40,8 +42,23 @@ export function fillFromReceipt(parsed: ParsedReceipt): ReceiptFill {
   if (parsed.discount) fill.discount = toState(parsed.discount)
   if (parsed.service) fill.service = toState(parsed.service)
   if (parsed.vat) fill.vat = toState(parsed.vat)
+  if (parsed.vatRates) fill.vatRates = parsed.vatRates
   if (parsed.billTotal !== undefined) fill.billTotal = parsed.billTotal
   return fill
+}
+
+/**
+ * Ghi chú về nhiều mức VAT sau khi quét: đã gộp thành một số tiền, hoặc có nhiều mức nhưng không đọc được số tiền thuế.
+ * Trả mảng rỗng khi bill chỉ có một mức.
+ */
+export function vatRatesNotes(fill: ReceiptFill): string[] {
+  const rates = fill.vatRates
+  if (!rates || rates.length < 2) return []
+  const label = rates.map((r) => `${r}%`).join(' + ')
+  if (fill.vat?.mode === 'FIXED_AMOUNT') return [t('Đã gộp VAT {rates} thành một số tiền.', { rates: label })]
+  if (fill.vat === undefined)
+    return [t('Bill có nhiều mức VAT ({rates}) nhưng không đọc được số tiền thuế. Chọn "Số tiền" và nhập tổng tiền VAT.', { rates: label })]
+  return []
 }
 
 /** Form đã có dữ liệu do người dùng nhập: quét lại phải hỏi trước khi ghi đè (R-13). */

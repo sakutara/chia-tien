@@ -173,3 +173,34 @@ describe('InvoiceFormDialog — hoá đơn nháp đã quét sẵn (tạo nhanh t
     expect(within(dialog).getByText('1/10 ảnh')).toBeTruthy()
   })
 })
+
+describe('InvoiceFormDialog — nhiều mức VAT trên bill', () => {
+  it('bill có hai dòng VAT có số tiền: điền tổng VAT đã gộp và hiện ghi chú', async () => {
+    const f = await fixture()
+    await db.invoice_files.put({
+      id: 'file-vat',
+      mealId: f.mealId,
+      sessionId: f.session.id,
+      invoiceId: 'draft-vat',
+      fileName: 'bill.jpg',
+      mimeType: 'image/jpeg',
+      sizeBytes: 7,
+      createdAt: new Date().toISOString(),
+      blobData: new NodeFile(['bill'], 'bill.jpg', { type: 'image/jpeg' }),
+      ocrRawText:
+        'QUÁN NHẬU\nNgày 19/10/2026\nPhở bò 2 x 100.000 200.000\nBia Tiger 330ml 4 x 30.000 120.000\nVAT 8% 40.000\nVAT 10% 20.000\nTổng cộng 380.000',
+    } as never)
+    render(
+      <InvoiceFormDialog
+        session={f.session}
+        participants={f.participants}
+        defaultPayerId={f.host}
+        draftInvoiceId="draft-vat"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm hoá đơn' })
+    await waitFor(() => expect(within(dialog).getByText('Đã gộp VAT 8% + 10% thành một số tiền.')).toBeTruthy())
+  })
+})

@@ -594,4 +594,9 @@ export const en: Record<string, string> = {
   'Đã huỷ quét. Ảnh vẫn được lưu: bạn có thể nhập tay hoặc bấm "Quét lại bill".':
     'Scan cancelled. The photo is saved: you can enter the details by hand, or tap "Rescan bill".',
   'Không tạo được bữa từ ảnh này — {reason}': 'Could not create a meal from this photo — {reason}',
+  'Đã gộp VAT {rates} thành một số tiền.': 'Combined VAT {rates} into one amount.',
+  'Bill có nhiều mức VAT ({rates}) nhưng không đọc được số tiền thuế. Chọn "Số tiền" và nhập tổng tiền VAT.':
+    'The bill has several VAT rates ({rates}) but the tax amount could not be read. Choose "Amount" and enter the total VAT.',
+  'Bill có nhiều mức VAT (8%, 10%)? Chọn "Số tiền" và nhập tổng tiền thuế.':
+    'Several VAT rates (8%, 10%) on this bill? Choose "Amount" and enter the total tax.',
 }

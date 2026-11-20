@@ -84,5 +84,6 @@ describe('InvoiceFormDialog — giao diện gọn', () => {
     expect(screen.queryByLabelText('VAT')).toBeNull()
     await userEvent.click(toggle)
     expect(screen.getByLabelText('VAT')).toBeTruthy()
+    expect(screen.getByText('Bill có nhiều mức VAT (8%, 10%)? Chọn "Số tiền" và nhập tổng tiền thuế.')).toBeTruthy()
   })
 })
