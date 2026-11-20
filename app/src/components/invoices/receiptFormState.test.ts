@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { RECEIPT_FIXTURES } from '../../domain/__fixtures__/receipts'
 import { parseReceipt } from '../../domain/receiptParser'
 import { NO_ADJUSTMENT, newItemRow } from './formState'
-import { draftFromFill, fillFromReceipt, hasUserEntries } from './receiptFormState'
+import { draftFromFill, fillFromReceipt, hasUserEntries, vatRatesNotes } from './receiptFormState'
 import { computeInvoice } from '../../domain/invoiceRules'
 
 describe('fillFromReceipt', () => {
@@ -65,5 +65,34 @@ describe('draftFromFill', () => {
     expect(draft.items).toEqual([{ id: undefined, name: 'Phở', quantity: 2, unitPrice: 50000, rawAmount: 100000 }])
     expect(draft.discount).toEqual({ mode: 'NONE', value: 0 })
     expect(computeInvoice(draft).bill.totalAmount).toBe(108000)
+  })
+})
+
+describe('vatRates và ghi chú VAT', () => {
+  const TWO_RATES = `QUÁN NHẬU BIA HƠI
+Ngày 19/10/2026
+Phở bò 2 x 100.000 200.000
+Bia Tiger 330ml 4 x 30.000 120.000
+VAT 8% 40.000
+VAT 10% 20.000
+Tổng cộng 380.000`
+
+  it('truyền vatRates từ kết quả phân tích sang form và ghi chú đã gộp', () => {
+    const fill = fillFromReceipt(parseReceipt(TWO_RATES))
+    expect(fill.vat).toEqual({ mode: 'FIXED_AMOUNT', value: '60000' })
+    expect(fill.vatRates).toEqual([8, 10])
+    expect(vatRatesNotes(fill)).toEqual(['Đã gộp VAT 8% + 10% thành một số tiền.'])
+  })
+
+  it('nhiều mức % không có số tiền: không điền VAT và nhắc nhập tay', () => {
+    const fill = fillFromReceipt(parseReceipt('QUÁN A\nPhở bò 2 x 100.000 200.000\nVAT 8%\nVAT 10%\nTổng cộng 380.000'))
+    expect(fill.vat).toBeUndefined()
+    expect(vatRatesNotes(fill)).toEqual([expect.stringContaining('(8% + 10%)')])
+  })
+
+  it('bill một mức VAT không có ghi chú', () => {
+    const fill = fillFromReceipt(parseReceipt('QUÁN A\nPhở bò 2 x 100.000 200.000\nVAT 8% 16.000\nTổng cộng 216.000'))
+    expect(fill.vatRates).toBeUndefined()
+    expect(vatRatesNotes(fill)).toEqual([])
   })
 })

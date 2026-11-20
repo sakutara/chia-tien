@@ -98,3 +98,48 @@ describe('hoá đơn GTGT dạng bảng', () => {
     expect(check.notes.join('\n')).toContain('thiếu món')
   })
 })
+
+/** Quán nhậu có hai mức VAT: 8% cho đồ ăn, 10% cho bia. Tổng bill = tiền các món + 60.000 tiền thuế. */
+const FNB_TWO_RATES = `QUÁN NHẬU BIA HƠI
+Ngày 19/10/2026
+Phở bò 2 x 100.000 200.000
+Bia Tiger 330ml 4 x 30.000 120.000
+VAT 8% 40.000
+VAT 10% 20.000
+Tổng cộng 380.000`
+
+describe('nhiều mức VAT trên một bill', () => {
+  it('hai dòng VAT có số tiền: gộp thành một số tiền và ghi nhận hai mức % (8, 10)', () => {
+    const parsed = parseReceipt(FNB_TWO_RATES)
+    expect(parsed.vat).toEqual({ mode: 'FIXED_AMOUNT', value: 60_000 })
+    expect(parsed.vatRates).toEqual([8, 10])
+    expect(parsed.billTotal).toBe(380_000)
+    expect(validateReceipt(parsed, FNB_TWO_RATES).status).toBe('OK')
+  })
+
+  it('dòng "Tổng tiền thuế" sau hai dòng VAT không được cộng trùng', () => {
+    const text = `${FNB_TWO_RATES}`.replace('Tổng cộng 380.000', 'Tổng tiền thuế 60.000\nTổng cộng 380.000')
+    const parsed = parseReceipt(text)
+    expect(parsed.vat).toEqual({ mode: 'FIXED_AMOUNT', value: 60_000 })
+    expect(parsed.vatRates).toEqual([8, 10])
+    expect(validateReceipt(parsed, text).status).toBe('OK')
+  })
+
+  it('nhiều mức % nhưng không có số tiền: để trống VAT và báo các mức để form nhắc nhập tay', () => {
+    const text = `QUÁN NHẬU BIA HƠI
+Phở bò 2 x 100.000 200.000
+Bia Tiger 330ml 4 x 30.000 120.000
+VAT 8%
+VAT 10%
+Tổng cộng 380.000`
+    const parsed = parseReceipt(text)
+    expect(parsed.vat).toBeUndefined()
+    expect(parsed.vatRates).toEqual([8, 10])
+  })
+
+  it('một dòng VAT vẫn giữ nguyên hành vi cũ và không có vatRates', () => {
+    const parsed = parseReceipt(`QUÁN A\nPhở bò 2 x 100.000 200.000\nVAT 8% 16.000\nTổng cộng 216.000`)
+    expect(parsed.vat).toEqual({ mode: 'FIXED_AMOUNT', value: 16_000 })
+    expect(parsed.vatRates).toBeUndefined()
+  })
+})

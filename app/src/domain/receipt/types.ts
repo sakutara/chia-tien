@@ -21,6 +21,8 @@ export interface ParsedReceipt {
   discount?: ParsedAdjustment
   service?: ParsedAdjustment
   vat?: ParsedAdjustment
+  /** Các mức VAT (%) ghi trên bill khi có từ hai mức (ví dụ 8 và 10). Có số tiền thì `vat` đã là tổng cộng lại; không có số tiền thì `vat` trống và người dùng nhập tổng tiền thuế. */
+  vatRates?: number[]
   /** Tổng thanh toán ghi trên bill, để đối chiếu với tổng các món (R-11). */
   billTotal?: number
   /** Dòng "Tổng tiền hàng" / "Tạm tính" ghi trên bill (trước giảm giá, phí, VAT), để đối chiếu tổng các món. */

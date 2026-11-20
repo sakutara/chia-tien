@@ -180,3 +180,44 @@ export function zeroBalanceTotal(lines: string[]): number | undefined {
   }
   return undefined
 }
+
+/** Một dòng VAT đã đọc: khoản điều chỉnh (số tiền hoặc %) và phần trăm ghi trên dòng (nếu có). */
+export interface VatLine {
+  adj: ParsedAdjustment
+  percent?: number
+}
+
+/**
+ * Gộp mọi dòng VAT của bill thành một khoản (F&B thường có hai mức: 8% đồ ăn, 10% bia rượu). Một dòng: giữ nguyên.
+ * Nhiều dòng có số tiền: cộng lại, bỏ dòng lặp và dòng "Tổng tiền thuế" (bằng tổng các dòng đứng trước); `vatRates`
+ * ghi các mức % đã cộng khi có từ hai mức. Không có số tiền mà các mức % khác nhau: để trống `vat` (không tách được tiền
+ * thuế theo món), chỉ trả `vatRates` để giao diện giải thích.
+ */
+export function combineVat(lines: VatLine[]): { vat?: ParsedAdjustment; vatRates?: number[] } {
+  if (lines.length === 0) return {}
+  if (lines.length === 1) return { vat: lines[0].adj }
+  const amounts = lines.filter((line) => line.adj.mode === 'FIXED_AMOUNT')
+  if (amounts.length > 0) {
+    const kept: VatLine[] = []
+    amounts.forEach((line, index) => {
+      const value = line.adj.value
+      // Dòng lặp: cùng số tiền và (cùng % hoặc một trong hai dòng không ghi %), ví dụ "Tổng tiền thuế GTGT" in hai lần.
+      const repeat = kept.some((k) => k.adj.value === value && (k.percent === undefined || line.percent === undefined || k.percent === line.percent))
+      if (repeat) return
+      // Dòng tổng: bằng tổng các dòng đứng trước (từ hai dòng trở lên) thì không cộng lại.
+      const before = amounts.slice(0, index).reduce((sum, l) => sum + l.adj.value, 0)
+      if (index >= 2 && value === before) return
+      kept.push(line)
+    })
+    const value = kept.reduce((sum, line) => sum + line.adj.value, 0)
+    const rates = distinctPercents(kept.map((line) => line.percent))
+    return { vat: { mode: 'FIXED_AMOUNT', value }, ...(rates.length >= 2 ? { vatRates: rates } : {}) }
+  }
+  const rates = distinctPercents(lines.map((line) => line.percent))
+  if (rates.length === 1) return { vat: { mode: 'PERCENTAGE', value: rates[0] } }
+  return rates.length >= 2 ? { vatRates: rates } : {}
+}
+
+function distinctPercents(values: Array<number | undefined>): number[] {
+  return [...new Set(values.filter((v): v is number => v !== undefined))].sort((a, b) => a - b)
+}

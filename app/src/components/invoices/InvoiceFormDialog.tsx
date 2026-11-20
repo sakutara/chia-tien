@@ -38,7 +38,7 @@ import {
   type AdjustmentState,
   type ItemRow,
 } from './formState'
-import { fillFromReceipt, hasUserEntries, type ReceiptFill } from './receiptFormState'
+import { fillFromReceipt, hasUserEntries, vatRatesNotes, type ReceiptFill } from './receiptFormState'
 import { t } from '../../i18n'
 
 interface Props {
@@ -195,7 +195,7 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
       setScanNotice(emptyNotice)
       return
     }
-    fill.check = { status: check.status, notes: check.notes }
+    fill.check = { status: check.status, notes: [...check.notes, ...vatRatesNotes(fill)] }
     const hasData = hasUserEntries({ vendorName: vendor, invoiceDate: date, rows, subtotal, discount, service, vat })
     if (hasData) setPendingFill(fill)
     else applyFill(fill)
@@ -446,7 +446,12 @@ export default function InvoiceFormDialog({ session, participants, defaultPayerI
             <section aria-label={t('Điều chỉnh')} className="grid gap-2 md:grid-cols-3">
               <InvoiceAdjustments label={t('Giảm giá')} idBase="discount" value={discount} onChange={setDiscount} />
               <InvoiceAdjustments label={t('Phí phục vụ')} idBase="service" value={service} onChange={setService} />
-              <InvoiceAdjustments label="VAT" idBase="vat" value={vat} onChange={setVat} />
+              <div className="space-y-1">
+                <InvoiceAdjustments label="VAT" idBase="vat" value={vat} onChange={setVat} />
+                {vat.mode !== 'FIXED_AMOUNT' && (
+                  <p className="text-xs text-usd-green-700">{t('Bill có nhiều mức VAT (8%, 10%)? Chọn "Số tiền" và nhập tổng tiền thuế.')}</p>
+                )}
+              </div>
             </section>
           </Collapse>
 

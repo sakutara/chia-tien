@@ -1,6 +1,23 @@
 // Ghép các giai đoạn thành parseReceipt.
 import { DISCOUNT_RE, EXTRA_FEE_RE, REDUCTION_RE, SERVICE_RE, SUBTOTAL_RE, TAX_ID_RE, THANH_TIEN_RE, TOTAL_AMOUNT_RE, TOTAL_RE, VAT_RE, hit } from './patterns'
-import { BARE_TONG_RE, PRETAX_RE, TAX_INCLUDED_TOTAL_RE, adjustmentOf, dropTotalRows, isAdjustmentLine, isTotalLine, majorityTotal, mergeRounding, roundingOf, totalValue, twoTotals, zeroBalanceTotal } from './adjustments'
+import {
+  BARE_TONG_RE,
+  PRETAX_RE,
+  TAX_INCLUDED_TOTAL_RE,
+  adjustmentOf,
+  combineVat,
+  dropTotalRows,
+  isAdjustmentLine,
+  isTotalLine,
+  majorityTotal,
+  mergeRounding,
+  percentOf,
+  roundingOf,
+  totalValue,
+  twoTotals,
+  zeroBalanceTotal,
+  type VatLine,
+} from './adjustments'
 import { detectNumbering, findItemsStart, readItems, tidyItemName } from './items'
 import { findDate, findVendor } from './header'
 import { findGroupRows, groupKind, reconcileGroups } from './groups'
@@ -57,6 +74,8 @@ export function parseReceipt(rawText: string): ParsedReceipt {
   if (vendorName) result.vendorName = vendorName
 
   const groups = findGroupRows(lines)
+  // Mọi dòng VAT trong bill (có thể nhiều mức thuế), gộp sau vòng lặp bằng combineVat.
+  const vatLines: VatLine[] = []
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -79,14 +98,14 @@ export function parseReceipt(rawText: string): ParsedReceipt {
       // "Tổng cộng tiền chưa thuế 55.555  Tiền thuế GTGT 4.445": tiền hàng trước thuế, không phải tổng thanh toán.
       const values = moneyValues(line)
       if (values.length > 0 && result.billSubtotal === undefined) result.billSubtotal = values[0]
-      if (values.length > 1 && hit(VAT_RE, line)) result.vat = { mode: 'FIXED_AMOUNT', value: values[values.length - 1] }
+      if (values.length > 1 && hit(VAT_RE, line)) vatLines.push({ adj: { mode: 'FIXED_AMOUNT', value: values[values.length - 1] }, percent: percentOf(line) })
     } else if (hit(TAX_INCLUDED_TOTAL_RE, line) && hit(/tong|total|thanh toan/, line)) {
       const value = totalValue(lines, i)
       if (value !== undefined) result.billTotal = value
     } else if (hit(VAT_RE, line)) {
       if (hit(TAX_ID_RE, line)) continue
       const adj = adjustmentOf(line)
-      if (adj) result.vat = adj
+      if (adj) vatLines.push({ adj, percent: percentOf(line) })
     } else if (hit(EXTRA_FEE_RE, line)) {
       const values = moneyValues(line)
       if (values.length > 0) {
@@ -136,9 +155,14 @@ export function parseReceipt(rawText: string): ParsedReceipt {
   const merged = mergeRounding(result.discount, result.billSubtotal, result.billTotal, roundingOf(lines))
   if (merged !== undefined) result.discount = merged
 
+  const vat = combineVat(vatLines)
+  if (vat.vat) result.vat = vat.vat
+  if (vat.vatRates) result.vatRates = vat.vatRates
+
   // Giá từng dòng đã gồm thuế: VAT ghi ở chân bill là phần nằm sẵn trong giá, không cộng thêm; tiền hàng trước thuế cũng không dùng để so.
   if (result.vatIncluded) {
     delete result.vat
+    delete result.vatRates
     delete result.billSubtotal
   }
 
